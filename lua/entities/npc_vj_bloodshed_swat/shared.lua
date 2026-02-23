@@ -1,0 +1,5 @@
+ENT.Base 			= "npc_vj_bloodshed_police"
+ENT.Type 			= "ai"
+ENT.PrintName 		= "SWAT"
+ENT.Author 			= "Hari"
+ENT.Category		= "VJ Base - Bloodshed"
