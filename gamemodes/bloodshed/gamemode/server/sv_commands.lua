@@ -13,6 +13,34 @@ net.Receive("MuR.VoiceLines", function(len, ply)
 	if !ply:Alive() or ply:GetNW2Bool("IsUnconscious", false) then return end
 	local num = net.ReadFloat()
 	local str = ""
+	local function TryRoNSurrender(p)
+		if MuR.Gamemode != 14 then return end
+		if not IsValid(p) or not p:Alive() then return end
+
+		local origin = p:EyePos()
+		local aim = p:GetAimVector()
+		local radius = 600
+
+		for _, npc in ipairs(ents.FindInSphere(p:GetPos(), radius)) do
+			if not IsValid(npc) or not npc:IsNPC() then continue end
+			if npc:Health() <= 0 then continue end
+			if npc:GetClass() != "npc_vj_bloodshed_suspect" then continue end
+			if npc.IsCivilian or npc.IsHostage then continue end
+			if npc.Surrendering then continue end
+			if not p:IsLineOfSightClear(npc) then continue end
+
+			local dir = npc:WorldSpaceCenter() - origin
+			if dir:LengthSqr() <= 1 then continue end
+			dir:Normalize()
+			if dir:Dot(aim) < 0.2 then continue end
+
+			if npc.FullSurrender then
+				npc:FullSurrender()
+			else
+				npc.Surrendering = true
+			end
+		end
+	end
 	if num == 1 then
 		str = "question"
 	elseif num == 2 then
@@ -55,6 +83,7 @@ net.Receive("MuR.VoiceLines", function(len, ply)
 		str = "police_shotfired"
 	elseif num == 140 then
 		str = "ror_police_surrender"
+		TryRoNSurrender(ply)
 	end
 	ply:PlayVoiceLine(str)
 end)

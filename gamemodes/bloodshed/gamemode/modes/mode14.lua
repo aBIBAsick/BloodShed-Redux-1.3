@@ -336,6 +336,11 @@ MuR.RegisterMode(14, {
 			end
 		end
 
+		if not MuR.Mode14.NextObjectivesUpdate or CurTime() >= MuR.Mode14.NextObjectivesUpdate then
+			MuR:SendMode14Objectives()
+			MuR.Mode14.NextObjectivesUpdate = CurTime() + 1
+		end
+
 		MuR:SendMode14Data()
 	end,
 	OnModeEnded = function(mode)
@@ -376,11 +381,19 @@ if SERVER then
 
 		for _, npc in ipairs(ents.FindByClass("npc_vj_bloodshed_suspect")) do
 			if IsValid(npc) then
-				if npc.IsSuspect then
-					suspectsAlive = suspectsAlive + 1
-				elseif npc.IsCivilian or npc.IsHostage then
+				if npc.IsCivilian or npc.IsHostage then
 					civiliansAlive = civiliansAlive + 1
+				else
+					suspectsAlive = suspectsAlive + 1
 				end
+			end
+		end
+
+		for _, npc in ipairs(ents.GetAll()) do
+			if not IsValid(npc) or not npc:IsNPC() then continue end
+			if npc:GetClass() == "npc_vj_bloodshed_suspect" then continue end
+			if npc.IsCivilian or npc.IsHostage then
+				civiliansAlive = civiliansAlive + 1
 			end
 		end
 
@@ -461,11 +474,11 @@ if CLIENT then
 	local compassDirs = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
 	local compassMat = Material("vgui/gradient-l")
 
-	surface.CreateFont("RoN_Font_Small", {font = "Roboto Condensed", size = He(14), weight = 500, antialias = true})
-	surface.CreateFont("RoN_Font_Medium", {font = "Roboto Condensed", size = He(18), weight = 500, antialias = true})
-	surface.CreateFont("RoN_Font_Large", {font = "Roboto Condensed", size = He(24), weight = 700, antialias = true})
-	surface.CreateFont("RoN_Font_Compass", {font = "Roboto Condensed", size = He(16), weight = 600, antialias = true})
-	surface.CreateFont("RoN_Font_Big", {font = "Roboto Condensed", size = He(32), weight = 700, antialias = true})
+	surface.CreateFont("RoN_Font_Small", {font = "VK Sans Display DemiBold", extended = true, size = He(14), weight = 500, antialias = true})
+	surface.CreateFont("RoN_Font_Medium", {font = "VK Sans Display DemiBold", extended = true, size = He(18), weight = 500, antialias = true})
+	surface.CreateFont("RoN_Font_Large", {font = "VK Sans Display DemiBold", extended = true, size = He(24), weight = 700, antialias = true})
+	surface.CreateFont("RoN_Font_Compass", {font = "VK Sans Display DemiBold", extended = true, size = He(16), weight = 600, antialias = true})
+	surface.CreateFont("RoN_Font_Big", {font = "VK Sans Display DemiBold", extended = true, size = He(32), weight = 700, antialias = true})
 
 	local function DrawCompass(x, y, width)
 		local ply = LocalPlayer()
@@ -797,46 +810,36 @@ if CLIENT then
     end)
 
 	local function DrawObjectives(x, y)
-		local lineHeight = He(26)
+		local objAlpha = 200
+		local gx, gy = x, y
+		local ga = objAlpha
 
-		draw.SimpleText(MuR.Language["mode14_objectives_title"], "RoN_Font_Medium", x, y, THEME.accent, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+		local title = MuR.Language["mode14_objectives_title"] or "OBJECTIVES"
+		draw.SimpleText(title, "MuR_Font3", gx, gy, Color(255, 255, 255, ga), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
 
-		local yOffset = y + He(24)
+		surface.SetDrawColor(255, 255, 255, ga * 0.6)
+		surface.DrawRect(gx, gy + He(32), We(160), 2)
+
+		local taskY = gy + He(40)
 
 		local obj1Complete = MuR.Mode14Client.ObjectiveSuspectsComplete
-		local obj1Text = "• " .. MuR.Language["mode14_objective_suspects"]
-		local obj1Color = obj1Complete and THEME.textDim or THEME.text
-
-		draw.SimpleText(obj1Text, "RoN_Font_Small", x, yOffset, obj1Color, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-
+		local obj1Text = "• " .. (MuR.Language["mode14_objective_suspects"] or "Objective")
+		local obj1Alpha = obj1Complete and ga * 0.5 or ga
+		local obj1W, obj1H = draw.SimpleText(obj1Text, "MuR_Font2", gx + We(5), taskY, Color(255, 255, 255, obj1Alpha), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
 		if obj1Complete then
-			local timeSince = CurTime() - MuR.Mode14Client.ObjectiveSuspectsCompleteTime
-			local strikeProgress = math.Clamp(timeSince / 0.5, 0, 1)
-			surface.SetFont("RoN_Font_Small")
-			local textW, textH = surface.GetTextSize(obj1Text)
-			local strikeW = textW * strikeProgress
-
-			surface.SetDrawColor(THEME.danger)
-			surface.DrawRect(x, yOffset + textH/2, strikeW, 2)
+			surface.SetDrawColor(255, 255, 255, obj1Alpha * 0.8)
+			surface.DrawRect(gx + We(5), taskY + math.floor(obj1H * 0.55), obj1W, 2)
 		end
 
-		yOffset = yOffset + lineHeight
+		taskY = taskY + He(25)
 
 		local obj2Complete = MuR.Mode14Client.ObjectiveCiviliansComplete
-		local obj2Text = "• " .. MuR.Language["mode14_objective_civilians"]
-		local obj2Color = obj2Complete and THEME.textDim or THEME.text
-
-		draw.SimpleText(obj2Text, "RoN_Font_Small", x, yOffset, obj2Color, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-
+		local obj2Text = "• " .. (MuR.Language["mode14_objective_civilians"] or "Objective")
+		local obj2Alpha = obj2Complete and ga * 0.5 or ga
+		local obj2W, obj2H = draw.SimpleText(obj2Text, "MuR_Font2", gx + We(5), taskY, Color(255, 255, 255, obj2Alpha), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
 		if obj2Complete then
-			local timeSince = CurTime() - MuR.Mode14Client.ObjectiveCiviliansCompleteTime
-			local strikeProgress = math.Clamp(timeSince / 0.5, 0, 1)
-			surface.SetFont("RoN_Font_Small")
-			local textW, textH = surface.GetTextSize(obj2Text)
-			local strikeW = textW * strikeProgress
-
-			surface.SetDrawColor(THEME.danger)
-			surface.DrawRect(x, yOffset + textH/2, strikeW, 2)
+			surface.SetDrawColor(255, 255, 255, obj2Alpha * 0.8)
+			surface.DrawRect(gx + We(5), taskY + math.floor(obj2H * 0.55), obj2W, 2)
 		end
 	end
 
