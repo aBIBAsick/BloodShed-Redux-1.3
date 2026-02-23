@@ -154,9 +154,14 @@ function MuR:ChangeStateOfGame(state)
 		local gm_tbl, gm_rnd = MuR:GiveRandomTableWithChance(MuR.GamemodeChances, function(v) return player.GetCount() >= v.need_players end)
 		MuR.Gamemode = gm_rnd
 
+		local forced = false
 		if MuR.NextGamemode > 0 then
 			MuR.Gamemode = MuR.NextGamemode
 			MuR.NextGamemode = 0
+			forced = true
+		end
+		if MuR.EnableDebug and not forced then
+			MuR.Gamemode = MuR.DebugGamemode or 5
 		end
 
 

@@ -634,7 +634,12 @@ end)
 
 concommand.Add("mur_sandboxtoggle", function(ply)
 	if ply:IsSuperAdmin() then
-		if !MuR.EnableDebug then MuR.NextGamemode = 5 end
+		if !MuR.EnableDebug then
+			MuR.DebugGamemode = 5
+			MuR.NextGamemode = 5
+		else
+			MuR.DebugGamemode = nil
+		end
 		local newvalue = !MuR.EnableDebug
 		MuR.EnableDebug = newvalue
 		MuR:SendDataToClient("EnableDebug", newvalue)

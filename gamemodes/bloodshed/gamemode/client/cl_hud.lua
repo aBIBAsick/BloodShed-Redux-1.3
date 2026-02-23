@@ -1272,13 +1272,13 @@ hook.Add("PreDrawHalos", "DrawLootHalo", function()
 end)
 
 function MuR:ShowStartScreen(gamemode, class)
+    MuR.GamemodeCount = gamemode
 	if MuR.EnableDebug then return end
     MuR.DrawHUD = false
     surface.PlaySound("murdered/theme/theme_gamemode" .. gamemode .. ".mp3")
 	if gamemode == 2 and class == "Shooter" then
 		RunConsoleCommand("stopsound")
 	end
-    MuR.GamemodeCount = gamemode
     local ply = LocalPlayer()
 
     if not class then
