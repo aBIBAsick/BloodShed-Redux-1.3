@@ -372,6 +372,7 @@ if CLIENT then
         end
     end
 
+
     function meta:UpdateFWMConnection()
         if !self:GetFWM(true) or !istable(self.FWMBones) then return end
 
@@ -393,23 +394,18 @@ if CLIENT then
             local wmpos = ply_spine_matrix:GetTranslation()
             local eyeahg = self:EyeAngles()
             local wpn = self:GetActiveWeapon()
+            if not IsValid(wpn) then return end
             local htype = wpn:GetHoldType()
 
             if htype == "passive" or htype == "normal" then
                 eyeahg.y = eyeahg.y - (self:GetPoseParameter("aim_yaw") or 0) * 160 + 80 or 0
             end
 
-            for _, bone in ipairs(TPIKBonesBase) do
-                if wpn.TPIK_DisableLeftHand and string.find(bone, "_L_") then continue end
+            local function get_target(bone)
                 local wm_boneindex = wm:LookupBone(bone)
-                if !wm_boneindex then continue end
+                if !wm_boneindex then return end
                 local wm_bonematrix = wm:GetBoneMatrix(wm_boneindex)
-                if !wm_bonematrix then continue end
-
-                local ply_boneindex = self:LookupBone(bone)
-                if !ply_boneindex then continue end
-                local ply_bonematrix = self:GetBoneMatrix(ply_boneindex)
-                if !ply_bonematrix then continue end
+                if !wm_bonematrix then return end
 
                 local bonepos = wm_bonematrix:GetTranslation()
                 local boneang = wm_bonematrix:GetAngles()
@@ -418,11 +414,7 @@ if CLIENT then
                 bonepos.y = math.Clamp(bonepos.y, wmpos.y - 38, wmpos.y + 38)
                 bonepos.z = math.Clamp(bonepos.z, wmpos.z - 38, wmpos.z + 38)
 
-                ply_bonematrix:SetTranslation(bonepos)
-                ply_bonematrix:SetAngles(boneang)
-
-                self:SetBoneMatrix(ply_boneindex, ply_bonematrix)
-                self:SetBonePosition(ply_boneindex, bonepos, boneang)
+                return bonepos, boneang
             end
 
             local ply_r_upperarm_index = self:LookupBone("ValveBiped.Bip01_R_UpperArm")
@@ -445,12 +437,20 @@ if CLIENT then
             local ply_r_upperarm_matrix = self:GetBoneMatrix(ply_r_upperarm_index)
             local ply_r_forearm_matrix = self:GetBoneMatrix(ply_r_forearm_index)
             local ply_r_hand_matrix = self:GetBoneMatrix(ply_r_hand_index)
-            local ply_r_upperarm_pos, ply_r_forearm_pos, ply_r_upperarm_angle, ply_r_forearm_angle = self:Solve2PartIK(ply_r_upperarm_matrix:GetTranslation(), ply_r_hand_matrix:GetTranslation(), r_upperarm_length, r_forearm_length, -1.3, eyeahg)
+            local r_target_pos, r_target_ang = get_target("ValveBiped.Bip01_R_Hand")
+            if not r_target_pos then
+                r_target_pos = ply_r_hand_matrix:GetTranslation()
+            end
+            if not r_target_ang then
+                r_target_ang = ply_r_hand_matrix:GetAngles()
+            end
+            local ply_r_upperarm_pos, ply_r_forearm_pos, ply_r_upperarm_angle, ply_r_forearm_angle = self:Solve2PartIK(ply_r_upperarm_matrix:GetTranslation(), r_target_pos, r_upperarm_length, r_forearm_length, -1.3, eyeahg)
 
             ply_r_upperarm_matrix:SetAngles(ply_r_upperarm_angle)
             ply_r_forearm_matrix:SetTranslation(ply_r_upperarm_pos)
             ply_r_forearm_matrix:SetAngles(ply_r_forearm_angle)
             ply_r_hand_matrix:SetTranslation(ply_r_forearm_pos)
+            ply_r_hand_matrix:SetAngles(r_target_ang)
 
             bone_apply_matrix(self, ply_r_upperarm_index, ply_r_upperarm_matrix, ply_r_forearm_index)
             bone_apply_matrix(self, ply_r_forearm_index, ply_r_forearm_matrix, ply_r_hand_index)
@@ -460,12 +460,20 @@ if CLIENT then
                 local ply_l_upperarm_matrix = self:GetBoneMatrix(ply_l_upperarm_index)
                 local ply_l_forearm_matrix = self:GetBoneMatrix(ply_l_forearm_index)
                 local ply_l_hand_matrix = self:GetBoneMatrix(ply_l_hand_index)
-                local ply_l_upperarm_pos, ply_l_forearm_pos, ply_l_upperarm_angle, ply_l_forearm_angle = self:Solve2PartIK(ply_l_upperarm_matrix:GetTranslation(), ply_l_hand_matrix:GetTranslation(), l_upperarm_length, l_forearm_length, 1, eyeahg)
+                local l_target_pos, l_target_ang = get_target("ValveBiped.Bip01_L_Hand")
+                if not l_target_pos then
+                    l_target_pos = ply_l_hand_matrix:GetTranslation()
+                end
+                if not l_target_ang then
+                    l_target_ang = ply_l_hand_matrix:GetAngles()
+                end
+                local ply_l_upperarm_pos, ply_l_forearm_pos, ply_l_upperarm_angle, ply_l_forearm_angle = self:Solve2PartIK(ply_l_upperarm_matrix:GetTranslation(), l_target_pos, l_upperarm_length, l_forearm_length, 1, eyeahg)
 
                 ply_l_upperarm_matrix:SetAngles(ply_l_upperarm_angle)
                 ply_l_forearm_matrix:SetTranslation(ply_l_upperarm_pos)
                 ply_l_forearm_matrix:SetAngles(ply_l_forearm_angle)
                 ply_l_hand_matrix:SetTranslation(ply_l_forearm_pos)
+                ply_l_hand_matrix:SetAngles(l_target_ang)
 
                 bone_apply_matrix(self, ply_l_upperarm_index, ply_l_upperarm_matrix, ply_l_forearm_index)
                 bone_apply_matrix(self, ply_l_forearm_index, ply_l_forearm_matrix, ply_l_hand_index)
@@ -696,7 +704,6 @@ if CLIENT then
         if not self:Alive() then return false end
         if self:GetNW2Bool("IsUnconscious", false) then return false end
         if self:IsRagdollMissingHand(rag) then return false end
-        //if not self.IsRagStanding then return false end
         return true
     end
 
@@ -932,6 +939,7 @@ if CLIENT then
         end
     end
 
+
     function meta:UpdateRagdollFWMConnection(rag, frac)
         if not self:GetRagFWM(true) or not istable(self.RagFWMBones) then return end
 
@@ -962,16 +970,11 @@ if CLIENT then
             eyeang.y = eyeang.y - (self:GetPoseParameter("aim_yaw") or 0) * 160 + 80 or 0
         end
 
-        for _, bone in ipairs(GetTPIKBones(wpn)) do
+        local function get_target(bone)
             local wm_boneindex = wmSrc:LookupBone(bone)
-            if not wm_boneindex then continue end
+            if not wm_boneindex then return end
             local wm_bonematrix = wmSrc:GetBoneMatrix(wm_boneindex)
-            if not wm_bonematrix then continue end
-
-            local rag_boneindex = rag:LookupBone(bone)
-            if not rag_boneindex then continue end
-            local rag_bonematrix = rag:GetBoneMatrix(rag_boneindex)
-            if not rag_bonematrix then continue end
+            if not wm_bonematrix then return end
 
             local bonepos = wm_bonematrix:GetTranslation()
             local boneang = wm_bonematrix:GetAngles()
@@ -980,17 +983,39 @@ if CLIENT then
             bonepos.y = math.Clamp(bonepos.y, wmpos.y - 38, wmpos.y + 38)
             bonepos.z = math.Clamp(bonepos.z, wmpos.z - 38, wmpos.z + 38)
 
-            if (rag:GetNW2Bool("LeftHandHoldsObject", false) or wpn.TPIK_DisableLeftHand) and string.find(bone, "ValveBiped.Bip01_L_") then continue end
+            return bonepos, boneang
+        end
 
-            local origPos = rag_bonematrix:GetTranslation()
-            local origAng = rag_bonematrix:GetAngles()
-            local finalPos = LerpVector(frac, origPos, bonepos)
-            local finalAng = LerpAngle(frac, origAng, boneang)
+        local function apply_fingers(side_prefix, skip)
+            if skip then return end
+            for _, bone in ipairs(TPIKBonesBase) do
+                if not string.find(bone, side_prefix) then continue end
+                if not string.find(bone, "Finger") then continue end
 
-            rag_bonematrix:SetTranslation(finalPos)
-            rag_bonematrix:SetAngles(finalAng)
+                local wm_boneindex = wmSrc:LookupBone(bone)
+                if not wm_boneindex then continue end
+                local wm_bonematrix = wmSrc:GetBoneMatrix(wm_boneindex)
+                if not wm_bonematrix then continue end
 
-            rag:SetBoneMatrix(rag_boneindex, rag_bonematrix)
+                local rag_boneindex = rag:LookupBone(bone)
+                if not rag_boneindex then continue end
+                local rag_bonematrix = rag:GetBoneMatrix(rag_boneindex)
+                if not rag_bonematrix then continue end
+
+                local bonepos = wm_bonematrix:GetTranslation()
+                local boneang = wm_bonematrix:GetAngles()
+
+                bonepos.x = math.Clamp(bonepos.x, wmpos.x - 38, wmpos.x + 38)
+                bonepos.y = math.Clamp(bonepos.y, wmpos.y - 38, wmpos.y + 38)
+                bonepos.z = math.Clamp(bonepos.z, wmpos.z - 38, wmpos.z + 38)
+
+                local origPos = rag_bonematrix:GetTranslation()
+                local origAng = rag_bonematrix:GetAngles()
+                rag_bonematrix:SetTranslation(LerpVector(frac, origPos, bonepos))
+                rag_bonematrix:SetAngles(LerpAngle(frac, origAng, boneang))
+
+                rag:SetBoneMatrix(rag_boneindex, rag_bonematrix)
+            end
         end
 
         local rag_r_upperarm_index = rag:LookupBone("ValveBiped.Bip01_R_UpperArm")
@@ -1006,10 +1031,11 @@ if CLIENT then
         local rag_l_forearm_index = rag:LookupBone("ValveBiped.Bip01_L_Forearm")
         local rag_l_hand_index = rag:LookupBone("ValveBiped.Bip01_L_Hand")
 
-        local wm_l_hand_index = wm:LookupBone("ValveBiped.Bip01_L_Hand")
-        local wm_l_hand_matrix = wm_l_hand_index and wm:GetBoneMatrix(wm_l_hand_index)
+        local wm_l_hand_index = wmSrc:LookupBone("ValveBiped.Bip01_L_Hand")
+        local wm_l_hand_matrix = wm_l_hand_index and wmSrc:GetBoneMatrix(wm_l_hand_index)
 
-        if not rag_l_upperarm_index or not rag_l_forearm_index or not rag_l_hand_index or not wm_l_hand_matrix then return end
+        if not rag_l_upperarm_index or not rag_l_forearm_index or not rag_l_hand_index then return end
+        if (not wm_l_hand_matrix) and not (rag:GetNW2Bool("LeftHandHoldsObject", false) or wpn.TPIK_DisableLeftHand) then return end
 
         local limblength = self:BoneLength(rag_l_forearm_index)
         if not limblength or limblength == 0 then limblength = 12 end
@@ -1023,7 +1049,13 @@ if CLIENT then
         local rag_r_hand_matrix = rag:GetBoneMatrix(rag_r_hand_index) 
 
         if rag_r_upperarm_matrix and rag_r_forearm_matrix and rag_r_hand_matrix then
-            local target_r_pos = wm_r_hand_matrix:GetTranslation()
+            local target_r_pos, target_r_ang = get_target("ValveBiped.Bip01_R_Hand")
+            if not target_r_pos then
+                target_r_pos = wm_r_hand_matrix:GetTranslation()
+            end
+            if not target_r_ang then
+                target_r_ang = wm_r_hand_matrix:GetAngles()
+            end
 
             local rag_r_upperarm_pos, rag_r_forearm_pos, rag_r_upperarm_angle, rag_r_forearm_angle = self:Solve2PartIK(rag_r_upperarm_matrix:GetTranslation(), target_r_pos, r_upperarm_length, r_forearm_length, -1.1, eyeang)
 
@@ -1031,13 +1063,18 @@ if CLIENT then
             local orig_r_fore_pos = rag_r_forearm_matrix:GetTranslation()
             local orig_r_fore_ang = rag_r_forearm_matrix:GetAngles()
             local orig_r_hand_pos = rag_r_hand_matrix:GetTranslation()
+            local orig_r_hand_ang = rag_r_hand_matrix:GetAngles()
 
             rag_r_upperarm_matrix:SetAngles(LerpAngle(frac, orig_r_upper_ang, rag_r_upperarm_angle))
             rag_r_forearm_matrix:SetTranslation(LerpVector(frac, orig_r_fore_pos, rag_r_upperarm_pos))
             rag_r_forearm_matrix:SetAngles(LerpAngle(frac, orig_r_fore_ang, rag_r_forearm_angle))
 
+            rag_r_hand_matrix:SetTranslation(LerpVector(frac, orig_r_hand_pos, target_r_pos))
+            rag_r_hand_matrix:SetAngles(LerpAngle(frac, orig_r_hand_ang, target_r_ang))
+
             bone_apply_matrix(rag, rag_r_upperarm_index, rag_r_upperarm_matrix, rag_r_forearm_index)
             bone_apply_matrix(rag, rag_r_forearm_index, rag_r_forearm_matrix, rag_r_hand_index)
+            rag:SetBoneMatrix(rag_r_hand_index, rag_r_hand_matrix)
 
         end
 
@@ -1046,7 +1083,13 @@ if CLIENT then
         local rag_l_hand_matrix = rag:GetBoneMatrix(rag_l_hand_index)
 
         if rag_l_upperarm_matrix and rag_l_forearm_matrix and rag_l_hand_matrix and not rag:GetNW2Bool("LeftHandHoldsObject", false) and not wpn.TPIK_DisableLeftHand then
-            local target_l_pos = wm_l_hand_matrix:GetTranslation()
+            local target_l_pos, target_l_ang = get_target("ValveBiped.Bip01_L_Hand")
+            if not target_l_pos then
+                target_l_pos = wm_l_hand_matrix:GetTranslation()
+            end
+            if not target_l_ang then
+                target_l_ang = wm_l_hand_matrix:GetAngles()
+            end
 
             local rag_l_upperarm_pos, rag_l_forearm_pos, rag_l_upperarm_angle, rag_l_forearm_angle = self:Solve2PartIK(rag_l_upperarm_matrix:GetTranslation(), target_l_pos, l_upperarm_length, l_forearm_length, 1.2, eyeang)
 
@@ -1054,14 +1097,22 @@ if CLIENT then
             local orig_l_fore_pos = rag_l_forearm_matrix:GetTranslation()
             local orig_l_fore_ang = rag_l_forearm_matrix:GetAngles()
             local orig_l_hand_pos = rag_l_hand_matrix:GetTranslation()
+            local orig_l_hand_ang = rag_l_hand_matrix:GetAngles()
 
             rag_l_upperarm_matrix:SetAngles(LerpAngle(frac, orig_l_upper_ang, rag_l_upperarm_angle))
             rag_l_forearm_matrix:SetTranslation(LerpVector(frac, orig_l_fore_pos, rag_l_upperarm_pos))
             rag_l_forearm_matrix:SetAngles(LerpAngle(frac, orig_l_fore_ang, rag_l_forearm_angle))
 
+            rag_l_hand_matrix:SetTranslation(LerpVector(frac, orig_l_hand_pos, target_l_pos))
+            rag_l_hand_matrix:SetAngles(LerpAngle(frac, orig_l_hand_ang, target_l_ang))
+
             bone_apply_matrix(rag, rag_l_upperarm_index, rag_l_upperarm_matrix, rag_l_forearm_index)
             bone_apply_matrix(rag, rag_l_forearm_index, rag_l_forearm_matrix, rag_l_hand_index)
+            rag:SetBoneMatrix(rag_l_hand_index, rag_l_hand_matrix)
         end
+
+        apply_fingers("_R_", false)
+        apply_fingers("_L_", rag:GetNW2Bool("LeftHandHoldsObject", false) or wpn.TPIK_DisableLeftHand)
 
         wm:DrawModel()
     end
