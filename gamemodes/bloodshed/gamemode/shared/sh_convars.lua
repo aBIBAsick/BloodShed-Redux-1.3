@@ -1,4 +1,4 @@
-local convars = {
+﻿local convars = {
     ["blsd_execution_3rd_person"] = {
         help = "You can enable or disable thirdperson for execution cutscenes.",
         min = 0,
@@ -13,13 +13,7 @@ local convars = {
         default = 0,
         type = "bool",
     },
-    ["blsd_ragdoll_nohud"] = {
-        help = "You can enable or disable hints in ragdoll state.",
-        min = 0,
-        max = 1,
-        default = 0,
-        type = "bool",
-    },
+
     ["blsd_crosshair_ragdoll"] = {
         help = "You can enable or disable crosshair in ragdoll state.",
         min = 0,
@@ -36,6 +30,13 @@ local convars = {
     },
     ["blsd_tpik"] = {
         help = "You can enable or disable Third Person Inverse Kinematics.",
+        min = 0,
+        max = 1,
+        default = 1,
+        type = "bool",
+    },
+    ["blsd_viewbob"] = {
+        help = "You can enable or disable First Person Viewbob.",
         min = 0,
         max = 1,
         default = 1,
@@ -84,7 +85,7 @@ if CLIENT then
     for name, tab in pairs(convars) do
         CreateConVar(name, tab.default, {FCVAR_ARCHIVE, FCVAR_USERINFO}, tab.help, tab.min, tab.max)
     end
-    
+
     function MuR:GetClient(name)
         local con = GetConVar(name)
         local type = convars[name] and convars[name].type or "none"

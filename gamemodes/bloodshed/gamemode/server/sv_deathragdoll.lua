@@ -1,4 +1,4 @@
-local bdtab = {
+﻿local bdtab = {
     ["exp"] = {
         "deathrunning_09",
         "deathrunning_10",
@@ -183,6 +183,29 @@ local bdtab = {
     },
 }
 
+local function ApplyRagdollSpasms(rag)
+    if not IsValid(rag) then return end
+
+    if math.random() > 0.7 then return end
+
+    local spasmCount = math.random(5, 12)
+    local spasmDelay = math.Rand(0.1, 0.3)
+
+    timer.Create("RagdollSpasm_" .. rag:EntIndex(), spasmDelay, spasmCount, function()
+        if not IsValid(rag) then return end
+
+        local physCount = rag:GetPhysicsObjectCount()
+        if physCount == 0 then return end
+
+        local phys = rag:GetPhysicsObjectNum(math.random(0, physCount - 1))
+        if IsValid(phys) then
+
+            local force = VectorRand() * math.random(300, 800)
+            phys:ApplyForceCenter(force)
+        end
+    end)
+end
+
 local LifeScale = 0.5
 local CrawlChance = 10
 local OtherAsDefault = false
@@ -208,7 +231,7 @@ local function choose_bd_anims(type, data)
         anim = table.Random(bdtab["moving"])
     else
         anim = table.Random(bdtab["dying"])
-        -------------------------------------
+
         if data[1] == 1 then
             if data[2] then
                 anim = table.Random(bdtab["bd_neck"]) 
@@ -288,7 +311,11 @@ local function make_death_anim(ent, rag, type)
     anm:SetModel(mod)
     anm:ResetSequence(anim)
     anm.AnimGenerate = AnimGenerate
-    anm.FinishFunc = function() end
+    anm.FinishFunc = function() 
+        if IsValid(rag) then
+            ApplyRagdollSpasms(rag)
+        end
+    end
     local dur = select(2, anm:LookupSequence(anim))
 
     rag:SetFlexScale(0.4)
@@ -332,7 +359,7 @@ hook.Add("EntityTakeDamage", "MuR_DeathAnimsBrutal", function(ent, dmg)
             ent.AnimModule:Remove()
         end
     end
-    if ent:IsNPC() or ent:IsPlayer() then
+    if ent:IsNPC() and ent.IsPolice or ent:IsPlayer() then
         if dmg:GetDamageType() == DMG_BURN or ent:IsOnFire() then
             ent.DeathAnimType = "fire"
         elseif (dmg:GetDamageType() == 0 and !OtherAsDefault) or isfunction(ent.IsDowned) and ent:IsDowned() then
@@ -383,21 +410,21 @@ hook.Add("PlayerDeath", "MuR_DeathRagdolls", function(ply)
         local rd = ply:GetNW2Entity("RD_EntCam")
         if IsValid(rd) then
             hook.Call("CreateEntityRagdoll", nil, ply, rd)
-            
+
             local bleedLevel = ply:GetNW2Float("BleedLevel") or 0
             local hardBleed = ply:GetNW2Bool("HardBleed") or false
-            
+
             if bleedLevel > 0 or hardBleed then
                 rd.BleedingRagdoll = true
                 rd.RagdollBleedLevel = bleedLevel
                 rd.RagdollHardBleed = hardBleed
-                
+
                 timer.Create("RagdollBleeding_" .. rd:EntIndex(), 1, 0, function()
                     if not IsValid(rd) then 
                         timer.Remove("RagdollBleeding_" .. rd:EntIndex())
                         return 
                     end
-                    
+
                     if rd.RagdollHardBleed then
                         MuR:CreateBloodPool(rd, 0, math.random(2, 4))
                         rd:EmitSound("murdered/player/drip_" .. math.random(1, 5) .. ".wav", 60, math.random(60, 90))
@@ -418,7 +445,7 @@ hook.Add("PlayerDeath", "MuR_DeathRagdolls", function(ply)
                             rd:EmitSound("murdered/player/drip_" .. math.random(1, 5) .. ".wav", 30, math.random(90, 130))
                         end
                     end
-                    
+
                     rd.RagdollBleedLevel = math.max(rd.RagdollBleedLevel - 0.1, 0)
                     if rd.RagdollBleedLevel <= 0 and not rd.RagdollHardBleed then
                         timer.Remove("RagdollBleeding_" .. rd:EntIndex())

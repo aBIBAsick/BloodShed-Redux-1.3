@@ -47,27 +47,9 @@ function SWEP:CustomPrimaryAttack()
 		timer.Simple(2.4, function()
             if !IsValid(self) or !IsValid(ow) then return end
 			MuR:GiveMessage("geroin_use", ow)
-			if ow:GetNW2Bool('GeroinUsed', false) then
-				ow:TakeDamage(ow:Health(), ow)
-				self:Remove()
-				return
-			elseif math.random(1,4) == 1 then
-				ow:ApplyUnconsciousness(10)
-				ow:TakeDamage(50, ow)
-				self:Remove()
-				return
-			end
-			ow:TakeDamage(20, ow)
-			ow:SetNW2Bool('GeroinUsed', true)
-			ow:ScreenFade(SCREENFADE.IN, color_black, 1, 1)
-			timer.Create("GeroinUse"..ind, 60, 1, function()
-				if !IsValid(ow) then 
-					timer.Remove("GeroinUse"..ind)
-					return
-				end
-				ow:ScreenFade(SCREENFADE.IN, color_black, 1, 1)
-				ow:SetNW2Bool('GeroinUsed', false)
-			end)
+			
+            MuR.Drug:Apply(ow, "heroin")
+
             self:Remove()
         end)
 	end 
@@ -105,27 +87,9 @@ function SWEP:CustomSecondaryAttack()
 			timer.Simple(2.4, function()
 				if !IsValid(self) or !IsValid(ow) then return end
 				MuR:GiveMessage("geroin_use_target", ow)
-				if tar:GetNW2Bool('GeroinUsed', false) then
-					tar:TakeDamage(tar:Health(), ow)
-					self:Remove()
-					return
-				elseif math.random(1,4) == 1 then
-					tar:ApplyUnconsciousness(10)
-					tar:TakeDamage(50, ow)
-					self:Remove()
-					return
-				end
-				tar:SetNW2Bool('GeroinUsed', true)
-				tar:TakeDamage(20, ow)
-				tar:ScreenFade(SCREENFADE.IN, color_black, 1, 1)
-				timer.Create("GeroinUse"..ind, 60, 1, function()
-					if !IsValid(tar) then 
-						timer.Remove("GeroinUse"..ind)
-						return
-					end
-					tar:ScreenFade(SCREENFADE.IN, color_black, 1, 1)
-					tar:SetNW2Bool('GeroinUsed', false)
-				end)
+				
+                MuR.Drug:Apply(tar, "heroin")
+
 				self:Remove()
 			end)
 		end 
@@ -137,5 +101,5 @@ function SWEP:DrawHUD()
 	draw.SimpleText(MuR.Language["loot_medic_left"], "MuR_Font1", ScrW()/2, ScrH()-He(100), color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	draw.SimpleText(MuR.Language["loot_medic_right"], "MuR_Font1", ScrW()/2, ScrH()-He(85), color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 end
-SWEP.Category = "Bloodshed - Illegal"
+SWEP.Category = "Bloodshed - Agents"
 SWEP.Spawnable = true

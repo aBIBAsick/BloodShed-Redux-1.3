@@ -1,144 +1,212 @@
 AddCSLuaFile()
-SWEP.Base = "mur_weapon_base"
 SWEP.PrintName = "Police Taser"
+SWEP.Author = "Bloodshed"
+SWEP.Category = "Bloodshed - Police"
+SWEP.Spawnable = true
+SWEP.AdminOnly = false
 SWEP.Slot = 1
+SWEP.SlotPos = 1
+SWEP.DrawAmmo = true
+SWEP.DrawCrosshair = true
 SWEP.DisableSuicide = true
-SWEP.ViewModelFOV = 80
+SWEP.ViewModelFOV = 70
 SWEP.ViewModelFlip = false
 SWEP.ViewModel = "models/murdered/weapons/c_taser.mdl"
 SWEP.WorldModel = "models/murdered/weapons/w_taser.mdl"
-SWEP.SwayScale = 0.6
-SWEP.BobScale = 0.7
+SWEP.UseHands = true
 SWEP.Primary.ClipSize = 1
-SWEP.Primary.DefaultClip = 1
+SWEP.Primary.DefaultClip = 3
+SWEP.Primary.Automatic = false
 SWEP.Primary.Ammo = "GaussEnergy"
-SWEP.IronsightPos = Vector(-2, -3, 0)
-SWEP.IronsightFOV = 60
-SWEP.RunPos = Vector(0, 4, -8)
-SWEP.RunAng = Angle(-50, 0, -4)
-SWEP.WorldModelPosition = Vector(3.5, -1.5, -2)
-SWEP.WorldModelAngle = Angle(0, 270, 90)
+SWEP.Secondary.ClipSize = -1
+SWEP.Secondary.DefaultClip = -1
+SWEP.Secondary.Automatic = false
+SWEP.Secondary.Ammo = "none"
 SWEP.HoldType = "revolver"
-SWEP.AimHoldType = "revolver"
-SWEP.RunHoldType = "normal"
-SWEP.HitDistance = 250
-SWEP.Category = "Bloodshed - Police"
-SWEP.Spawnable = true
-
+SWEP.HitDistance = 300
+SWEP.TaseTime = 3.5
+SWEP.TaseDamage = 5
 SWEP.TPIKForce = true
 
-function CreateBlueTaserEffect(startPos, endPos, duration)
-    local effect = EffectData()
-    effect:SetStart(startPos)
-    effect:SetOrigin(endPos)
-    effect:SetScale(1)
-    effect:SetMagnitude(duration)
-    effect:SetFlags(0)
-    util.Effect("ToolTracer", effect)
+local taserSounds = {
+    fire = "murdered/other/taser_shoot.mp3",
+    hit = "murdered/other/taser.mp3",
+    empty = "weapons/ar2/ar2_empty.wav",
+    reload = "weapons/pistol/pistol_reload1.wav"
+}
+
+function SWEP:Initialize()
+    self:SetHoldType(self.HoldType)
+end
+
+function SWEP:Deploy()
+    self:SetHoldType(self.HoldType)
+    self:SendWeaponAnim(ACT_VM_DRAW)
+    return true
+end
+
+function SWEP:Holster()
+    return true
+end
+
+function SWEP:Reload()
+    if self:Clip1() >= self.Primary.ClipSize then return end
+    if self:GetOwner():GetAmmoCount(self.Primary.Ammo) <= 0 then return end
+    
+    self:DefaultReload(ACT_VM_RELOAD)
+    timer.Simple(0.3, function() if !IsValid(self) then return end self:EmitSound(taserSounds.reload, 60, 100) end)
 end
 
 function SWEP:PrimaryAttack()
-	if not self:CanPrimaryAttack() then return end
-	local ow = self:GetOwner()
+    local owner = self:GetOwner()
+    if not IsValid(owner) then return end
+    
+    if self:Clip1() <= 0 then
+        self:EmitSound(taserSounds.empty, 60, 100)
+        self:SetNextPrimaryFire(CurTime() + 0.5)
+        return
+    end
+    
+    self:SetNextPrimaryFire(CurTime() + 1.5)
+    self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+	self:SetClip1(self:Clip1() - 1)
+    owner:SetAnimation(PLAYER_ATTACK1)
+    
+    local startPos = owner:GetBonePosition(owner:LookupBone("ValveBiped.Bip01_R_Hand") or 0)
+    local endPos = startPos + owner:GetAimVector() * self.HitDistance
+    
+    local tr = util.TraceLine({
+        start = startPos,
+        endpos = endPos,
+        filter = {owner, owner:GetRD()},
+        mask = MASK_SHOT_HULL
+    })
+    
+    local trHull = util.TraceHull({
+        start = startPos,
+        endpos = endPos,
+        filter = {owner, owner:GetRD()},
+        mask = MASK_SHOT_HULL,
+        mins = Vector(-8, -8, -8),
+        maxs = Vector(8, 8, 8)
+    })
+    
+    local target = tr.Entity
+    if IsValid(trHull.Entity) and (trHull.Entity:IsPlayer() or trHull.Entity.isRDRag) then
+        target = trHull.Entity
+    end
+    
+    local hitPos = tr.Hit and tr.HitPos or endPos
+    
+    local effect = EffectData()
+    effect:SetStart(startPos)
+    effect:SetOrigin(hitPos)
+    effect:SetScale(1)
+    effect:SetMagnitude(0.3)
+    util.Effect("ToolTracer", effect)
+    
+    if SERVER then
+        owner:EmitSound(taserSounds.fire, 70, 100)
+        
+        if IsValid(target) and target.isRDRag then
+            target = target.Owner
+        end
+        
+        if IsValid(target) and target:IsPlayer() then
+            self:TasePlayer(target)
+            self:TakePrimaryAmmo(1)
+        elseif IsValid(target) and target.SuspectNPC then
+            self:TaseNPC(target)
+            self:TakePrimaryAmmo(1)
+        elseif tr.Hit then
+            local spark = EffectData()
+            spark:SetOrigin(tr.HitPos)
+            spark:SetNormal(tr.HitNormal or Vector(0, 0, 1))
+            util.Effect("ElectricSpark", spark)
+        end
+    end
+end
 
-	if CLIENT and IsFirstTimePredicted() then
-		local angle = Angle(-self.Primary.Throw, 0, 0)
-		self:GetOwner():ViewPunchClient(angle)
-		local sp = ow:GetBonePosition(ow:LookupBone("ValveBiped.Bip01_R_Hand"))
-		local ep = ow:GetShootPos() + ow:GetAimVector() * self.HitDistance
-		CreateBlueTaserEffect(sp, ep, 5)
-	end
+function SWEP:TasePlayer(target)
+    if not IsValid(target) then return end
+    
+    local owner = self:GetOwner()
+    local targetID = target:EntIndex()
+    local taseTime = self.TaseTime
+    local taseDamage = self.TaseDamage
+    
+    target:EmitSound(taserSounds.hit, 70, 100)
+    
+    if target.StartRagdolling then
+        target:StartRagdolling()
+    end
+    
+    local tickCount = math.floor(taseTime * 100)
+    local tickNum = 0
+    
+    timer.Create("Taser_" .. targetID, 0.01, tickCount, function()
+        tickNum = tickNum + 1
+        
+        if not IsValid(target) or not target:Alive() then
+            timer.Remove("Taser_" .. targetID)
+            return
+        end
+        
+        local ragdoll = target.GetRD and target:GetRD()
+        local effectEnt = IsValid(ragdoll) and ragdoll or target
+        
+        if IsValid(ragdoll) and ragdoll.StruggleBone then
+            ragdoll:StruggleBone()
+            target.IsRagStanding = false
+        end
+        
+        if tickNum % 3 == 0 then
+            local fx = EffectData()
+            fx:SetOrigin(effectEnt:WorldSpaceCenter())
+            fx:SetMagnitude(1)
+            fx:SetEntity(effectEnt)
+            util.Effect("TeslaHitboxes", fx)
+        end
+        
+        if tickNum % 5 == 0 then
+            local shake = target:EyeAngles() + AngleRand(-8, 8)
+            shake.z = 0
+            target:SetEyeAngles(shake)
+        end
+        
+        if tickNum % 50 == 0 and IsValid(owner) then
+            target:TakeDamage(taseDamage, owner, owner)
+        end
+    end)
+end
 
-	local vm = ow:GetViewModel()
-	local seq = vm:SelectWeightedSequence(ACT_VM_PRIMARYATTACK)
-	vm:SendViewModelMatchingSequence(seq)
+function SWEP:TaseNPC(target)
+    if not IsValid(target) then return end
+    
+    local targetID = target:EntIndex()
+    local taseTime = self.TaseTime
+    
+    target:EmitSound(taserSounds.hit, 70, 100)
+    
+    if target.FullSurrender then
+        target:FullSurrender()
+    end
+    
+    local tickCount = math.floor(taseTime * 100)
+    
+    timer.Create("Taser_" .. targetID, 0.01, tickCount, function()
+        if not IsValid(target) then
+            timer.Remove("Taser_" .. targetID)
+            return
+        end
+        
+        local fx = EffectData()
+        fx:SetOrigin(target:WorldSpaceCenter())
+        fx:SetMagnitude(1)
+        fx:SetEntity(target)
+        util.Effect("TeslaHitboxes", fx)
+    end)
+end
 
-	if SERVER then
-		ow:EmitSound(")murdered/other/taser_shoot.mp3", 60)
-
-		local sp = ow:GetShootPos()
-		local ep = ow:GetShootPos() + ow:GetAimVector() * self.HitDistance
-		local tr = util.TraceHull({
-			start = sp,
-			endpos = ep,
-			filter = ow,
-			mask = MASK_SHOT_HULL,
-			mins = Vector(-10,-10,-10),
-			maxs = Vector(10,10,10),
-		})
-		local tr2 = util.TraceLine({
-			start = sp,
-			endpos = ep,
-			filter = ow,
-			mask = MASK_SHOT_HULL,
-		})
-		if !tr.Hit or !tr.Entity:IsPlayer() and !tr.Entity.isRDRag then
-			tr = tr2
-		end
-
-		local i = 0
-		local tar = tr.Entity
-		if IsValid(tar) and tar.isRDRag then
-			tar = tar.Owner
-		end
-
-		if IsValid(tar) and tar:IsPlayer() then
-			local ind = tar:EntIndex()
-			tar:StartRagdolling()
-			tar:EmitSound(")murdered/other/taser.mp3", 60)
-
-			timer.Create("Tasered" .. ind, 0.01, 350, function()
-				i = i + 1
-
-				if not IsValid(tar) or not tar:Alive() then
-					timer.Remove("Tasered" .. ind)
-
-					return
-				end
-
-				if IsValid(tar:GetRD()) then
-					tar:GetRD():StruggleBone()
-					tar.IsRagStanding = false
-
-					local light = EffectData()
-					light:SetOrigin(tar:GetRD():WorldSpaceCenter())
-					light:SetMagnitude(1)
-					light:SetEntity(tar:GetRD())
-					util.Effect("TeslaHitboxes", light)
-				else
-					local light = EffectData()
-					light:SetOrigin(tar:WorldSpaceCenter())
-					light:SetMagnitude(1)
-					light:SetEntity(tar)
-					util.Effect("TeslaHitboxes", light)
-				end
-				local rnd = tar:EyeAngles() + AngleRand(-10, 10)
-				rnd.z = 0
-				tar:SetEyeAngles(rnd)
-			end)
-		elseif IsValid(tar) and tar.SuspectNPC then
-			tar:FullSurrender()
-			tar:EmitSound(")murdered/other/taser.mp3", 60)
-			local ind = tar:EntIndex()
-
-			timer.Create("Tasered" .. ind, 0.01, 350, function()
-				i = i + 1
-
-				if not IsValid(tar) then
-					timer.Remove("Tasered" .. ind)
-
-					return
-				end
-
-				local light = EffectData()
-				light:SetOrigin(tar:WorldSpaceCenter())
-				light:SetMagnitude(1)
-				light:SetEntity(tar)
-				util.Effect("TeslaHitboxes", light)
-			end)
-		end
-
-		self:TakePrimaryAmmo(1)
-		self:SetNextPrimaryFire(CurTime() + 2)
-	end
+function SWEP:SecondaryAttack()
 end

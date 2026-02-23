@@ -1,20 +1,20 @@
-if not util.IsBinaryModuleInstalled("steamrichpresencer") then 
+﻿if not util.IsBinaryModuleInstalled("steamrichpresencer") then 
     print("This session supports Steam Rich Presence, but you do not have the module installed.")
 else
     require("steamrichpresencer")
     print("Steam Rich Presence initialized successfully.")
-    
+
     timer.Create("SteamRichPresenceTimer", 5, 0, function()
         local s0 = MuR.Language["gamedesc0"]
         local s1 = MuR.Language["startscreen_gamemode"] .. (MuR.Language["gamename"..MuR.GamemodeCount] or "Unknown")
         local s2 = player.GetCount()
         local s3 = game.MaxPlayers()
-        
+
         local steamStatus = string.format("%s Bloodshed: Redux | %s | Players: [%d/%d]", s0, s1, s2, s3)
         if MuR.EnableDebug == true then
             steamStatus = "Bloodshed: Redux | Sandbox Mode"
         end
-        
+
         steamworks.SetRichPresence("generic", steamStatus)
     end)
 end
@@ -36,12 +36,12 @@ else
 
     function DiscordUpdate()
         local rpc_data = {}
-        
+
         local cnt = MuR.GamemodeCount >= 1 and MuR.GamemodeCount <= 15 or 0
         local s2 = MuR.Language["startscreen_gamemode"] .. (MuR.Language["gamename"..MuR.GamemodeCount] or "Unknown")
         local s3 = player.GetCount()
         local s4 = game.MaxPlayers()
-        
+
         if MuR.EnableDebug == true then
             s2 = "Sandbox Mode"
         end
@@ -64,7 +64,7 @@ else
         if map_restrict and not map_list[game.GetMap()] then
             rpc_data["largeImageKey"] = image_fallback
         end
-        
+
         rpc_data["startTimestamp"] = discord_start
 
         DiscordUpdateRPC(rpc_data)
@@ -74,7 +74,7 @@ else
         discord_start = os.time()
         DiscordRPCInitialize(discord_id)
         DiscordUpdate()
-        
+
     end)
     timer.Create("DiscordRPCTimer", 5, 0, DiscordUpdate)
 end

@@ -1,14 +1,10 @@
-local ENT = FindMetaTable("Entity")
-
-
+﻿local ENT = FindMetaTable("Entity")
 
 function ENT:ZippyGoreMod3_DamageRagdoll_Gibbing( dmginfo )
     if dmginfo:GetDamage() <= 0 then return end
 
-    -- Return if dmgtype is DMG_NEVERGIB or DMG_BURN for example:
     if dmginfo:ZippyGoreMod3_GibType() == ZGM3_GIB_NEVER then return end
 
-    -- Don't gib dissolving ragdolls if that is turned off:
     if bit.band( self:GetFlags(), FL_DISSOLVING ) == FL_DISSOLVING && !ZGM3_CVARS["zippygore3_gib_dissolving_ragdoll"] then return end
 
     if dmginfo:IsExplosionDamage() then dmginfo:ScaleDamage( ZGM3_CVARS["zippygore3_explosion_damage_mult"] ) end
@@ -23,7 +19,16 @@ function ENT:ZippyGoreMod3_DamageRagdoll_Gibbing( dmginfo )
         if dmginfo:GetDamage() >= ZGM3_CVARS["zippygore3_bullet_damage_highest"] then
 		    dmginfo:ScaleDamage(2)
         end
-        dmginfo:SetDamageForce(dmginfo:GetDamageForce() * 0.1)
+        local damage = dmginfo:GetDamage()
+        local forceMult = 0.15
+        if damage >= 80 then
+            forceMult = 0.4
+        elseif damage >= 50 then
+            forceMult = 0.3
+        elseif damage >= 30 then
+            forceMult = 0.2
+        end
+        dmginfo:SetDamageForce(dmginfo:GetDamageForce() * forceMult)
 	end
 
     local dmgscale = 1
@@ -51,10 +56,10 @@ function ENT:ZippyGoreMod3_DamageRagdoll_Gibbing( dmginfo )
         local hit_bone_name = self:GetBoneName( self:TranslatePhysBoneToBone(phys_idx) )
         local dismemberEnabled = ZGM3_CVARS["zippygore3_dismemberment"]
         local shouldDismember = dismemberEnabled && gib_type_dismember &&
-        !(gib_type_bullet && hit_bone_name == "ValveBiped.Bip01_Head1") -- Don't dismember head on bullet damage
-        -- AOE gibtype:
+        !(gib_type_bullet && hit_bone_name == "ValveBiped.Bip01_Head1") 
+
         if gib_type_aoe then
-            -- "AOE damage" such as DMG_BLAST or DMG_CRUSH:
+
             local data = {
                 damage = dmginfo:GetDamage()*dmgscale,
                 forceVec = dmginfo:GetDamageForce(),
@@ -64,9 +69,9 @@ function ENT:ZippyGoreMod3_DamageRagdoll_Gibbing( dmginfo )
             local hurt_pos = dmginfo:ZippyGoreMod3_RagdollHurtPosition( self )
             if hurt_pos then self:ZippyGoreMod3_PhysBonesAOEDamage( hurt_pos, data ) end
         end
-        -- Direct and always gibtype:
+
         if (!gib_type_aoe && gib_type_direct) or gib_type_always then
-            -- Direct damage, such as bullets:
+
             local data = {
                 damage = gib_type_always && self.ZippyGoreMod3_PhysBoneHPs[phys_idx] or dmginfo:GetDamage()*dmgscale,
                 forceVec = dmginfo:GetDamageForce(),
@@ -101,7 +106,6 @@ function ENT:ZippyGoreMod3_DamageRagdoll_Gibbing( dmginfo )
 
 end
 
-
 function ENT:ZippyGoreMod3_GuessBloodColorFromDamage( dmginfo )
     local trStartPos = dmginfo:GetDamagePosition()
     local trEndPos = dmginfo:ZippyGoreMod3_RagdollHurtPosition( self )
@@ -127,24 +131,26 @@ function ENT:ZippyGoreMod3_GuessBloodColorFromDamage( dmginfo )
     end
 end
 
-
 function ENT:ZippyGoreMod3_NewBloodColorOnDamage( dmginfo )
-    -- Give blood color on damage if ragdoll doesn't have a engine blood color assigned to it
+
     local newBloodCol = self:ZippyGoreMod3_GuessBloodColorFromDamage(dmginfo)
     if newBloodCol then
         self.ZippyGoreMod3_BloodColor = newBloodCol
-        return true -- Has blood, should be gibbed
+        return true 
     end
 end
-
 
 function ENT:ZippyGoreMod3_DamageRagdoll( dmginfo )
     if self.ZippyGoreMod3_BloodColor or
-    ( self:ZippyGoreMod3_NewBloodColorOnDamage(dmginfo) ) then -- Don't gib if blood color was not found
+    ( self:ZippyGoreMod3_NewBloodColorOnDamage(dmginfo) ) then
         self:ZippyGoreMod3_DamageRagdoll_Gibbing(dmginfo)
+
+        if self.ZGM3_SetPainExpression and dmginfo:GetDamage() > 10 then
+            local intensity = math.Clamp(dmginfo:GetDamage() / 100, 0.3, 1.0)
+            self:ZGM3_SetPainExpression(intensity)
+        end
     end
 end
-
 
 function ENT:ZippyGoreMod3_PhysBonesAOEDamage( pos, data )
     local phys_bones = {}
@@ -180,7 +186,6 @@ function ENT:ZippyGoreMod3_PhysBonesAOEDamage( pos, data )
     end
 end
 
-
 function ENT:ZippyGoreMod3_DamagePhysBone( phys_bone_idx, data )
     local health = self.ZippyGoreMod3_PhysBoneHPs[phys_bone_idx]
     if health == -1 then return end
@@ -192,7 +197,6 @@ function ENT:ZippyGoreMod3_DamagePhysBone( phys_bone_idx, data )
         self.GibbedRag = true
     end
 end
-
 
 function ENT:ZippyGoreMod3_StoreDMGInfo( dmg )
 
@@ -226,23 +230,19 @@ function ENT:ZippyGoreMod3_StoreDMGInfo( dmg )
 
 end
 
-
 function ENT:ZippyGoreMod3_LastDMGINFO( dmg )
 
     if !self.LastDMGINFOTbl then return end
 
     local lastdmginfo = DamageInfo()
 
-
     if IsValid(self.LastDMGINFOTbl.infl) then
         lastdmginfo:SetInflictor(self.LastDMGINFOTbl.infl)
     end
 
-
     if IsValid(self.LastDMGINFOTbl.attacker) then
         lastdmginfo:SetAttacker(self.LastDMGINFOTbl.attacker)
     end
-
 
     lastdmginfo:SetAmmoType(self.LastDMGINFOTbl.ammotype)
     lastdmginfo:SetDamage(self.LastDMGINFOTbl.damage)
@@ -250,15 +250,14 @@ function ENT:ZippyGoreMod3_LastDMGINFO( dmg )
     lastdmginfo:SetDamageForce(self.LastDMGINFOTbl.dmgforce)
     lastdmginfo:SetDamageType(self.LastDMGINFOTbl.dmgtype)
     lastdmginfo:SetDamagePosition(self.LastDMGINFOTbl.dmgpos)
-    
+
     return lastdmginfo
 
 end
 
-
 hook.Add("EntityTakeDamage", "zzzEntityTakeDamage_ZippyGoreMod3", function( ent, dmginfo )
     if ent:IsNPC() or ent:IsNextBot() then
-        -- If it doesn't have an engine blood color, guess a blood color based on its surface properties:
+
         if ent:GetBloodColor() == -1 then
             local bloodColor = ent:ZippyGoreMod3_GuessBloodColorFromDamage( dmginfo )
             if bloodColor then
@@ -268,7 +267,6 @@ hook.Add("EntityTakeDamage", "zzzEntityTakeDamage_ZippyGoreMod3", function( ent,
 
         ent:ZippyGoreMod3_StoreDMGInfo( dmginfo )
     end
-
 
     if ent.ZippyGoreMod3_Ragdoll then
         ent:ZippyGoreMod3_DamageRagdoll( dmginfo )

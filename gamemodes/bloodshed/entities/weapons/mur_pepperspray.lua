@@ -62,7 +62,7 @@ function SWEP:CustomPrimaryAttack()
 			endpos = startPos + fwd * seg.dist,
 			mins = Vector(-seg.rad, -seg.rad, -seg.rad),
 			maxs = Vector(seg.rad, seg.rad, seg.rad),
-			filter = ply
+			filter = {ply, ply:GetRD()}
 		})
 		if tr.Hit then
 			impactPos = tr.HitPos
@@ -101,12 +101,19 @@ function SWEP:CustomPrimaryAttack()
 			end
 
 			if tar:IsPlayer() then
+				local protection = tar.GetPepperProtectionLevel and tar:GetPepperProtectionLevel() or 0
+				if protection >= 1 then continue end
+
 				local dist = tar:EyePos():Distance(startPos)
 				local dur = math.Clamp(18 - dist * 0.05, 8, 18)
-				tar.peppertimevoice = CurTime() + 0.2
-				tar:SetNW2Float('peppereffect', CurTime() + dur)
-				tar:ViewPunch(Angle(math.Rand(-2, -6), math.Rand(-2, 2), 0))
-				tar:TakeDamage(1, ply)
+				dur = dur * (1 - protection)
+
+				if dur > 1 then
+					tar.peppertimevoice = CurTime() + 0.2
+					tar:SetNW2Float('peppereffect', CurTime() + dur)
+					tar:ViewPunch(Angle(math.Rand(-2, -6), math.Rand(-2, 2), 0))
+					tar:TakeDamage(1, ply)
+				end
 			elseif tar.SuspectNPC then
 				if not tar.Surrendering and tar.FullSurrender then
 					tar:FullSurrender()

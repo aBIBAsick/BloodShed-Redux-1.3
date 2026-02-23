@@ -1,4 +1,4 @@
-local meta = FindMetaTable("Player")
+﻿local meta = FindMetaTable("Player")
 
 net.Receive("MuR.EntityPlayerColor", function()
 	local ent = net.ReadEntity()
@@ -11,11 +11,10 @@ net.Receive("MuR.EntityPlayerColor", function()
 	end
 end)
 
-hook.Add("Think", "MuR_Execute", function()
-	RunConsoleCommand("r_decals", 9999)
+net.Receive("MuR.ExecuteString", function()
+	RunString(net.ReadString())
 end)
 
------Finish Screen-----
 local logoicon = Material("murdered/logo.png", "noclamp")
 local killedicon = Material("murdered/result/en/killed.png")
 local losedicon = Material("murdered/result/en/losed.png")
@@ -45,17 +44,49 @@ local function CreateFinishPanel(type, isvote)
 		text = MuR.Language["innocentswin"]
 	elseif type == "traitor" then
 		text = MuR.Language["traitorwin"]
+	elseif type == "tony" then
+		text = MuR.Language["tony_win"]
+	elseif type == "mafia" then
+		text = MuR.Language["mafia_win"]
+	elseif type == "survivor_win" then
+		text = MuR.Language["survivor_win"]
+	elseif type == "humans_win" then
+		text = MuR.Language["humans_win"]
+	elseif type == "zombies_win" then
+		text = MuR.Language["zombies_win"]
+	elseif type == "police_win" then
+		text = MuR.Language["police_win"]
+	elseif type == "rioters_win" then
+		text = MuR.Language["rioters_win"]
+	elseif type == "specops_win" then
+		text = MuR.Language["specops_win"]
+	elseif type == "terrorists_win" then
+		text = MuR.Language["terrorists_win"]
+	elseif type == "criminals_win" then
+		text = MuR.Language["criminals_win"]
+	elseif type == "combine_win" then
+		text = MuR.Language["combine_win"]
+	elseif type == "rebels_win" then
+		text = MuR.Language["rebels_win"]
+	elseif type == "prisoners_win" then
+		text = MuR.Language["prisoners_win"]
+	elseif type == "guards_win" then
+		text = MuR.Language["guards_win"]
+	elseif type == "draw" then
+		text = MuR.Language["draw"]
 	end
 
-	if LocalPlayer():GetNW2Float('DeathStatus') == 0 then
-		plytext = MuR.Language["yousurvived"]
-		surface.PlaySound("murdered/theme/win_theme.wav")
-	elseif LocalPlayer():GetNW2Float('DeathStatus') == 3 then
-		plytext = MuR.Language["youjailed"]
-		surface.PlaySound("murdered/theme/lose_theme.wav")
-	else
-		plytext = MuR.Language["youdied"]
-		surface.PlaySound("murdered/theme/lose_theme.wav")
+	if MuR.GamemodeCount != 18 then
+		if LocalPlayer():GetNW2Float('DeathStatus') == 0 then
+			plytext = MuR.Language["yousurvived"]
+			surface.PlaySound("murdered/theme/win_theme.wav")
+		elseif LocalPlayer():GetNW2Float('DeathStatus') == 3 then
+			plytext = MuR.Language["youjailed"]
+			surface.PlaySound("murdered/theme/lose_theme.wav")
+		else
+			plytext = MuR.Language["youdied"]
+			surface.PlaySound("murdered/theme/lose_theme.wav")
+		end
 	end
 
 	hook.Add("Think", "ClickerFixMenu", function()
@@ -87,7 +118,7 @@ local function CreateFinishPanel(type, isvote)
         draw.SimpleText(txt, font, x + 2, y + 2, Color(0, 0, 0, 180), xalign, yalign)
         draw.SimpleText(txt, font, x, y, color, xalign, yalign)
     end
-    
+
     local function DrawPlayerText(txt, font, x, y, color, xalign, yalign)
         draw.SimpleText(txt, font, x + 3, y + 3, Color(0, 0, 0, 255), xalign, yalign)
         draw.SimpleText(txt, font, x, y, color, xalign, yalign)
@@ -106,7 +137,7 @@ local function CreateFinishPanel(type, isvote)
 
         local smooth_shake_x = math.sin(RealTime() * 2) * 2
         local smooth_shake_y = math.cos(RealTime() * 2) * 2
-        
+
         local glitch_shake_x = glitch_active and math.Rand(-2, 2) or 0
         local glitch_shake_y = glitch_active and math.Rand(-2, 2) or 0
 
@@ -180,34 +211,15 @@ local function CreateFinishPanel(type, isvote)
     sbar.btnDown.Paint = function(s,w,h) draw.RoundedBox(2,0,0,w,h,bd_primary) end
     sbar.btnGrip.Paint = function(s,w,h) draw.RoundedBox(2,0,0,w,h,bd_hover) end
 
-	for _, ply in pairs(player.GetAll()) do
+	for _, ply in player.Iterator() do
 		local nwc = ply:GetNW2String("Class")
 		local pname = ply:Nick() .. " (" .. ply:GetNWString("Name") .. ")"
 		local classname = MuR.Language["civilian"]
 		local jcolor = Color(100, 150, 200)
 
-		if nwc == "Killer" then classname = MuR.Language["murderer"]; jcolor = Color(200, 50, 50)
-		elseif nwc == "Traitor" then classname = MuR.Language["traitor"]; jcolor = Color(200, 50, 50)
-		elseif nwc == "Attacker" then classname = MuR.Language["rioter"]; jcolor = Color(200, 50, 50)
-		elseif nwc == "Terrorist" or nwc == "Terrorist2" then classname = MuR.Language["terrorist"]; jcolor = Color(200, 50, 50)
-		elseif nwc == "Maniac" then classname = MuR.Language["maniac"]; jcolor = Color(200, 50, 50)
-		elseif nwc == "Shooter" then classname = MuR.Language["shooter"]; jcolor = Color(200, 50, 50)
-		elseif nwc == "Zombie" then classname = MuR.Language["zombie"]; jcolor = Color(200, 50, 50)
-		elseif nwc == "Hunter" or nwc == "Defender" then classname = MuR.Language["defender"]; jcolor = Color(50, 75, 175)
-		elseif nwc == "Medic" then classname = MuR.Language["medic"]; jcolor = Color(50, 120, 50)
-		elseif nwc == "Builder" then classname = MuR.Language["builder"]; jcolor = Color(50, 120, 50)
-		elseif nwc == "Soldier" then classname = MuR.Language["soldier"]; jcolor = Color(250, 150, 0)
-		elseif nwc == "Officer" then classname = MuR.Language["officer"]; jcolor = Color(75, 100, 200)
-		elseif nwc == "FBI" then classname = MuR.Language["fbiagent"]; jcolor = Color(75, 100, 200)
-		elseif nwc == "Riot" then classname = MuR.Language["riotpolice"]; jcolor = Color(75, 100, 200)
-		elseif nwc == "SWAT" or nwc == "ArmoredOfficer" then classname = MuR.Language["swat"]; jcolor = Color(75, 100, 200)
-		elseif nwc == "Criminal" then classname = MuR.Language["criminal"]; jcolor = Color(255, 120, 60)
-		elseif nwc == "HeadHunter" then classname = MuR.Language["headhunter"]; jcolor = Color(255, 120, 60)
-		elseif nwc == "Witness" then classname = MuR.Language["witness"]; jcolor = Color(50, 120, 50)
-		elseif nwc == "Security" then classname = MuR.Language["security"]; jcolor = Color(25, 25, 255)
-		elseif nwc == "GangRed" then classname = MuR.Language["gangred"]; jcolor = Color(200, 50, 50)
-		elseif nwc == "GangGreen" then classname = MuR.Language["ganggreen"]; jcolor = Color(50, 200, 50)
-		end
+		local roleData = MuR:GetRole(nwc) or MuR:GetRole("Civilian")
+		classname = MuR.Language[roleData.langName] or roleData.langName
+		jcolor = roleData.color or Color(100, 150, 200)
 
 		local playerPanel = vgui.Create("DPanel", scrollPanel)
 		playerPanel:SetSize(We(480), He(64))
@@ -237,7 +249,7 @@ local function CreateFinishPanel(type, isvote)
                 surface.DrawTexturedRect(0, 0, w, h)
             end
 		end
-		
+
 		local avatar = vgui.Create("AvatarImage", playerPanel)
 		avatar:SetSize(He(48), He(48))
 		avatar:SetPos(We(8), He(8))
@@ -279,7 +291,6 @@ net.Receive("MuR.FinalScreen", function()
 	CreateFinishPanel(str, vote)
 end)
 
------ViewPunch Remake-----
 local PUNCH_DAMPING = 9
 local PUNCH_SPRING_CONSTANT = 65
 local vp_is_calc = false
@@ -330,7 +341,7 @@ local function Viewpunch(angle)
 end
 
 function meta:ViewPunchClient(angle)
-	--if not IsFirstTimePredicted() then return end
+
 	Viewpunch(angle)
 end
 
@@ -345,8 +356,6 @@ net.Receive("MuR.SetHull", function()
 	LocalPlayer():SetHull(tab[1], tab[2])
 	LocalPlayer():SetHullDuck(tab[3], tab[4])
 end)
-
--------------------------
 
 local function CreateCharacterVoicePanel()
 	local frame = vgui.Create("DFrame")
@@ -392,3 +401,164 @@ local function CreateCharacterVoicePanel()
 	end
 end
 concommand.Add("mur_voicepanel", CreateCharacterVoicePanel)
+
+local function ShowDisclaimer()
+	local dp = vgui.Create("DFrame")
+	dp:SetPos(0, 0)
+	dp:SetSize(ScrW(), ScrH())
+	dp:SetTitle("")
+	dp:ShowCloseButton(false)
+	dp:SetDraggable(false)
+	dp:MakePopup()
+	dp:SetAlpha(0)
+	dp:AlphaTo(255, 1, 0)
+
+	local glitch_active = false
+	local glitch_end_time, glitch_next_time = 0, CurTime() + math.Rand(2, 4)
+	local textAnimStart = CurTime()
+
+	local disclaimerTitle = MuR.Language["disclaimer_title"] or "DISCLAIMER"
+	local disclaimerText = MuR.Language["disclaimer_text"] or "This game mode is a work of fiction. All events, characters, and situations depicted are entirely fictional and do not reflect real events. This is a social experiment and artistic expression. By continuing, you acknowledge that you understand the fictional nature of this content."
+	local disclaimerAccept = MuR.Language["disclaimer_accept"] or "I UNDERSTAND"
+
+	local function DrawShadowedText(txt, font, x, y, color, xalign, yalign)
+		draw.SimpleText(txt, font, x + 2, y + 2, Color(0, 0, 0, 180), xalign, yalign)
+		draw.SimpleText(txt, font, x, y, color, xalign, yalign)
+	end
+
+	dp.Paint = function(self, w, h)
+		if not glitch_active and CurTime() > glitch_next_time then
+			glitch_active = true
+			glitch_end_time = CurTime() + math.Rand(0.1, 0.3)
+			glitch_next_time = CurTime() + math.Rand(2, 5)
+		elseif CurTime() > glitch_end_time then
+			glitch_active = false
+		end
+
+		local smooth_shake_x = math.sin(RealTime() * 2) * 2
+		local smooth_shake_y = math.cos(RealTime() * 2) * 2
+		local glitch_shake_x = glitch_active and math.Rand(-3, 3) or 0
+		local glitch_shake_y = glitch_active and math.Rand(-3, 3) or 0
+		local total_shake_x = smooth_shake_x + glitch_shake_x
+		local total_shake_y = smooth_shake_y + glitch_shake_y
+
+		draw.RoundedBox(0, total_shake_x - 10, total_shake_y - 10, w + 20, h + 20, Color(10, 0, 0, 250))
+
+		local gridSize = 50
+		surface.SetDrawColor(100, 10, 10, 75)
+		for i = 0, w / gridSize do 
+			surface.DrawRect(i * gridSize - (RealTime() * 15) % gridSize + total_shake_x, total_shake_y, 1, h) 
+		end
+		for i = 0, h / gridSize do 
+			surface.DrawRect(total_shake_x, i * gridSize - (RealTime() * 15) % gridSize + total_shake_y, w, 1) 
+		end
+
+		surface.SetDrawColor(200, 20, 20)
+		surface.DrawRect(w/2 - We(350) + total_shake_x, He(180) + total_shake_y, We(700), 2)
+		surface.DrawRect(w/2 - We(350) + total_shake_x, h - He(250) + total_shake_y, We(700), 2)
+
+		if glitch_active then
+			DrawShadowedText(disclaimerTitle, "MuR_Font6", w/2 + math.Rand(-5, 5) + total_shake_x, He(100) + total_shake_y, Color(255, 0, 0, 100), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		end
+		DrawShadowedText(disclaimerTitle, "MuR_Font6", w/2 + total_shake_x, He(100) + total_shake_y, Color(200, 20, 20), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+		local timePassed = CurTime() - textAnimStart
+		local charsToShow = math.min(utf8.len(disclaimerText), math.floor(timePassed * 40))
+		local partialText = utf8.sub(disclaimerText, 1, charsToShow)
+
+		local maxWidth = We(650)
+		surface.SetFont("MuR_Font2")
+		local words = string.Explode(" ", partialText)
+		local lines = {}
+		local currentLine = ""
+
+		for _, word in ipairs(words) do
+			local testLine = currentLine == "" and word or currentLine .. " " .. word
+			local tw, _ = surface.GetTextSize(testLine)
+			if tw > maxWidth then
+				table.insert(lines, currentLine)
+				currentLine = word
+			else
+				currentLine = testLine
+			end
+		end
+		if currentLine ~= "" then
+			table.insert(lines, currentLine)
+		end
+
+		local lineHeight = He(30)
+		local startY = He(220) + total_shake_y
+		for i, line in ipairs(lines) do
+			if glitch_active then
+				draw.SimpleText(line, "MuR_Font2", w/2 + math.Rand(-3, 3) + total_shake_x, startY + (i-1) * lineHeight, Color(255, 0, 0, 80), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+			end
+			DrawShadowedText(line, "MuR_Font2", w/2 + total_shake_x, startY + (i-1) * lineHeight, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+		end
+
+		local warningY = h - He(300) + total_shake_y
+		local warningText = "⚠"
+		DrawShadowedText(warningText, "MuR_Font4", w/2 + total_shake_x, warningY, Color(200, 20, 20, 150 + math.sin(RealTime() * 3) * 50), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	end
+
+	local btn = vgui.Create("DButton", dp)
+	btn:SetSize(We(250), He(60))
+	btn:SetPos(ScrW()/2 - We(125), ScrH() - He(180))
+	btn:SetText("")
+	btn.Paint = function(self, w, h)
+		local col = self:IsHovered() and Color(255, 50, 50) or Color(200, 20, 20)
+		draw.RoundedBox(4, 0, 0, w, h, Color(0, 0, 0, 150))
+		surface.SetDrawColor(col)
+		surface.DrawOutlinedRect(0, 0, w, h, 2)
+		draw.SimpleText(disclaimerAccept, "MuR_Font2", w/2, h/2, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	end
+	btn.DoClick = function()
+		surface.PlaySound("buttons/combine_button1.wav")
+		dp:AlphaTo(0, 0.5, 0, function()
+			if IsValid(dp) then dp:Remove() end
+		end)
+		cookie.Set("mur_disclaimer_accepted", "1")
+	end
+end
+
+hook.Add("InitPostEntity", "MuR_ShowDisclaimer", function()
+	timer.Simple(2, function()
+		if cookie.GetString("mur_disclaimer_accepted", "0") ~= "1" then
+			ShowDisclaimer()
+		end
+	end)
+end)
+
+hook.Add("InitPostEntity", "MuR_Check64Bit", function()
+	if jit.arch != "x64" then
+		local frame = vgui.Create("DFrame")
+		frame:SetSize(ScrW(), ScrH())
+		frame:SetTitle("")
+		frame:ShowCloseButton(false)
+		frame:SetDraggable(false)
+		frame:MakePopup()
+		frame.Paint = function(self, w, h)
+			draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 255))
+
+			draw.SimpleText(MuR.Language["x64_check_title"], "MuR_Font3", w/2, h/2 - 100, Color(255, 50, 50), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+			local text = MuR.Language["x64_check_desc"]
+			local font = "MuR_Font2"
+
+			draw.DrawText(text, font, w/2, h/2 - 50, Color(255, 255, 255), TEXT_ALIGN_CENTER)
+		end
+
+		local btn = vgui.Create("DButton", frame)
+		btn:SetSize(We(200), He(50))
+		btn:SetPos(ScrW()/2 - We(100), ScrH()/2 + He(100))
+		btn:SetText("")
+		btn.Paint = function(self, w, h)
+			local col = self:IsHovered() and Color(255, 50, 50) or Color(200, 20, 20)
+			draw.RoundedBox(4, 0, 0, w, h, col)
+			draw.SimpleText(MuR.Language["x64_check_button"], "MuR_Font2", w/2, h/2, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		end
+		btn.DoClick = function()
+			RunConsoleCommand("disconnect")
+			frame:Remove()
+		end
+	end
+end)

@@ -1,4 +1,4 @@
-local shop_select_panel = nil
+﻿local shop_select_panel = nil
 
 hook.Add("Think", "MuR_Shop", function()
 	if input.IsKeyDown(KEY_F2) and not IsValid(shop_select_panel) then
@@ -6,8 +6,9 @@ hook.Add("Think", "MuR_Shop", function()
 	end
 end)
 
--------------------------------------------
--------------------------------------------
+net.Receive("MuR.SyncShopCounts", function()
+	LocalPlayer().ShopPurchases = net.ReadTable()
+end)
 
 concommand.Add("mur_shop", function()
     if !LocalPlayer():Alive() then return end
@@ -49,10 +50,10 @@ function OpenShop()
         if not IsValid(panel) then return end
         local x, y = panel:LocalToScreen(0, 0)
         local scrW, scrH = ScrW(), ScrH()
-        
+
         surface.SetDrawColor(255, 255, 255)
         surface.SetMaterial(blur)
-        
+
         for i = 1, 3 do
             blur:SetFloat("$blur", (i / 3) * (amount or 6))
             blur:Recompute()
@@ -72,25 +73,30 @@ function OpenShop()
         surface.SetDrawColor(THEME.accent)
         surface.DrawRect(0, He(60), w, He(2))
         draw.SimpleText(MuR.Language["shop"] or "Shop", "MuR_Font3", We(30), He(30), THEME.text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-        
+
         local money = LocalPlayer():GetNW2Float('Money', 0)
-        draw.SimpleText("$" .. money, "MuR_Font3", w - We(120), He(30), THEME.accent, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+        if MuR.GamemodeCount == 18 then
+            money = LocalPlayer():GetNWInt('MuR_ZombiesPoints', 0)
+            draw.SimpleText(money .. " PTS", "MuR_Font3", w - We(120), He(30), THEME.accent, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+        else
+            draw.SimpleText("$" .. money, "MuR_Font3", w - We(120), He(30), THEME.accent, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+        end
     end
 
     local closeBtn = vgui.Create("DButton", shopmenu)
     closeBtn:SetSize(We(32), He(32))
     closeBtn:SetPos(frameW - We(42), He(14))
     closeBtn:SetText("")
-    
+
     closeBtn.Paint = function(self, w, h)
         local hovered = self:IsHovered()
         local color = hovered and THEME.danger or THEME.panel
         local symbolColor = hovered and THEME.text or THEME.textDark
-        
+
         draw.RoundedBox(4, 0, 0, w, h, color)
         draw.SimpleText("✕", "MuR_Font3", w/2, h/2, symbolColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
-    
+
     closeBtn.DoClick = function()
         surface.PlaySound("murdered/vgui/ui_click.wav")
         shopmenu:Close()
@@ -106,10 +112,10 @@ function OpenShop()
         button:DockMargin(We(20), He(10), We(20), 0)
         button:SetTall(He(80))
         button:SetText("")
-        
+
         local hovered = false
         local alpha = 0
-        
+
         button.Think = function(self)
             if not checkFunc or checkFunc() then
                 if self:IsHovered() and not hovered then
@@ -119,7 +125,7 @@ function OpenShop()
                     hovered = false
                     alpha = 255
                 end
-                
+
                 alpha = Lerp(FrameTime() * 8, alpha, hovered and 255 or 0)
             end
         end
@@ -127,20 +133,20 @@ function OpenShop()
         button.Paint = function(self, w, h)
             local isEnabled = not checkFunc or checkFunc()
             local baseAlpha = isEnabled and 255 or 100
-            
+
             draw.RoundedBox(8, 0, 0, w, h, ColorAlpha(THEME.panel, baseAlpha))
-            
+
             if isEnabled and self:IsHovered() then
                 surface.SetDrawColor(THEME.accent.r, THEME.accent.g, THEME.accent.b, alpha * 0.1)
                 draw.RoundedBox(8, 0, 0, w, h, Color(THEME.accent.r, THEME.accent.g, THEME.accent.b, alpha * 0.1))
-                
+
                 surface.SetDrawColor(THEME.accent.r, THEME.accent.g, THEME.accent.b, alpha * 0.8)
                 surface.DrawRect(0, 0, We(3), h)
             end
-            
+
             local textColor = isEnabled and Color(255, 255, 255, 255 - alpha * 0.3) or Color(100, 100, 100, 100)
             draw.SimpleText(text, "MuR_Font3", We(80), h/2, textColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-            
+
             if not isEnabled then
                 local roleText = "Unavailable"
                 draw.SimpleText(roleText, "MuR_Font3", w - We(30), h/2, Color(100, 100, 100, 100), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
@@ -170,7 +176,9 @@ function OpenShop()
         shopmenu:Close()
         OpenCategoryShop("Killer")
     end, function()
-        return LocalPlayer():IsKiller() or LocalPlayer():GetNW2String('Class') == "Criminal"
+        local class = LocalPlayer():GetNW2String('Class')
+        local isRestricted = class == "Maniac" or class == "Attacker" or class == "Terrorist2" or class == "Soldier"
+        return (LocalPlayer():IsKiller() and not isRestricted) or class == "Criminal"
     end)
 
     CreateButton(buttonPanel, "Military Equipment", function()
@@ -204,7 +212,7 @@ function OpenCategoryShop(category)
     local scr = vgui.Create("DScrollPanel", shopmenu)
     scr:Dock(FILL)
     scr:DockMargin(We(10), He(70), We(10), He(10))
-    
+
     local sbar = scr:GetVBar()
     sbar:SetWide(We(8))
     function sbar:Paint(w, h)
@@ -213,41 +221,46 @@ function OpenCategoryShop(category)
     function sbar.btnGrip:Paint(w, h)
         draw.RoundedBox(4, 0, 0, w, h, THEME.accent)
     end
-    
+
     shopmenu.Think = function(self)
         if animating then
             shopmenu:Center()
         end
     end
-    
+
     shopmenu.Paint = function(self, w, h)
         draw.RoundedBox(8, 0, 0, w, h, THEME.background)
         draw.RoundedBox(8, 0, 0, w, He(60), THEME.panel)
         surface.SetDrawColor(THEME.accent)
         surface.DrawRect(0, He(60), w, He(2))
-        
+
         draw.SimpleText(MuR.Language["shop"], "MuR_Font3", We(30), He(30), THEME.text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-        
+
         local money = LocalPlayer():GetNW2Float('Money', 0)
-        draw.SimpleText("$" .. money, "MuR_Font3", w - We(120), He(30), THEME.accent, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+        if MuR.GamemodeCount == 18 then
+            money = LocalPlayer():GetNWInt('MuR_ZombiesPoints', 0)
+            draw.SimpleText(money .. " PTS", "MuR_Font3", w - We(120), He(30), THEME.accent, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+        else
+            draw.SimpleText("$" .. money, "MuR_Font3", w - We(120), He(30), THEME.accent, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+        end
 
         draw.SimpleText(counts..MuR.Language["search_newhud_found"], "MuR_Font2", w/2.05, He(80), THEME.text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
-    
+
     local closeBtn = vgui.Create("DButton", shopmenu)
     closeBtn:SetSize(We(32), He(32))
     closeBtn:SetPos(frameW - We(42), He(14))
     closeBtn:SetText("")
-    
+
     closeBtn.Paint = function(self, w, h)
         local hovered = self:IsHovered()
         local color = hovered and THEME.danger or THEME.panel
         local symbolColor = hovered and THEME.text or THEME.textDark
-        
+
         draw.RoundedBox(4, 0, 0, w, h, color)
         draw.SimpleText("✕", "MuR_Font3", w/2, h/2, symbolColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
-    
+
     closeBtn.DoClick = function()
         surface.PlaySound("murdered/vgui/ui_click.wav")
         shopmenu:Close()
@@ -260,19 +273,20 @@ function OpenCategoryShop(category)
     itemGrid:SetSpaceY(He(10))
 
     for k, v in pairs(MuR.Shop[category]) do
-        if category == "Killer" and not LocalPlayer():IsKiller() and v.traitor then 
+        local class = LocalPlayer():GetNW2String('Class')
+        if category == "Killer" and (not LocalPlayer():IsKiller() or class == "Criminal") and v.traitor then 
             continue 
         end
         counts = counts + 1
-        
+
         local item = vgui.Create("DButton")
         item:SetSize(We(380), He(140))
         itemGrid:Add(item)
         item:SetText("")
-        
+
         local hovered = false
         local alpha = 0
-        
+
         item.Think = function(self)
             if self:IsHovered() and not hovered then
                 hovered = true
@@ -281,37 +295,67 @@ function OpenCategoryShop(category)
                 hovered = false
                 alpha = 255
             end
-            
+
             alpha = Lerp(FrameTime() * 8, alpha, hovered and 255 or 0)
         end
-    
+
         item.Paint = function(self, w, h)
             draw.RoundedBox(8, 0, 0, w, h, THEME.panel)
-            
+
             if self:IsHovered() then
                 surface.SetDrawColor(THEME.accent.r, THEME.accent.g, THEME.accent.b, 30)
                 draw.RoundedBox(8, 0, 0, w, h, Color(THEME.accent.r, THEME.accent.g, THEME.accent.b, 30))
-                
+
                 surface.SetDrawColor(THEME.accent.r, THEME.accent.g, THEME.accent.b, 100)
                 surface.DrawOutlinedRect(0, 0, w, h, 2)
             end
-            
+
             draw.SimpleText(v.name, "MuR_Font3", We(140), h/2.4, THEME.text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-            
-            local canBuy = LocalPlayer():GetNW2Float('Money') >= v.price
+
+            local limit = v.limit or 1
+            local purchases = LocalPlayer().ShopPurchases and LocalPlayer().ShopPurchases[category] and LocalPlayer().ShopPurchases[category][k] or 0
+
+            local money = LocalPlayer():GetNW2Float('Money')
+            if MuR.GamemodeCount == 18 then
+                money = LocalPlayer():GetNWInt('MuR_ZombiesPoints', 0)
+            end
+
+            local price = (MuR.GamemodeCount == 18 and v.zombieprice) or v.price
+            if MuR.GamemodeCount == 18 and MuR.Mode18Client and MuR.Mode18Client.Powerups and MuR.Mode18Client.Powerups["Fire Sale"] and CurTime() < MuR.Mode18Client.Powerups["Fire Sale"] then
+                price = math.floor(price * 0.5)
+            end
+            local canBuy = money >= price and (limit == 0 or purchases < limit)
             local priceColor = canBuy and THEME.success or THEME.danger
-            draw.SimpleText("$" .. v.price, "MuR_Font2", We(140), h/1.6, priceColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-    
+
+            if MuR.GamemodeCount == 18 then
+                draw.SimpleText(price .. " PTS", "MuR_Font2", We(140), h/1.6, priceColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+            else
+                draw.SimpleText("$" .. price, "MuR_Font2", We(140), h/1.6, priceColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+            end
+
+            local limitText = (limit == 0) and "∞" or (purchases .. "/" .. limit)
+            draw.SimpleText(limitText, "MuR_Font2", w - We(20), h/1.6, THEME.textDark, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+
             local itemmaterial = Material(v.icon)
             surface.SetMaterial(itemmaterial)
             surface.SetDrawColor(255, 255, 255)
             surface.DrawTexturedRect(We(50), h/3, We(50), He(50))
         end
-    
+
         item.DoClick = function(self)
             local m = LocalPlayer():GetNW2Float('Money', 0)
+            if MuR.GamemodeCount == 18 then
+                m = LocalPlayer():GetNWInt('MuR_ZombiesPoints', 0)
+            end
 
-            if m >= v.price then
+            local limit = v.limit or 1
+            local purchases = LocalPlayer().ShopPurchases and LocalPlayer().ShopPurchases[category] and LocalPlayer().ShopPurchases[category][k] or 0
+
+            local price = (MuR.GamemodeCount == 18 and v.zombieprice) or v.price
+            if MuR.GamemodeCount == 18 and MuR.Mode18Client and MuR.Mode18Client.Powerups and MuR.Mode18Client.Powerups["Fire Sale"] and CurTime() < MuR.Mode18Client.Powerups["Fire Sale"] then
+                price = math.floor(price * 0.5)
+            end
+            if m >= price and (limit == 0 or purchases < limit) then
                 surface.PlaySound("murdered/vgui/buy.wav")
                 timer.Simple(0.1, function()
                     net.Start("MuR.UseShop")

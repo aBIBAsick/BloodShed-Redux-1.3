@@ -1,6 +1,25 @@
-local function GetWeaponInfo(class)
+﻿local function GetWeaponInfo(class)
+    if string.StartWith(class, "mur_armor_") then
+        local armorId = string.sub(class, 11)
+        local item = MuR.Armor.GetItem(armorId)
+        if item then
+            local name = MuR.Language["armor_item_" .. armorId] or armorId
+            local icon = item.icon or "entities/shield.png"
+            return name, icon
+        end
+    end
+
     local swep = weapons.Get(class)
     local icon = file.Exists("materials/entities/" .. class .. ".png", "GAME") and "entities/" .. class .. ".png" or "entities/question.png"
+
+    if MuR.Language then
+        if MuR.Language["craft_ingredient_" .. class] then
+            return MuR.Language["craft_ingredient_" .. class], icon
+        elseif MuR.Language["craft_recipe_name_" .. class] then
+            return MuR.Language["craft_recipe_name_" .. class], icon
+        end
+    end
+
     if string.find(class, "_food_") then
         icon = "entities/food.png"
     end
@@ -26,6 +45,7 @@ local SEARCH_THEME = {
 }
 
 local searchedItems = {}
+MuR.SearchFrames = MuR.SearchFrames or {}
 
 local function CreateTimingMinigame(callback, failCallback, frame)
     local minigameFrame = vgui.Create("DFrame")
@@ -44,47 +64,47 @@ local function CreateTimingMinigame(callback, failCallback, frame)
     local barHeight = He(20)
     local targetZone = We(60)
     local targetPos = barWidth / 2 - targetZone / 2
-    
+
     local sliderPos = We(math.random(1,649))
     local sliderSpeed = We(650)
     local direction = math.random(0,1) == 0 and -1 or 1
     local gameActive = true
-    
+
     minigameFrame.Paint = function(self, w, h)
         draw.RoundedBox(8, 0, 0, w, h, SEARCH_THEME.background)
         draw.RoundedBox(8, We(10), He(10), w - We(20), He(60), SEARCH_THEME.panel)
-        
+
         local barX = (w - barWidth) / 2
         local barY = He(100)
-        
+
         draw.RoundedBox(4, barX, barY, barWidth, barHeight, Color(30, 30, 30, 255))
-        
+
         draw.RoundedBox(4, barX + targetPos, barY, targetZone, barHeight, SEARCH_THEME.success)
-        
+
         if gameActive then
             draw.RoundedBox(4, barX + sliderPos, barY - He(5), We(10), barHeight + He(10), SEARCH_THEME.accent)
         end
     end
-    
+
     local title = vgui.Create("DLabel", minigameFrame)
     title:SetText(MuR.Language["search_newhud_tt"])
     title:SetFont("MuR_Font3")
     title:SetTextColor(SEARCH_THEME.text)
     title:SetPos(We(20), He(20))
     title:SizeToContents()
-    
+
     local instruction = vgui.Create("DLabel", minigameFrame)
     instruction:SetText(MuR.Language["search_newhud_space"])
     instruction:SetFont("MuR_FontDef")
     instruction:SetTextColor(SEARCH_THEME.textDark)
     instruction:SetPos(We(20), He(52))
     instruction:SizeToContents()
-    
+
     local function UpdateSlider()
         if not gameActive then return end
-        
+
         sliderPos = sliderPos + sliderSpeed * FrameTime() * direction
-        
+
         if sliderPos <= 0 then
             sliderPos = 0
             direction = 1
@@ -93,20 +113,20 @@ local function CreateTimingMinigame(callback, failCallback, frame)
             direction = -1
         end
     end
-    
+
     local function CheckHit()
         if not gameActive then return end
-        
+
         local sliderCenter = sliderPos + We(5)
         local targetStart = targetPos
         local targetEnd = targetPos + targetZone
-        
+
         if sliderCenter >= targetStart and sliderCenter <= targetEnd then
             gameActive = false
             instruction:SetText(MuR.Language["search_newhud_perfect"])
             instruction:SetTextColor(SEARCH_THEME.success)
             surface.PlaySound("buttons/button9.wav")
-            
+
             timer.Simple(0.5, function()
                 if IsValid(minigameFrame) then
                     minigameFrame:Remove()
@@ -119,7 +139,7 @@ local function CreateTimingMinigame(callback, failCallback, frame)
             instruction:SetText(MuR.Language["search_newhud_missed"])
             instruction:SetTextColor(SEARCH_THEME.danger)
             surface.PlaySound("buttons/button10.wav")
-            
+
             timer.Simple(0.5, function()
                 if IsValid(minigameFrame) then
                     minigameFrame:Remove()
@@ -129,13 +149,13 @@ local function CreateTimingMinigame(callback, failCallback, frame)
             end)
         end
     end
-    
+
     minigameFrame.OnKeyCodePressed = function(self, key)
         if key == KEY_SPACE then
             CheckHit()
         end
     end
-    
+
     minigameFrame.Think = UpdateSlider
 end
 
@@ -144,7 +164,7 @@ local function CreateWeaponPanel(weaponTable, body)
     if not searchedItems[bodyID] then
         searchedItems[bodyID] = {}
     end
-    
+
     local columns = math.min(math.ceil(math.sqrt(#weaponTable)), 5)
     local buttonSize = We(120)
     local spacing = We(15)
@@ -153,6 +173,10 @@ local function CreateWeaponPanel(weaponTable, body)
     local panelHeight = math.max(He(120) + rows * (buttonSize + He(40)) + spacing, He(400))
 
     local frame = vgui.Create("DFrame")
+    if IsValid(MuR.SearchFrames[bodyID]) then MuR.SearchFrames[bodyID]:Remove() end
+    MuR.SearchFrames[bodyID] = frame
+    frame.OnRemove = function() MuR.SearchFrames[bodyID] = nil end
+
     frame:SetSize(panelWidth, panelHeight)
     frame:Center()
     frame:SetTitle("")
@@ -162,14 +186,14 @@ local function CreateWeaponPanel(weaponTable, body)
     frame:ShowCloseButton(false)
     frame:AlphaTo(0, 0)
     frame:AlphaTo(255, 0.3)
-    
+
     frame.Paint = function(self, w, h)
         draw.RoundedBox(12, 0, 0, w, h, SEARCH_THEME.background)
         draw.RoundedBox(12, 0, 0, w, He(80), SEARCH_THEME.panel)
         surface.SetDrawColor(SEARCH_THEME.accent)
         surface.DrawRect(0, He(80), w, He(3))
     end
-    
+
     frame.OnKeyCodePressed = function(self, key)
         if key == KEY_E or key == KEY_ESCAPE then
             frame:AlphaTo(0, 0.2, 0, function()
@@ -212,7 +236,7 @@ local function CreateWeaponPanel(weaponTable, body)
     local scrollPanel = vgui.Create("DScrollPanel", frame)
     scrollPanel:SetPos(We(15), He(95))
     scrollPanel:SetSize(panelWidth - We(30), panelHeight - He(110))
-    
+
     local sbar = scrollPanel:GetVBar()
     sbar:SetWide(We(8))
     function sbar:Paint(w, h)
@@ -230,18 +254,18 @@ local function CreateWeaponPanel(weaponTable, body)
 
     for i, class in ipairs(weaponTable) do
         local name, icon = GetWeaponInfo(class)
-        
+
         local weaponButton = grid:Add("DButton")
         weaponButton:SetSize(buttonSize, buttonSize + He(35))
         weaponButton:SetText("")
         weaponButton:SetEnabled(true)
         weaponButton.classwep = class
         weaponButton.isSearched = searchedItems[bodyID][class] or false
-        
+
         function weaponButton:Paint(w, h)
             local bgColor = SEARCH_THEME.panel
             local borderColor = Color(0, 0, 0, 0)
-            
+
             if LocalPlayer():HasWeapon(class) then
                 bgColor = Color(SEARCH_THEME.danger.r, SEARCH_THEME.danger.g, SEARCH_THEME.danger.b, 100)
                 borderColor = SEARCH_THEME.danger
@@ -249,7 +273,7 @@ local function CreateWeaponPanel(weaponTable, body)
                 bgColor = SEARCH_THEME.panelHover
                 borderColor = SEARCH_THEME.accent
             end
-            
+
             draw.RoundedBox(8, 0, 0, w, h, bgColor)
             if borderColor.a > 0 then
                 surface.SetDrawColor(borderColor)
@@ -271,17 +295,17 @@ local function CreateWeaponPanel(weaponTable, body)
             weaponIcon:SetImage(icon)
             nameLabel:SetText(name)
             nameLabel:SetTextColor(SEARCH_THEME.text)
-            
+
             if LocalPlayer():HasWeapon(class) then
                 nameLabel:SetTextColor(SEARCH_THEME.danger)
             end
-            
+
             weaponButton.DoClick = function()
                 if LocalPlayer():HasWeapon(class) then
                     surface.PlaySound("buttons/button10.wav")
                     return
                 end
-                
+
                 surface.PlaySound("buttons/button14.wav")
                 weaponButton:AlphaTo(0, 0.2, 0, function()
                     if IsValid(weaponButton) then
@@ -289,7 +313,7 @@ local function CreateWeaponPanel(weaponTable, body)
                         grid:InvalidateLayout(true)
                     end
                 end)
-                
+
                 net.Start("MuR.BodySearch")
                 net.WriteEntity(body)
                 net.WriteString(class)
@@ -299,37 +323,37 @@ local function CreateWeaponPanel(weaponTable, body)
             weaponIcon:SetImage("entities/search.png")
             nameLabel:SetText(MuR.Language["search_newhud_click"])
             nameLabel:SetTextColor(SEARCH_THEME.textDark)
-            
+
             weaponButton.DoClick = function()
                 if LocalPlayer():HasWeapon(class) then
                     surface.PlaySound("buttons/button10.wav")
                     return
                 end
-                
+
                 weaponButton:SetEnabled(false)
                 nameLabel:SetText("")
-                
+
                 CreateTimingMinigame(function()
                     if IsValid(weaponButton) and IsValid(frame) then
                         weaponIcon:SetImage(icon)
                         nameLabel:SetText(name)
                         nameLabel:SetTextColor(SEARCH_THEME.text)
                         surface.PlaySound("buttons/button9.wav")
-                        
+
                         searchedItems[bodyID][class] = true
                         weaponButton.isSearched = true
-                        
+
                         if LocalPlayer():HasWeapon(class) then
                             nameLabel:SetTextColor(SEARCH_THEME.danger)
                         end
-                        
+
                         weaponButton:SetEnabled(true)
                         weaponButton.DoClick = function()
                             if LocalPlayer():HasWeapon(class) then
                                 surface.PlaySound("buttons/button10.wav")
                                 return
                             end
-                            
+
                             surface.PlaySound("buttons/button14.wav")
                             weaponButton:AlphaTo(0, 0.2, 0, function()
                                 if IsValid(weaponButton) then
@@ -337,7 +361,7 @@ local function CreateWeaponPanel(weaponTable, body)
                                     grid:InvalidateLayout(true)
                                 end
                             end)
-                            
+
                             net.Start("MuR.BodySearch")
                             net.WriteEntity(body)
                             net.WriteString(class)
@@ -359,4 +383,29 @@ net.Receive("MuR.BodySearch", function()
     local tab = net.ReadTable()
     local ent = net.ReadEntity()
     CreateWeaponPanel(tab, ent)
+end)
+
+net.Receive("MuR.RemoveItemFromSearch", function()
+    local ent = net.ReadEntity()
+    local class = net.ReadString()
+    if not IsValid(ent) then return end
+
+    local bodyID = ent:EntIndex()
+    local frame = MuR.SearchFrames and MuR.SearchFrames[bodyID]
+
+    if IsValid(frame) then
+        local function FindAndRemove(parent)
+            for _, child in pairs(parent:GetChildren()) do
+                if child.classwep == class then
+                    child:Remove()
+                    if parent.InvalidateLayout then parent:InvalidateLayout(true) end
+                    return true
+                end
+                if FindAndRemove(child) then return true end
+            end
+            return false
+        end
+
+        FindAndRemove(frame)
+    end
 end)

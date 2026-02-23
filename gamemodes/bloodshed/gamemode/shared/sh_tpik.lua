@@ -731,11 +731,6 @@ if CLIENT then
         local vm = self:GetViewModel()
         local wpnClass = IsValid(wpn) and wpn:GetClass() or nil
 
-        if self._LastRagFWMEnt and self._LastRagFWMEnt ~= rag then
-            self:RemoveRagdollFWM(rag)
-        end
-        self._LastRagFWMEnt = rag
-
         if self._LastRagFWMwpnClass and wpnClass and self._LastRagFWMwpnClass ~= wpnClass then
             self:RemoveRagdollFWM(rag)
         end
@@ -839,9 +834,6 @@ if CLIENT then
         SafeRemoveEntity(self:GetRagFWM())
         self.RagFakeWorldModel = nil
         self.LastRagFWMwpn = nil
-        self._LastRagFWMwpnClass = nil
-        self._LastRagFWMEnt = nil
-        self._RagTPIKFrac = 0
         local wpn = self:GetActiveWeapon()
         if IsValid(wpn) then
             wepstate(true, wpn)

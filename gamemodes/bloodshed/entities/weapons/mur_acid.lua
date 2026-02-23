@@ -3,7 +3,7 @@ SWEP.Base = "mur_loot_base"
 
 SWEP.PrintName = "Hydrofluoric Acid"
 SWEP.Author = "Hari"
-SWEP.Category = "Bloodshed - Illegal"
+SWEP.Category = "Bloodshed - Agents"
 
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

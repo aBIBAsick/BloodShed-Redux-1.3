@@ -1,4 +1,4 @@
-local viewpunch = 1
+﻿local viewpunch = 1
 local viewpunchExplosion = 1
 local viewpunchIntensity = 0.3
 local buildupSpeed = 1
@@ -22,20 +22,20 @@ end
 function ApplySuppressionEffect(attacker, hitPos, startPos, multiplier)
     local traceStart = startPos or attacker:EyePos()
     local traceEnd = hitPos
-    
-    for _, player in pairs(player.GetAll()) do
+
+    for _, player in player.Iterator() do
         local distance, suppressionPoint = util.DistanceToLine(traceStart, traceEnd, player:GetPos())
-        
+
         if player:IsPlayer() and player:Alive() and enabled == 1 and distance < 100 and player ~= attacker then
             local trace = util.TraceLine({
                 start = suppressionPoint,
                 endpos = player:EyePos(),
                 filter = player
             })
-            
+
             if enableCover == 0 and trace.Hit then return end
             if player:InVehicle() and enableVehicle == 0 then return end
-            
+
             local currentEffect = math.Clamp(player:GetNW2Float("EffectAMT"), 0, 1)
             player:SetNW2Float("EffectAMT", currentEffect + 0.05 * multiplier * buildupSpeed)
 
@@ -45,7 +45,7 @@ function ApplySuppressionEffect(attacker, hitPos, startPos, multiplier)
                 net.WriteFloat(distance)
                 net.Send(player)
             end
-            
+
             timer.Remove(player:Name() .. "blurreset")
             timer.Create(player:Name() .. "blurreset", 4, 1, function()
                 local effectAmount = player:GetNW2Float("EffectAMT")
@@ -54,14 +54,14 @@ function ApplySuppressionEffect(attacker, hitPos, startPos, multiplier)
                         if IsValid(player) then
                             local newAmount = math.Clamp(player:GetNW2Float("EffectAMT") - 0.1, 0, 100000)
                             player:SetNW2Float("EffectAMT", newAmount)
-                            
+
                             if muffle == 1 then
                                 player:SetDSP(1, false)
                             end
                         end
                     end)
                 end
-                
+
                 if IsValid(player) and player:Alive() and gaspEnabled == 1 and player:GetNW2Float("EffectAMT") >= 0.4 then
                     local gaspSound = "gasp/focus_gasp_0" .. math.random(1, 6) .. ".wav"
                     player:EmitSound(gaspSound, 75, math.random(90, 110), soundVolume)
@@ -73,12 +73,12 @@ end
 
 hook.Add("EntityFireBullets", "SuppressionFunc", function(attacker, bulletData)
     local originalCallback = bulletData.Callback
-    
+
     bulletData.Callback = function(shooter, traceResult, damageInfo)
         if originalCallback then
             originalCallback(shooter, traceResult, damageInfo)
         end
-        
+
         if SERVER then
             ApplySuppressionEffect(shooter, traceResult.HitPos, traceResult.StartPos, 1)
         end
@@ -88,7 +88,7 @@ end)
 hook.Add("OnDamagedByExplosion", "SuppressExplosion", function(player, damageInfo)
     if viewpunchExplosion == 0 then return end
     if damageInfo:GetDamage() < 30 and not player:Alive() then return end
-    
+
     if SERVER then
         ApplySuppressionEffect(nil, player:GetPos(), player:GetPos(), 20)
     end
@@ -101,18 +101,18 @@ local effectLerp = 0
 hook.Add("RenderScreenspaceEffects", "ApplySuppression", function()
     local localPlayer = LocalPlayer()
     local effectAmount = localPlayer:GetNW2Float("EffectAMT")
-    
+
     if effectAmount == 0 then return end
-    
+
     if effectAmount >= 0.7 and localPlayer:Alive() and muffle == 1 then
         localPlayer:SetDSP(14, false)
     end
-    
+
     if sharpen == 1 then
         sharpenLerp = Lerp(6 * FrameTime(), sharpenLerp, effectAmount * sharpenIntensity)
         DrawSharpen(sharpenLerp, 0.4)
     end
-    
+
     if bloom == 1 then
         bloomLerp = Lerp(6 * FrameTime(), bloomLerp, effectAmount * 0.5 * bloomIntensity)
         DrawBloom(0.30, bloomLerp, 0.33, 4.5, 1, 0, 1, 1, 1)
@@ -128,15 +128,15 @@ net.Receive("mursupviewpunch_punch", function()
         math.Rand(-100, 100) * punchIntensity
     )
     LocalPlayer():CLViewPunch(punchAngle)
-    
+
     local suppressionPoint = net.ReadVector()
     local distance = net.ReadFloat()
-    
+
     if distance < 30 then
         local snapSound = "bul_snap/supersonic_snap_" .. math.random(1, 18) .. ".wav"
         sound.Play(snapSound, suppressionPoint, 75, 100, soundVolume)
     end
-    
+
     local flybySound = "bul_flyby/subsonic_" .. math.random(1, 27) .. ".wav"
     sound.Play(flybySound, suppressionPoint, 75, 100, soundVolume*0.5)
 end)
@@ -151,10 +151,10 @@ end)
 
 hook.Add("GetMotionBlurValues", "SuppressionBlur", function(horizontal, vertical, forward, rotational)
     if blur == 0 then return end
-    
+
     effectLerp = Lerp(RealFrameTime() * 5, effectLerp, LocalPlayer():GetNW2Float("EffectAMT"))
     local blurForward = (effectLerp * blurIntensity) / 1.5
-    
+
     return blurForward / 500, blurForward / 500, blurForward, rotational
 end)
 
@@ -242,7 +242,7 @@ if CLIENT then
         ang[1] = math.Clamp(ang[1], -180, 180)
         ang[2] = math.Clamp(ang[2], -180, 180)
         ang[3] = math.Clamp(ang[3], -180, 180)
-        
+
         self.ViewPunchDone = false
     end
 

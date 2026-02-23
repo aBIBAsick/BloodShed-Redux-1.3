@@ -1,4 +1,4 @@
-MuR.GameStarted = true
+﻿MuR.GameStarted = true
 MuR.Delay_Before_Lose = 0
 MuR.Gamemode = 1
 MuR.PoliceState = 0
@@ -40,13 +40,36 @@ hook.Add("InitPostEntity", "MuR.InitPostEntity", function()
 end)
 
 function MuR:RemoveMapLogic()
-	local tab = ents.GetAll()
-
-	for i = 1, #tab do
-		local ent = tab[i]
-
+	for _, ent in ents.Iterator() do
 		if ent:IsNPC() or ent:IsWeapon() then
 			ent:Remove()
+		end
+	end
+end
+
+function MuR:ReplaceMapProps()
+	for _, ent in ipairs(ents.FindByClass("prop_*")) do
+		local model = ent:GetModel()
+		local replaceWith = MuR.EntityReplaceMapModel[model]
+		if not replaceWith then continue end
+
+		local phys = ent:GetPhysicsObject()
+		if IsValid(phys) and phys:IsMotionEnabled() then
+			local pos = ent:GetPos()
+			local ang = ent:GetAngles()
+			ent:Remove()
+
+			if string.StartWith(replaceWith, "mur_armor_") then
+				local armorId = string.sub(replaceWith, 11)
+				MuR:SpawnArmorPickup(pos, armorId)
+			else
+				local newEnt = ents.Create(replaceWith)
+				if IsValid(newEnt) then
+					newEnt:SetPos(pos)
+					newEnt:SetAngles(ang)
+					newEnt:Spawn()
+				end
+			end
 		end
 	end
 end
@@ -54,7 +77,7 @@ end
 function MuR:SpawnZone()
 	if MuR.Gamemode != -1 then return end
 	timer.Simple(2, function()
-		local ply = player.GetAll()[math.random(1,player.GetCount())]
+		local ply = GetRandomPlayer()
 		if IsValid(ply) then
 			local ent = ents.Create("bloodshed_zone")
 			ent:SetPos(ply:GetPos())
@@ -99,7 +122,7 @@ local probabilities = {
     {chance = 1/8, value = function() return 1 end},
 }
 function MuR:MakeLootableProps()
-	for _, ent in pairs(ents.FindByClass("prop_*")) do
+	for _, ent in ipairs(ents.FindByClass("prop_*")) do
 		if istable(ent.Inventory) then continue end
 
 		ent.Inventory = {}
@@ -111,7 +134,10 @@ function MuR:MakeLootableProps()
 			end
 		end
 		for i=1,add do
-			table.insert(ent.Inventory, MuR:GiveRandomTableWithChance(MuR.Loot).class)
+			local loot = MuR:GiveRandomTableWithChance(MuR.Loot)
+			if not (MuR:DisableWeaponLoot() and (string.find(loot.class, "tfa_bs_") or loot.class == "mur_pepperspray")) then
+				table.insert(ent.Inventory, loot.class)
+			end
 		end 
 	end
 end
@@ -133,7 +159,9 @@ function MuR:ChangeStateOfGame(state)
 			MuR.NextGamemode = 0
 		end
 
+
 		MuR:RemoveMapLogic()
+		MuR:ExecuteString("decals")
 
 		local mode = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
 		if isfunction(mode.OnModeStarted) then
@@ -148,16 +176,17 @@ function MuR:ChangeStateOfGame(state)
 		end
 
 		timer.Simple(0.01, function()
-			for _, ply in ipairs(player.GetAll()) do
+			for _, ply in player.Iterator() do
 				net.Start("MuR.StartScreen")
 				net.WriteFloat(MuR.Gamemode)
 				net.WriteString(ply:GetNW2String("Class"))
 				net.Send(ply)
 			end
+			MuR:ReplaceMapProps()
 		end)
 
 		MuR:RandomizePlayers()
-		
+
 		local mode = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
 		if mode.timer and mode.timer > 0 then
 			MuR.TimerEndTime = CurTime() + mode.timer
@@ -165,16 +194,12 @@ function MuR:ChangeStateOfGame(state)
 		else
 			MuR.TimerActive = false
 		end
-		
+
 		MuR:MakeDoorsBreakable()
 		MuR:MakeLootableProps()
 		MuR:SpawnZone()
-		
-		local tab = ents.GetAll()
 
-		for i = 1, #tab do
-			local ent = tab[i]
-
+		for _, ent in ents.Iterator() do
 			if ent:IsWeapon() then
 				ent:Remove()
 			end
@@ -221,7 +246,7 @@ function MuR:ChangeStateOfGame(state)
 			mode.OnModeEnded(MuR.Gamemode)
 		end
 
-		for _, ply in ipairs(player.GetAll()) do
+		for _, ply in player.Iterator() do
 			if ply:Alive() then
 				ply:KillSilent()
 			end
@@ -230,9 +255,10 @@ function MuR:ChangeStateOfGame(state)
 end
 
 function MuR:SpawnPlayerPolice(assault)
-	if MuR.Gamemode == 17 or MuR.PoliceClasses.no_player_police then return end
+	local mode = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
+	if MuR.Gamemode == 17 or MuR.PoliceClasses.no_player_police or mode.no_player_police then return end
 	local donthave = false
-	for _, ply in ipairs(player.GetAll()) do
+	for _, ply in player.Iterator() do
 		if ply:Alive() or ply:Team() == 1 then continue end
 		if math.random(1,2) == 1 and donthave and not assault then continue end
 
@@ -279,7 +305,7 @@ function MuR:SpawnPlayerPolice(assault)
 			MuR:GiveAnnounce("officer_spawn", ply)
 		end
 	end
-	for _, ply in ipairs(player.GetAll()) do
+	for _, ply in player.Iterator() do
 		if ply:IsKiller() and ply:GetNW2Float("ArrestState") < 1 then
 			ply:SetNW2Float("ArrestState", 1)
 		end
@@ -296,24 +322,33 @@ function MuR:SpawnLoot(pos)
 	end
 
 	if isvector(pos2) then
-		local class = MuR:GiveRandomTableWithChance(MuR.Loot).class
-		local ent = ents.Create(class)
+		local loot = MuR:GiveRandomTableWithChance(MuR.Loot)
+		if not loot then return end
+		local class = loot.class
+		local ent
 
-		if IsValid(ent) then
-			ent:SetPos(pos2)
-			ent:Spawn()
+		if string.StartWith(class, "mur_armor_") then
+			local armorId = string.sub(class, 11)
+			ent = MuR:SpawnArmorPickup(pos2, armorId)
+		else
+			ent = ents.Create(class)
 
-			if ent:IsWeapon() then
-				if ent.ClipSize then
-					ent.Primary.DefaultClip = 0
+			if IsValid(ent) then
+				ent:SetPos(pos2)
+				ent:Spawn()
 
+				if ent:IsWeapon() then
 					if ent.ClipSize then
-						ent:SetClip1(math.random(0, ent.ClipSize))
-						ent:SetClip2(0)
+						ent.Primary.DefaultClip = 0
+
+						if ent.ClipSize then
+							ent:SetClip1(math.random(0, ent.ClipSize))
+							ent:SetClip2(0)
+						end
 					end
-				end
-				if MuR:DisableWeaponLoot() then
-					ent:Remove()
+					if MuR:DisableWeaponLoot() then
+						ent:Remove()
+					end
 				end
 			end
 		end
@@ -321,10 +356,7 @@ function MuR:SpawnLoot(pos)
 end
 
 function MuR:MakeDoorsBreakable()
-	local tab = ents.FindByClass("*_door_*")
-
-	for i = 1, #tab do
-		local ent = tab[i]
+	for _, ent in ipairs(ents.FindByClass("*_door_*")) do
 		local health = math.Clamp(math.floor(ent:OBBMaxs():Length() * 10), 10, 2500)
 		ent:SetNW2Bool("BreakableThing", true)
 		ent:SetMaxHealth(health)
@@ -335,12 +367,12 @@ end
 
 local function CheckOtherReasons()
 	local reason = false
-	for _, ply in pairs(player.GetAll()) do
+	for _, ply in player.Iterator() do
 		if ply:Health() <= 80 then
 			reason = "assault"
 		end
 	end
-	for _, rag in pairs(ents.FindByClass("prop_ragdoll")) do
+	for _, rag in ipairs(ents.FindByClass("prop_ragdoll")) do
 		if rag.IsDead and rag.IsDead == true and reason != "officer" then
 			reason = "homicide"
 		end
@@ -355,7 +387,7 @@ function MuR:SetPoliceTime(val, wm)
 	if wm then
 		MuR.PoliceArriveTime = CurTime()+val
 	else
-		MuR.PoliceArriveTime = CurTime()+(val*2)
+		MuR.PoliceArriveTime = CurTime()+(val*1.5)
 	end
 end
 
@@ -364,9 +396,16 @@ function MuR:CallPolice(mult, reason)
 		mult = 1
 	end
 
-	local mode = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
-	local isswat = mode.is_swat or MuR.Gamemode == 8 or MuR.Gamemode == 10
+	local mode = MuR.Mode(MuR.Gamemode)
+	local isswat = mode.is_swat
 	if MuR.PoliceState > 0 or not MuR.GameStarted or MuR:DisablesGamemode() or MuR.Ending or mode.disables_police then return false end
+
+	if mode.police_call_mult then
+		mult = mode.police_call_mult
+	end
+	if mode.police_time_mult then
+		mult = mode.police_time_mult
+	end
 
 	if isswat then
 		MuR:SetPoliceTime((120 + math.Rand(10,12) * player.GetCount()) * mult)
@@ -377,8 +416,8 @@ function MuR:CallPolice(mult, reason)
 	end
 
 	local disp = mode.dispatch
-	if MuR.Gamemode == 2 or MuR.Gamemode == 3 or MuR.Gamemode == 10 or disp then
-		MuR:PlayDispatch(disp or (MuR.Gamemode == 2 and "shooter" or MuR.Gamemode == 3 and "maniac" or MuR.Gamemode == 10 and "terrorist"))
+	if disp then
+		MuR:PlayDispatch(disp)
 	elseif reason then
 		MuR:PlayDispatch(reason)
 	elseif CheckOtherReasons() then
@@ -399,7 +438,7 @@ function MuR:ExfilPlayers(pos, dist)
 	if not dist then
 		dist = 32000
 	end
-	for _, ply in ipairs(player.GetAll()) do
+	for _, ply in player.Iterator() do
 		local allow = ply:GetPos():Distance(pos) <= dist
 		if !ply:IsKiller() and ply:GetNW2String("Class") != "Zombie" and ply:Alive() then
 			if allow then
@@ -413,11 +452,11 @@ function MuR:ExfilPlayers(pos, dist)
 end
 
 function MuR:MakeTeamsInGame()
-	local tab, tab2 = player.GetAll(), {}
-
-	for i = 1, #tab do
-		if tab[i]:Alive() then
-			table.insert(tab2, tab[i])
+	local tab, tab2 = {}, {}
+	for _, ply in player.Iterator() do
+		table.insert(tab, ply)
+		if ply:Alive() then
+			table.insert(tab2, ply)
 		end
 	end
 
@@ -448,20 +487,38 @@ end
 function MuR:RandomizePlayers()
 	local kteam, dteam, iteam = "Killer", "Defender", "Innocent"
 
-	local modeDef = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
+	local modeDef = MuR.Mode(MuR.Gamemode)
 	if isstring(modeDef.kteam) then kteam = modeDef.kteam end
 	if isstring(modeDef.dteam) then dteam = modeDef.dteam end
 	if isstring(modeDef.iteam) then iteam = modeDef.iteam end
 
-	if MuR.Gamemode == 14 then
-		MuR.NPC_To_Spawn = math.floor(math.Clamp(player.GetCount()*math.Rand(2,4), 4, 24))
-	elseif MuR.Gamemode == 15 then
+	if modeDef.experiment_weapon then
 		MuR.ExperimentWeapon = table.Random(MuR.ExperimentWeapons)
 	end
-	
-	local tab = player.GetAll()
 
-	if MuR.Gamemode ~= 11 and MuR.Gamemode ~= 12 and MuR.Gamemode ~= 13 and MuR.Gamemode ~= 14 and MuR.Gamemode ~= 17 then
+	local tab = {}
+	for _, ply in player.Iterator() do
+		table.insert(tab, ply)
+	end
+
+	if modeDef.soldier_spawning then
+		for _, ply in ipairs(tab) do
+			ply:SetNW2String("Class", "Soldier")
+			ply:Spawn()
+			ply:SetTeam(1)
+			ply:Freeze(true)
+			ply:GodEnable()
+			timer.Simple(12, function()
+				if IsValid(ply) then
+					ply:Freeze(false)
+					ply:GodDisable()
+				end
+			end)
+		end
+		return
+	end
+
+	if not modeDef.custom_spawning and modeDef.spawn_type != "tdm" then
 		if #tab >= 2 then
 			local id = math.random(1, #tab)
 			local ply = tab[id]
@@ -476,6 +533,16 @@ function MuR:RandomizePlayers()
 			ply:Spawn()
 			ply:Freeze(true)
 			ply:GodEnable()
+
+			if modeDef.killer_spawn_far then
+				timer.Simple(1, function()
+					if not IsValid(ply) or not ply:Alive() then return end
+					local farPos = MuR:FindFarthestSpawnFromPlayers()
+					if isvector(farPos) then
+						ply:SetPos(farPos)
+					end
+				end)
+			end
 
 			timer.Simple(12, function()
 				if not IsValid(ply) then return end
@@ -503,34 +570,57 @@ function MuR:RandomizePlayers()
 			end
 		end
 
-		if #tab >= 1 and MuR.Gamemode == 8 then
-			local id = math.random(1, #tab)
-			local ply = tab[id]
-
-			if IsValid(MuR.NextTraitor2) then
-				ply = MuR.NextTraitor2
-				id = table.KeyFromValue(tab, ply)
-				MuR.NextTraitor2 = nil
+		if #tab >= 1 and modeDef.multi_traitor then
+			local count = 1
+			if modeDef.multi_traitor_scale then 
+				local pCount = player.GetCount()
+				if pCount <= 8 then
+					count = 1
+				elseif pCount <= 12 then
+					count = 2
+				else
+					count = 3
+				end
 			end
+			for i = 1, count do
+				if #tab >= 1 then
+					local id = math.random(1, #tab)
+					local ply = tab[id]
 
-			ply:SetNW2String("Class", kteam)
-			ply:Spawn()
-			ply:Freeze(true)
-			ply:GodEnable()
+					if i == 1 and IsValid(MuR.NextTraitor2) then
+						ply = MuR.NextTraitor2
+						id = table.KeyFromValue(tab, ply)
+						MuR.NextTraitor2 = nil
+					end
 
-			timer.Simple(12, function()
-				if not IsValid(ply) then return end
-				ply:Freeze(false)
-				ply:GodDisable()
-			end)
+					ply:SetNW2String("Class", kteam)
+					ply:Spawn()
+					ply:Freeze(true)
+					ply:GodEnable()
 
-			table.remove(tab, id)
+					if modeDef.killer_spawn_far then
+						timer.Simple(1, function()
+							if not IsValid(ply) or not ply:Alive() then return end
+							local farPos = MuR:FindFarthestSpawnFromPlayers()
+							if isvector(farPos) then
+								ply:SetPos(farPos)
+							end
+						end)
+					end
+
+					timer.Simple(12, function()
+						if not IsValid(ply) then return end
+						ply:Freeze(false)
+						ply:GodDisable()
+					end)
+
+					table.remove(tab, id)
+				end
+			end
 		end
 
-		local modeDef = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
 		local roles = istable(modeDef.roles) and modeDef.roles or nil
 
-		local banned = {[5]=true, [6]=true, [11]=true, [12]=true, [13]=true, [14]=true, [15]=true, [17]=true}
 		if roles then
 			for _, r in ipairs(roles) do
 				local count = math.max(1, tonumber(r.count) or 1)
@@ -554,7 +644,7 @@ function MuR:RandomizePlayers()
 					end
 				end
 			end
-		elseif #tab >= 5 and not banned[MuR.Gamemode] then
+		elseif #tab >= 5 and not modeDef.no_default_roles then
 			local classes = {
 				{"Medic", 3, 5}, {"Builder", 3, 5}, {"HeadHunter", 4, 6},
 				{"Criminal", 5, 6}, {"Security", 3, 6}, {"Witness", 3, 6},
@@ -581,6 +671,7 @@ function MuR:RandomizePlayers()
 		for i = 1, #tab do
 			local ply = tab[i]
 			ply:SetNW2String("Class", iteam)
+			ply:SetTeam(2)
 			ply:Spawn()
 			ply:Freeze(true)
 			ply:GodEnable()
@@ -591,15 +682,31 @@ function MuR:RandomizePlayers()
 				ply:GodDisable()
 			end)
 		end
+	elseif modeDef.custom_spawning_func then 
+		if isfunction(MuR[modeDef.custom_spawning_func]) then
+			MuR[modeDef.custom_spawning_func](MuR)
+		end
 	else
 		table.Shuffle(tab)
 		local pos1, pos2 = MuR:FindTwoDistantSpawnLocations()
-		if MuR.Gamemode == 14 then
-			pos2 = MuR:GetRandomPos(false)
-			pos1 = pos2
-		end
 
 		local team1_count = math.ceil(#tab / 2)
+		if modeDef.kteam_count then
+			team1_count = modeDef.kteam_count
+		elseif modeDef.kteam_ratio then
+			team1_count = math.ceil(#tab * modeDef.kteam_ratio)
+		end
+
+		if IsValid(MuR.NextTraitor) then
+			local ply = MuR.NextTraitor
+			local id = table.KeyFromValue(tab, ply)
+			if id then
+				table.remove(tab, id)
+				table.insert(tab, 1, ply)
+				MuR.NextTraitor = nil
+			end
+		end
+
 		local team2_count = #tab - team1_count
 
 		for i = 1, #tab do
@@ -607,13 +714,15 @@ function MuR:RandomizePlayers()
 
 			if i <= team1_count then
 				ply:SetNW2String("Class", kteam)
+				ply:SetTeam(1)
 				ply:Spawn()
 				ply:Freeze(true)
 				ply:GodEnable()
 				if isvector(pos1) then
 					timer.Simple(1, function()
 						if !IsValid(ply) or !ply:Alive() then return end
-						ply:SetPos(pos1)
+						local nearbyPos = MuR:FindNearbySpawnPosition(pos1, 500)
+						ply:SetPos(nearbyPos or pos1)
 					end)
 				end
 
@@ -624,13 +733,15 @@ function MuR:RandomizePlayers()
 				end)
 			else
 				ply:SetNW2String("Class", dteam)
+				ply:SetTeam(2)
 				ply:Spawn()
 				ply:Freeze(true)
 				ply:GodEnable()
 				if isvector(pos2) then
 					timer.Simple(1, function()
 						if !IsValid(ply) or !ply:Alive() then return end
-						ply:SetPos(pos2)
+						local nearbyPos = MuR:FindNearbySpawnPosition(pos2, 500)
+						ply:SetPos(nearbyPos or pos2)
 					end)
 				end
 
@@ -648,29 +759,34 @@ local senddatadelay = 0
 
 hook.Add("Think", "SuR_GameLogic", function()
 	if MuR.GameStarted then
-		local mode = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
+		local mode = MuR.Mode(MuR.Gamemode)
 		if isfunction(mode.OnModeThink) then
 			mode.OnModeThink(MuR.Gamemode)
 		end
-		RunConsoleCommand("ai_clear_bad_links")
+
+		if not timer.Exists("MuR_AIClearBadLinks") then
+			timer.Create("MuR_AIClearBadLinks", 60, 0, function()
+				RunConsoleCommand("ai_clear_bad_links")
+			end)
+		end
 
 		local team1, team2 = 0, 0
-		local tab = player.GetAll()
 
-		for i = 1, #tab do
-			local ent = tab[i]
-
+		for _, ent in player.Iterator() do
 			if ent:Alive() then
 				if ent:Team() == 1 then
 					team1 = team1 + 1
-				elseif ent:Team() == 2 then
+				elseif ent:Team() == 2 or ent:Team() == 3 then
 					team2 = team2 + 1
 				end
 			end
 		end
 
-		if MuR.Gamemode == 14 then
-			team1 = team1 + #ents.FindByClass("npc_vj_bloodshed_suspect")
+		local npc_count = 0
+		if mode.npc_team_count then
+			local activeNPCs = #ents.FindByClass("npc_vj_bloodshed_suspect")
+			local remainingToSpawn = MuR.Mode14 and (MuR.Mode14.NPCToSpawn - MuR.Mode14.NPCSpawned) or 0
+			npc_count = activeNPCs + remainingToSpawn
 		end
 
 		if MuR.EnableDebug then
@@ -679,23 +795,49 @@ hook.Add("Think", "SuR_GameLogic", function()
 			MuR.Delay_Before_Lose = CurTime() + 8
 		end
 
-		if MuR.Gamemode == 6 then
-			if team2 > 0 then
+		if mode.win_condition == "zombie" then
+			if team1 > 0 then
+				MuR.Delay_Before_Lose = CurTime() + 8
+			end
+		elseif mode.soldier_spawning then
+			if team1 > 0 then
+				MuR.Delay_Before_Lose = CurTime() + 8
+			end
+		elseif mode.win_condition == "survivor" then
+			if team1 > 1 or team2 > 1 or MuR.TimeCount > CurTime() - 12 then
+				MuR.Delay_Before_Lose = CurTime() + 8
+			end
+		elseif mode.win_condition == "heist" then
+			if team1 > 0 then
+				MuR.Delay_Before_Lose = CurTime() + 8
+			end
+		elseif mode.win_condition == "raid" then
+			if team2 > 0 and npc_count > 0 then
+				MuR.Delay_Before_Lose = CurTime() + 8
+			end
+		elseif mode.win_condition == "tdm" or mode.win_condition == "riot" or mode.win_condition == "specops" then
+			if team1 > 0 and team2 > 0 then
+				MuR.Delay_Before_Lose = CurTime() + 8
+			end
+		elseif mode.win_condition == "prison_break" then
+			if MuR.Mode23 and not MuR.Mode23.GuardsSpawned then
+				MuR.Delay_Before_Lose = CurTime() + 8
+			elseif team1 > 0 and team2 > 0 then
 				MuR.Delay_Before_Lose = CurTime() + 8
 			end
 		else
-			if team1 > 0 and team2 > 0 and not MuR:DisablesGamemode() or MuR.Gamemode == 9 and MuR.TimeCount > CurTime() - MuR.TeamAssignDelay or MuR.TimeCount > CurTime() - 12 then
+			local standard_logic = not MuR:DisablesGamemode() and team1 > 0 and team2 > 0
+			local team_assign_wait = mode.team_assign_delay and MuR.TimeCount > CurTime() - MuR.TeamAssignDelay
+			local start_grace = MuR.TimeCount > CurTime() - 12
+
+			if standard_logic or team_assign_wait or start_grace then
 				MuR.Delay_Before_Lose = CurTime() + 8
-			elseif MuR.Gamemode == 15 and team2 > 1 then
-				MuR.Delay_Before_Lose = CurTime() + 8
-			elseif team2 > 1 and MuR.Gamemode != 12 and MuR:DisablesGamemode() and MuR.Gamemode != 11 and MuR.Gamemode != 13 and MuR.Gamemode != 14 and MuR.Gamemode != 15 and MuR.Gamemode != 17 or (MuR.Gamemode == 11 or MuR.Gamemode == 12 or MuR.Gamemode == 13 or MuR.Gamemode == 14 or MuR.Gamemode == 17) and team2 > 0 and team1 > 0 then
-				MuR.Delay_Before_Lose = CurTime() + 8
-			elseif MuR.Gamemode == 13 and MuR.PoliceState < 6 and team1 > 0 then
+			elseif mode.tdm_end_logic and team1 > 0 and team2 > 0 then
 				MuR.Delay_Before_Lose = CurTime() + 8
 			end
 		end
 
-		if MuR.Gamemode == 9 and MuR.TimeCount < CurTime() - MuR.TeamAssignDelay and not MuR.TeamAssign then
+		if mode.team_assign_delay and MuR.TimeCount < CurTime() - MuR.TeamAssignDelay and not MuR.TeamAssign then
 			MuR.TeamAssign = true
 			MuR:MakeTeamsInGame()
 		end
@@ -709,7 +851,7 @@ hook.Add("Think", "SuR_GameLogic", function()
 				MuR.NPC_To_Spawn = 64
 			end
 		end
-		
+
 		if MuR.PoliceState == 7 and MuR.PoliceArriveTime < CurTime() then
 			MuR:SetPoliceTime(math.random(45,60))
 			MuR.PoliceState = MuR.PoliceState + 1
@@ -717,20 +859,17 @@ hook.Add("Think", "SuR_GameLogic", function()
 			MuR.PoliceState = 0
 		end
 
-		if MuR.Gamemode != 13 and MuR:CountNPCPolice(true) < MuR.PoliceClasses.max_npcs and MuR.PoliceDelaySpawn < CurTime() and not MuR.PoliceClasses.no_npc_police and MuR.NPC_To_Spawn > 0 then
-			local bool = MuR.Gamemode == 14
-			local pos = MuR:GetRandomPos(bool)
+		if not mode.no_npc_police_spawn and MuR:CountNPCPolice(true) < MuR.PoliceClasses.max_npcs and MuR.PoliceDelaySpawn < CurTime() and not MuR.PoliceClasses.no_npc_police and MuR.NPC_To_Spawn > 0 then
+			local pos = MuR:GetRandomPos(false)
 			if not isvector(pos) then
-				pos = MuR:GetRandomPos(!bool)
+				pos = MuR:GetRandomPos(true)
 			end
 
 			if isvector(pos) then
 				MuR.PoliceDelaySpawn = CurTime() + MuR.PoliceClasses.delay_spawn
 				MuR.NPC_To_Spawn = MuR.NPC_To_Spawn - 1
 
-				if MuR.Gamemode == 14 then
-					MuR:SpawnNPC("suspect", pos)
-				elseif MuR.PoliceState == 4 or MuR.PoliceState == 6 then
+				if MuR.PoliceState == 4 or MuR.PoliceState == 6 then
 					MuR:SpawnNPC("swat", pos)
 				else
 					MuR:SpawnNPC("patrol", pos)
@@ -738,7 +877,7 @@ hook.Add("Think", "SuR_GameLogic", function()
 			end
 		end
 
-		if MuR.Gamemode == 6 and #ents.FindByClass("npc_*") < MuR.PoliceClasses.max_npcs and MuR.TimeCount < CurTime() - 12 and MuR.PoliceDelaySpawn < CurTime() then
+		if mode.zombie_spawning and #ents.FindByClass("npc_*") < MuR.PoliceClasses.max_npcs and MuR.TimeCount < CurTime() - 12 and MuR.PoliceDelaySpawn < CurTime() then
 			local pos = MuR:GetRandomPos(tobool(math.random(0, 1)))
 
 			if isvector(pos) then
@@ -750,18 +889,18 @@ hook.Add("Think", "SuR_GameLogic", function()
 		if MuR.TimeCount < CurTime() - 12 then
 			if MuR.Ending then
 				MuR.PoliceState = 0
-			elseif MuR.Gamemode == 2 or MuR.Gamemode == 3 or MuR.Gamemode == 10 then
+			elseif mode.call_police_on_think then
 				MuR:CallPolice()
-			elseif MuR.Gamemode == 13 then
+			elseif mode.police_reinforcements then
 				MuR:CheckPoliceReinforcment()
 			end
 
-			if MuR.Gamemode == 6 and MuR.PoliceState == 0 and MuR.TimeCount > CurTime() - 13 then
-				MuR:SetPoliceTime(math.random(180,300))
+			if mode.zombie_spawning and MuR.PoliceState == 0 and MuR.TimeCount > CurTime() - 13 then
+				MuR:SetPoliceTime(math.random(90,120))
 				MuR.PoliceState = 7
 			end
 
-			if MuR.Gamemode == 6 and MuR.PoliceState == 8 and !IsValid(MuR.EscapeFlareEntity) then
+			if mode.escape_flare and MuR.PoliceState == 8 and !IsValid(MuR.EscapeFlareEntity) then
 				local underroof = false
 				local pos = MuR:GetRandomPos(underroof)
 				if not isvector(pos) then
@@ -773,7 +912,7 @@ hook.Add("Think", "SuR_GameLogic", function()
 					ent:Spawn()
 					MuR.EscapeFlareEntity = ent
 				end
-			elseif MuR.Gamemode == 6 and MuR.PoliceState != 8 and IsValid(MuR.EscapeFlareEntity) then
+			elseif mode.escape_flare and MuR.PoliceState != 8 and IsValid(MuR.EscapeFlareEntity) then
 				MuR.EscapeFlareEntity:Remove()
 			end
 
@@ -801,16 +940,96 @@ hook.Add("Think", "SuR_GameLogic", function()
 
 			local show_vote = MuR:GetLogTable() and player.GetCount() > 4
 
-			if MuR.Gamemode == 5 or MuR.Gamemode == 6 or MuR.Gamemode == 11 or MuR.Gamemode == 12 or MuR.Gamemode == 13 or MuR.Gamemode == 15 or MuR.Gamemode == 17 then
+			if mode.win_condition == "survivor" then
+				local humans = 0
+				for _, v in player.Iterator() do
+					if v:Alive() and v:GetNW2String("Class") != "Zombie" then humans = humans + 1 end
+				end
+				if humans > 0 then
+					MuR:ShowFinalScreen("humans_win", false)
+				else
+					MuR:ShowFinalScreen("zombies_win", false)
+				end
+			elseif mode.win_condition == "riot" then
+				local police = 0
+				for _, v in player.Iterator() do
+					if v:Alive() and v:GetNW2String("Class") == "Riot" then police = police + 1 end
+				end
+				if police > 0 then
+					MuR:ShowFinalScreen("police_win", false)
+				else
+					MuR:ShowFinalScreen("rioters_win", false)
+				end
+			elseif mode.win_condition == "specops" then
+				local police = 0
+				for _, v in player.Iterator() do
+					if v:Alive() and v:GetNW2String("Class") == "SWAT" then police = police + 1 end
+				end
+				if police > 0 then
+					MuR:ShowFinalScreen("specops_win", false)
+				else
+					MuR:ShowFinalScreen("terrorists_win", false)
+				end
+			elseif mode.win_condition == "heist" then
+				local criminals = 0
+				for _, v in player.Iterator() do
+					if v:Alive() and v:GetNW2String("Class") == "Criminal" then criminals = criminals + 1 end
+				end
+				if criminals > 0 then
+					MuR:ShowFinalScreen("criminals_win", false)
+				else
+					MuR:ShowFinalScreen("police_win", false)
+				end
+			elseif mode.win_condition == "raid" then
+				local police = 0
+				for _, v in player.Iterator() do
+					if v:Alive() and v:GetNW2String("Class") == "ArmoredOfficer" then police = police + 1 end
+				end
+				if police > 0 then
+					MuR:ShowFinalScreen("police_win", false)
+				else
+					MuR:ShowFinalScreen("criminals_win", false)
+				end
+			elseif mode.win_condition == "prison_break" then
+				if team1 > 0 then
+					MuR:ShowFinalScreen("prisoners_win", false)
+				else
+					MuR:ShowFinalScreen("guards_win", false)
+				end
+			elseif mode.tdm_end_logic then
+				local team1_alive = 0
+				local team2_alive = 0
+				for _, v in player.Iterator() do
+					if v:Alive() then
+						if v:Team() == 1 then team1_alive = team1_alive + 1 end
+						if v:Team() == 2 or v:Team() == 3 then team2_alive = team2_alive + 1 end
+					end
+				end
+				if team1_alive > 0 and team2_alive == 0 then
+					MuR:ShowFinalScreen(mode.win_screen_team1 or "team1_win", false)
+				elseif team2_alive > 0 and team1_alive == 0 then
+					MuR:ShowFinalScreen(mode.win_screen_team2 or "team2_win", false)
+				else
+					MuR:ShowFinalScreen("draw", false)
+				end
+			elseif mode.no_win_screen then
 				MuR:ShowFinalScreen("", false)
 			elseif team1 > 0 then
-				MuR:ShowFinalScreen("traitor", show_vote)
+				if mode.win_screen_team1 then
+					MuR:ShowFinalScreen(mode.win_screen_team1, show_vote)
+				else
+					MuR:ShowFinalScreen("traitor", show_vote)
+				end
 				if show_vote then
 					MuR.VoteAllowed = true 
 					MuR.VoteLog = 0
 				end
 			elseif team2 > 0 then
-				MuR:ShowFinalScreen("innocent", show_vote)
+				if mode.win_screen_team2 then
+					MuR:ShowFinalScreen(mode.win_screen_team2, show_vote)
+				else
+					MuR:ShowFinalScreen("innocent", show_vote)
+				end
 				if show_vote then
 					MuR.VoteAllowed = true 
 					MuR.VoteLog = 0
@@ -850,18 +1069,18 @@ hook.Add("Think", "SuR_GameLogic", function()
 		MuR:SendDataToClient("PoliceState", MuR.PoliceState)
 		MuR:SendDataToClient("PoliceArriveTime", MuR.PoliceArriveTime)
 		MuR:SendDataToClient("EnableDebug", MuR.EnableDebug)
-		
+
 		local timerShouldPause = false
 		local timerShouldStop = false
-		
+
 		if MuR.Ending then
 			timerShouldStop = true
 		end
-		
+
 		if MuR.Delay_Before_Lose-7 < CurTime() then
 			timerShouldPause = true
 		end
-		
+
 		if MuR.TimerActive and not timerShouldStop then
 			if timerShouldPause then
 				local timeLeft = math.max(0, MuR.TimerEndTime - CurTime())
@@ -878,12 +1097,13 @@ hook.Add("Think", "SuR_GameLogic", function()
 			MuR:SendDataToClient("TimerActive", false)
 			MuR:SendDataToClient("TimerPaused", false)
 		end
-		
-		if MuR.PoliceState == 8 and IsValid(ents.FindByClass("escape_flare")[1]) then
-			MuR:SendDataToClient("ExfilPos", ents.FindByClass("escape_flare")[1]:GetPos()+Vector(0,0,32))
+
+		local flare = ents.FindByClass("escape_flare")[1]
+		if MuR.PoliceState == 8 and IsValid(flare) then
+			MuR:SendDataToClient("ExfilPos", flare:GetPos()+Vector(0,0,32))
 		end
 	end
-	
+
 	if MuR.TimerActive and MuR.TimerEndTime <= CurTime() and not MuR.Ending and MuR.Delay_Before_Lose-7 > CurTime() then
 		local team1, team2 = 0, 0
 		local tab = player.GetAll()
@@ -893,12 +1113,12 @@ hook.Add("Think", "SuR_GameLogic", function()
 			if ent:Alive() then
 				if ent:Team() == 1 then
 					team1 = team1 + 1
-				elseif ent:Team() == 2 then
+				elseif ent:Team() == 2 or ent:Team() == 3 then
 					team2 = team2 + 1
 				end
 			end
 		end
-		
+
 		if MuR.Gamemode == 5 or MuR.Gamemode == 14 or MuR.Gamemode == 15 then
 			for i = 1, #tab do
 				local ent = tab[i]
@@ -916,19 +1136,19 @@ hook.Add("Think", "SuR_GameLogic", function()
 			elseif team1 == team2 and team1 > 0 then
 				killTeam = math.random(1, 2)
 			end
-			
+
 			if killTeam > 0 then
 				for i = 1, #tab do
 					local ent = tab[i]
-					if ent:Alive() and ent:Team() == killTeam then
+					if ent:Alive() and (ent:Team() == killTeam or (killTeam == 2 and ent:Team() == 3)) then
 						ent:TakeDamage(9999)
 					end
 				end
 			end
-			
+
 			MuR.Delay_Before_Lose = CurTime() - 1
 		end
-		
+
 		MuR.TimerActive = false
 	end
 end)
@@ -938,7 +1158,7 @@ hook.Add("EntityFireBullets", "TrackBulletsFired", function(entity, tab)
 	local inf = tab.Inflictor
     if entity:IsPlayer() and IsValid(inf) and !inf.Melee then
         MuR.GunShots = MuR.GunShots + 1
-        
+
         if MuR.GunShots >= maxBullets then       
             MuR:CallPolice(1, "gunfire")
             maxBullets = math.random(24, 32)

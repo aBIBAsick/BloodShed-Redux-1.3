@@ -139,24 +139,35 @@ function SWEP:CreateDisguiseMenu()
 		local category = categoryCombo:GetSelected()
 		local models = {}
 		
+		local roleName
 		if category == MuR.Language["civilian"] then
-			if gender == MuR.Language["gender_male"] then
-				models = MuR.PlayerModels["Civilian_Male"]
-			else
-				models = MuR.PlayerModels["Civilian_Female"]
-			end
-		elseif category == MuR.Language["officer"] and gender == MuR.Language["gender_male"] then
-			models = MuR.PlayerModels["Police"]
-		elseif category == MuR.Language["security"] and gender == MuR.Language["gender_male"] then
-			models = MuR.PlayerModels["Security"]
+			roleName = "Civilian"
+		elseif category == MuR.Language["officer"] then
+			roleName = "Officer"
+		elseif category == MuR.Language["security"] then
+			roleName = "Security"
 		elseif category == MuR.Language["medic"] then
-			if gender == MuR.Language["gender_male"] then
-				models = MuR.PlayerModels["Medic_Male"]
-			else
-				models = MuR.PlayerModels["Medic_Female"] or MuR.PlayerModels["Medic_Male"]
+			roleName = "Medic"
+		elseif category == MuR.Language["builder"] then
+			roleName = "Builder"
+		end
+		
+		if roleName then
+			local role = MuR:GetRole(roleName)
+			if role and role.models then
+				local modelData = role.models
+				if istable(modelData) then
+					if modelData.male and modelData.female then
+						if gender == MuR.Language["gender_male"] then
+							models = modelData.male
+						else
+							models = modelData.female
+						end
+					else
+						models = modelData
+					end
+				end
 			end
-		elseif category == MuR.Language["builder"] and gender == MuR.Language["gender_male"] then
-			models = MuR.PlayerModels["Builder"]
 		end
 		
 		for k, model in pairs(models) do
@@ -208,12 +219,10 @@ function SWEP:CreateDisguiseMenu()
 end
 
 local checktab = {
-	"Civilian_Male",
-	"Civilian_Female",
-	"Police",
-	"Medic_Male",
-	"Medic_Female",
+	"Civilian",
+	"Officer",
 	"Security",
+	"Medic",
 	"Builder"
 }
 
@@ -230,10 +239,23 @@ if SERVER then
 		local col = net.ReadVector()
 
 		local success = false
-		for _, n in ipairs(checktab) do
-			if table.HasValue(MuR.PlayerModels[n], model) then 
-				success = true
-				break 
+		for _, roleName in ipairs(checktab) do
+			local role = MuR:GetRole(roleName)
+			if role and role.models then
+				local modelData = role.models
+				local modelsToCheck = {}
+				if istable(modelData) then
+					if modelData.male and modelData.female then
+						table.Add(modelsToCheck, modelData.male)
+						table.Add(modelsToCheck, modelData.female)
+					else
+						modelsToCheck = modelData
+					end
+				end
+				if table.HasValue(modelsToCheck, model) then
+					success = true
+					break
+				end
 			end
 		end
 		if !success then return end

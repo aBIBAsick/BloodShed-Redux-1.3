@@ -59,7 +59,7 @@ function SWEP:CustomPrimaryAttack()
     
     self.IsHolding = true
     self.PinPulled = true
-    self.ThrowTime = CurTime()+1
+    self.ThrowTime = CurTime()+0.85
 
     timer.Simple(0.5, function()
         if !IsValid(self) or !IsValid(self.Owner) then return end

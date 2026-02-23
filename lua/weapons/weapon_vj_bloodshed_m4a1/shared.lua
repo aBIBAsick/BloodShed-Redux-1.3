@@ -7,10 +7,10 @@ SWEP.Category = "VJ Base Bloodshed"
 
 SWEP.WorldModel_UseCustomPosition = true
 SWEP.WorldModel_CustomPositionAngle = Vector(-10, 0, 180)
-SWEP.WorldModel_CustomPositionOrigin = Vector(-1, 5, 0)
+SWEP.WorldModel_CustomPositionOrigin = Vector(-4, -6, 7)
 
 SWEP.ViewModel = ""
-SWEP.WorldModel = "models/rifles/m4a1/w_m4a1.mdl"
+SWEP.WorldModel = "models/rifles/w_m4a1.mdl"
 SWEP.MadeForNPCsOnly = true -- Is this weapon meant to be for NPCs only?
 SWEP.HoldType = "ar2"
 

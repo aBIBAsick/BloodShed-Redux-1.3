@@ -2,6 +2,7 @@ MuR.RegisterMode(9, {
 	name = "Unknown",
 	chance = 30,
 	need_players = 2,
+	team_assign_delay = true,
 	kteam = "Innocent",
 	dteam = "Innocent",
 	iteam = "Innocent",

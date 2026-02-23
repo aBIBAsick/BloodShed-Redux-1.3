@@ -1,10 +1,8 @@
-LiteWounds = LiteWounds or {}
+﻿LiteWounds = LiteWounds or {}
 LiteWounds.DefaultGoreUndermodel = "models/player/skeleton.mdl"
 
--- ===== BONES DATA =====
 LiteWounds.Bones = LiteWounds.Bones or {}
 
--- Blacklist for physics bones
 LiteWounds.PhysBoneBlacklistClass = {
 	["npc_seagull"] = true,
 	["npc_pigeon"] = true,
@@ -13,13 +11,11 @@ LiteWounds.PhysBoneBlacklistClass = {
 	["npc_antlionguard"] = true
 }
 
--- Bone blacklist
 LiteWounds.Bones.Blacklist = {
 	["valvebiped.bip01_forward"] = true,
 	["valvebiped.forward"] = true,
 }
 
--- Hit group bone search
 LiteWounds.Bones.HitGroupSearch = {
 	[HITGROUP_HEAD] = {"ValveBiped.Bip01_Head1", "ValveBiped.Bip01_Head", "ValveBiped.head"},
 	[HITGROUP_CHEST] = {"ValveBiped.Bip01_Spine2", "ValveBiped.Bip01_Spine4", "ValveBiped.spine2", "ValveBiped.spine3"},
@@ -30,7 +26,6 @@ LiteWounds.Bones.HitGroupSearch = {
 	[HITGROUP_RIGHTLEG] = {"ValveBiped.Bip01_R_Thigh", "ValveBiped.Bip01_R_Calf", "ValveBiped.Bip01_R_Foot", "ValveBiped.Bip01_R_Toe0"}
 }
 
--- Hit group gibs
 LiteWounds.Bones.HitGroupGibs = {
 	[HITGROUP_HEAD] = {"ValveBiped.Bip01_Head1", "ValveBiped.Bip01_Head", "ValveBiped.head"},
 	[HITGROUP_CHEST] = {"ValveBiped.Bip01_Spine2", "ValveBiped.spine2"},
@@ -41,7 +36,6 @@ LiteWounds.Bones.HitGroupGibs = {
 	[HITGROUP_RIGHTLEG] = {"ValveBiped.Bip01_R_Thigh", "ValveBiped.leg_bone1_R"}
 }
 
--- Bone hit groups mapping
 LiteWounds.BoneHitGroups = {
 	["head"] = HITGROUP_HEAD,
 	["neck"] = HITGROUP_HEAD,
@@ -69,10 +63,8 @@ end
 
 CHAN_LG = (CHAN_BODY and CHAN_BODY or 4) + 16
 
--- ===== WOUND MODELS AND CONFIG =====
 BLOOD_COLOR_SYNTH = BLOOD_COLOR_SYNTH or BLOOD_COLOR_ANTLION_WORKER + 2
 
--- Gore models
 LiteWounds.GoreModels = {
 	["default"] = {
 		["default"] = LiteWounds.DefaultGoreUndermodel,
@@ -92,7 +84,6 @@ setmetatable(LiteWounds.GoreModels, {
 	end
 })
 
--- Wound models
 LiteWounds.WoundModels = {
 	["default"] = {
 		["default"] = {
@@ -137,12 +128,10 @@ setmetatable(LiteWounds.WoundModels, {
 	end
 })
 
--- Wound model radius
 LiteWounds.WoundModelRadius = {
 	["models/Combine_Helicopter/helicopter_bomb01.mdl"] = 16
 }
 
--- Wound radius for different models
 LiteWounds.WoundRadius = {
 	["default"] = {
 		["valvebiped.bip01_spine4"] = 10,
@@ -289,17 +278,15 @@ setmetatable(LiteWounds.WoundRadius, {
 	end
 })
 
--- ===== WEAPON DAMAGE SCALES =====
 LiteWounds.WeaponDamageScales = LiteWounds.WeaponDamageScales or {
 	["weapon_shotgun"] = 8
 }
 
--- ===== ENTITY META FUNCTIONS =====
 local entMeta = FindMetaTable("Entity")
 
 if entMeta then
 	local modelPhysBoneTranslateCache = {}
-	
+
 	if SERVER then
 		function entMeta:SetupBones()
 		end
@@ -308,7 +295,7 @@ if entMeta then
 	if not entMeta.LG_OLD_TranslatePhysBoneToBone then 
 		entMeta.LG_OLD_TranslatePhysBoneToBone = entMeta.TranslatePhysBoneToBone 
 	end
-	
+
 	function entMeta:CachePhysBones(forced)
 		local mdl = self:GetModel()
 		if modelPhysBoneTranslateCache[mdl] and not forced then return end
@@ -380,13 +367,11 @@ if entMeta then
 		return rootpos + self:BoneLength(bone) * rootang:Forward() / 2
 	end
 
-	-- Blood color handling
 	function entMeta:GetBloodColorLG()
 		return BLOOD_COLOR_RED
 	end
 end
 
--- ===== BLOOD TYPE OVERRIDES =====
 local btOverrides = {
 	["npc_antlion"] = BLOOD_COLOR_ANTLION,
 	["npc_antlionguard"] = BLOOD_COLOR_ANTLION,
@@ -394,7 +379,6 @@ local btOverrides = {
 	["npc_turret_floor"] = DONT_BLEED
 }
 
--- ===== PRECACHING =====
 function LiteWounds.Precache()
 	for _, v in ipairs(LiteWounds.WoundModels) do
 		for _, b in pairs(v) do

@@ -1,4 +1,4 @@
-local ent = FindMetaTable("Entity")
+﻿local ent = FindMetaTable("Entity")
 local pl = FindMetaTable("Player")
 
 local function calc_health(hp, max_hp)
@@ -45,9 +45,9 @@ local function VelocityOnAllBones(ragdoll, vel)
 			local hands = string.find(name, "hand")
 			local head = string.find(name, "head")
 			if arms then
-				bone:SetMass(4)
+				bone:SetMass(3)
 			elseif hands then
-				bone:SetMass(25)
+				bone:SetMass(4)
 			elseif head then
 				bone:SetMass(50)
 			else
@@ -56,6 +56,23 @@ local function VelocityOnAllBones(ragdoll, vel)
 			bone:SetVelocity(vel)
 		end
 	end
+end
+
+local function GetAverageVelocity(ragdoll)
+	if not IsValid(ragdoll) then return 0 end
+
+	local totalVel = 0
+	local boneCount = 0
+
+	for i = 0, ragdoll:GetPhysicsObjectCount() - 1 do
+		local bone = ragdoll:GetPhysicsObjectNum(i)
+		if IsValid(bone) then
+			totalVel = totalVel + bone:GetVelocity():Length()
+			boneCount = boneCount + 1
+		end
+	end
+
+	return boneCount > 0 and (totalVel / boneCount) or 0
 end
 
 local function GetCorrectTypeOfBone(name)
@@ -108,7 +125,14 @@ local function GetCorrectTypeOfBone(name)
 	return type
 end
 
--------------------PLAYER FUNCTIONS----------------------------
+local function IsRagdollMissingHand(rag)
+	if not IsValid(rag) then return false end
+	local l_hand = rag:LookupBone("ValveBiped.Bip01_L_Hand")
+	local r_hand = rag:LookupBone("ValveBiped.Bip01_R_Hand")
+	if l_hand and rag:GetManipulateBoneScale(l_hand):LengthSqr() < 0.01 then return true end
+	if r_hand and rag:GetManipulateBoneScale(r_hand):LengthSqr() < 0.01 then return true end
+	return false
+end
 
 local ItemType = {
 	["mur_loot_bandage"] = "Bandage",
@@ -171,9 +195,10 @@ function pl:GiveRagdollWeapon(ent, awep)
 			self:SetNW2Entity("RD_Weapon", wep)
 		end
 	end)
-end	
+end
 
 function pl:CreateAdvancedRagdoll(withoutvel)
+	if self:GetNW2String("Class") == "Entity" then return end
 	if IsValid(self:GetRD()) then return self:GetRD() end
 	local vel = self:GetVelocity()
 	if withoutvel then vel = Vector(0,0,0) end
@@ -190,9 +215,15 @@ function pl:CreateAdvancedRagdoll(withoutvel)
 	ent.DelayBetweenMoans = 0
 	ent.IsDead = false
 	ent.isRDRag = true
+	ent:SetNW2Bool("MuR.IsLivingRagdoll", true)
 	ent.Owner = self
 	ent.OwnerDead = self
+
+	if MuR.TransferArmorToRagdoll then
+		MuR:TransferArmorToRagdoll(self, ent)
+	end
 	ent.MaxBlood = 40
+	ent.RagdollHealth = 999999
 	ent.PlyColor = self:GetPlayerColor()
 	ent:SetNWString("Name", self:GetNWString("Name"))
 	ent:MakePlayerColor(ent.PlyColor)
@@ -239,7 +270,6 @@ function pl:CreateAdvancedRagdoll(withoutvel)
 	self:SetNW2Entity("RD_Ent", ent)
 	self:SetNW2Entity("RD_EntCam", ent)
 	self:SetFOV(0)
-	self:GiveRagdollWeapon(ent, self:GetActiveWeapon())
 
 	timer.Simple(0.01, function()
 		if !IsValid(self) or !self.DeathBlowHead or !IsValid(ent) then return end
@@ -270,6 +300,10 @@ end
 function pl:BreakRagdollBone()
 	if !IsValid(self:GetRD()) then return end
 	local ent = self:GetRD()
+	local ply = self.Owner 
+	if IsValid(ply) and ply:IsOnFire() and math.random() < 0.1 then
+		MuR:GiveMessage2("on_fire", ply)
+	end
 	local tab = self.DeathBlowBone 
 	if istable(tab) then
 		local h = ent:TranslateBoneToPhysBone(ent:LookupBone(tab[1]))
@@ -290,7 +324,7 @@ function pl:IsWepRagReloading()
 end
 
 function pl:StartRagdolling(moans, dam, gibs)
-	if self:IsExecuting() or self:GetNW2String("Class") == "Zombie" or self:GetNW2String("Class") == "Maniac" or self:GetNW2Bool("GeroinUsed") or self:GetNW2Bool("GeroinUsed") or timer.Exists("MindControl_" .. self:EntIndex()) then return end
+	if self:InVehicle() or self:IsExecuting() or self:IsInHostage(false) or self:GetNW2String("Class") == "Zombie" or self:GetNW2String("Class") == "Maniac" or self:GetNW2String("Class") == "Entity" or self:GetNW2Bool("GeroinUsed") or self:GetNW2Bool("GeroinUsed") or timer.Exists("MindControl_" .. self:EntIndex()) then return end
 	moans = moans or 0
 	dam = dam or 0
 	local ent = self:CreateAdvancedRagdoll()
@@ -315,6 +349,7 @@ function pl:UnconnectRagdoll(died)
 	if IsValid(rag) then
 		local isbleeding = rag.Owner and (rag.Owner:GetNW2Float("BleedLevel", 0) > 1 or rag.Owner:GetNW2Bool("HardBleed", false)) or false
 		rag.IsDead = true
+		rag:SetNW2Bool("MuR.IsLivingRagdoll", false)
 		rag.Owner = nil
 		self:StopRagdolling(true)
 		rag:GrabHand(false, false)
@@ -336,10 +371,12 @@ function pl:StopRagdolling(keeprag, playanim)
 	local rag = self:GetRD()
 	if !IsValid(rag) then return end
 	self:SetNW2Entity("RD_Ent", NULL)
+	self:SetMaterial("")
 	self:SetNoDraw(false)
 	self:SetNotSolid(false)
 	self:DrawShadow(true)
 	self:SetNoTarget(false)
+	self:SetMoveType(MOVETYPE_WALK)
 	local npos = self:GetPos()
 	if rag:LookupBone("ValveBiped.Bip01_Pelvis") then
 		local _, opos = MuR:CheckHeight(rag, MuR:BoneData(rag, "ValveBiped.Bip01_Pelvis"))
@@ -367,6 +404,9 @@ function pl:StopRagdolling(keeprag, playanim)
 	if not keeprag and IsValid(rag) then
 		rag:Remove()
 	else
+		if IsValid(rag) then
+			rag.RagdollHealth = math.random(500,2500)
+		end
 		timer.Simple(0.01, function()
 			if IsValid(rag) and IsValid(self) and isstring(self.LastVoiceLine) then
 				rag:StopSound(self.LastVoiceLine)
@@ -378,7 +418,6 @@ function pl:StopRagdolling(keeprag, playanim)
 	end
 end
 
--------------------------ENTITY FUNCTIONS------------------------------
 function ent:TransferModelData(from)
 	local ent1Model = from:GetModel()
 	local ent1Skin = from:GetSkin()
@@ -410,7 +449,7 @@ end
 function ent:GiveWeaponsFromPly()
 	local ply = self.Owner
 	if IsValid(ply) then
-		self.Inventory = {}
+		self.Inventory = self.Inventory or {}
 		for _, wep in pairs(ply:GetWeapons()) do
 			local cls = wep:GetClass()
 			if wep.CantDrop == true then continue end
@@ -514,37 +553,12 @@ end
 function ent:PullHand(type, power)
 	if IsValid(self.Owner) then
 		local isGrabbed = IsValid(self.LeftHandGrab) or IsValid(self.RightHandGrab)
-		
+
 		if not isGrabbed and MuR:CheckHeight(self, MuR:BoneData(self, "ValveBiped.Bip01_Pelvis")) > 200 and self:GetVelocity():Length() > 200 then return end
-		
+
 		local eang = self.Owner:EyeAngles()
 		local aimvector = eang:Forward()
 
-		local isClimbingUp = IsValid(self.LeftHandGrab) and IsValid(self.RightHandGrab) and 
-							type == "all" and eang.p > 30
-		
-		if isClimbingUp then
-			local upForce = self.Owner:GetForward()*200+Vector(0, 0, 1000)
-			local bone_spine = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine")))
-			local bone_spine1 = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine1")))
-			local bone_spine2 = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine2")))
-			local bone_spine4 = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine4")))
-			local bone_pelvis = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Pelvis")))
-			
-			if IsValid(bone_spine) then bone_spine:ApplyForceCenter(upForce) end
-			if IsValid(bone_spine1) then bone_spine1:ApplyForceCenter(upForce) end
-			if IsValid(bone_spine2) then bone_spine2:ApplyForceCenter(upForce * 1.2) end
-			if IsValid(bone_spine4) then bone_spine4:ApplyForceCenter(upForce * 1.5) end
-			if IsValid(bone_pelvis) then bone_pelvis:ApplyForceCenter(upForce * 0.8) end
-			
-			local bone_l_thigh = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Thigh")))
-			local bone_r_thigh = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Thigh")))
-			if IsValid(bone_l_thigh) then bone_l_thigh:ApplyForceCenter(upForce * 0.3) end
-			if IsValid(bone_r_thigh) then bone_r_thigh:ApplyForceCenter(upForce * 0.3) end
-			
-			return
-		end
-		
 		local torque = aimvector * power
 		local bonerh1 = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Hand")))
 		local bonerh2 = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Forearm")))
@@ -646,7 +660,7 @@ function ent:PullHand(type, power)
 				p.pos = boneh:GetPos() + aimvector * 17 + eang:Up() * 4 + eang:Right()*4
 				p.angle = eang
 				p.angle.z = 180
-				
+
 				if p.angle:IsEqualTol(bonerh1:GetAngles(), 10) then
 					bonerh1:SetAngles(LerpAngle(1, bonerh1:GetAngles(), p.angle))
 				end
@@ -741,7 +755,7 @@ function ent:TryStanding(inputState)
 		local bone_spine = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine")))
 		local bone_pelvis = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Pelvis")))
 		local cantmove = false
-		
+
 		local pos1 = MuR:BoneData(self, "ValveBiped.Bip01_Spine4")
 		local tr = util.TraceLine({
 			start = pos1,
@@ -752,16 +766,17 @@ function ent:TryStanding(inputState)
 				end
 			end,
 		})
-		
+
 		local groundPos = tr.HitPos
+		if groundPos:DistToSqr(pos1) > 10000 then return end
 		local stepPhase = CurTime() * 2
 		local isRightStep = math.floor(stepPhase) % 2 == 0
-		
+
 		local bone_l_foot = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Foot")))
 		local bone_r_foot = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Foot")))
 		local bone_l_calf = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Calf")))
 		local bone_r_calf = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Calf")))
-		
+
 		local bone_forward = isRightStep and bone_r_foot or bone_l_foot
 		local bone_back = isRightStep and bone_l_foot or bone_r_foot
 		local calf_forward = isRightStep and bone_r_calf or bone_l_calf
@@ -774,9 +789,9 @@ function ent:TryStanding(inputState)
 			mult = 0
 		end
 		if mult == 0 then return end
-		
+
 		local isMoving = false
-		
+
 		if inputState[IN_FORWARD] then
 			forwardInput = 32 * mult
 			isMoving = true
@@ -794,10 +809,10 @@ function ent:TryStanding(inputState)
 		end
 
 		local moveDir = self.Owner:GetForward() * forwardInput + self.Owner:GetRight() * rightInput
-		
+
 		if isMoving then
 			local stepHeight = math.sin(stepPhase * math.pi) * 8 + 4
-			
+
 			local p = {}
 			p.secondstoarrive = 0.4
 			p.pos = groundPos + self.Owner:GetForward() * forwardInput + self.Owner:GetRight() * rightInput + Vector(0, 0, stepHeight * mult)
@@ -811,12 +826,12 @@ function ent:TryStanding(inputState)
 
 			bone_forward:Wake()
 			bone_forward:ComputeShadowControl(p)
-			
+
 			p.pos = groundPos - self.Owner:GetForward() * forwardInput - self.Owner:GetRight() * rightInput + Vector(0, 0, 4 * mult)
-			
+
 			bone_back:Wake()
 			bone_back:ComputeShadowControl(p)
-			
+
 			local calfLift = math.sin(stepPhase * math.pi * 2) * 15
 			if calfLift > 0 then
 				local cp = {}
@@ -829,13 +844,13 @@ function ent:TryStanding(inputState)
 				cp.maxspeeddamp = 30
 				cp.teleportdistance = 0
 				cp.deltatime = CurTime() - self.delta
-				
+
 				calf_forward:Wake()
 				calf_forward:ComputeShadowControl(cp)
 			end
 		else
 			local idleOffset = math.sin(CurTime() * 1.5) * 0.5
-			
+
 			local p = {}
 			p.secondstoarrive = 0.5
 			p.pos = groundPos + self.Owner:GetRight() * 8 + Vector(0, 0, 4 * mult + idleOffset)
@@ -846,12 +861,12 @@ function ent:TryStanding(inputState)
 			p.maxspeeddamp = 50
 			p.teleportdistance = 0
 			p.deltatime = CurTime() - self.delta
-			
+
 			bone_r_foot:Wake()
 			bone_r_foot:ComputeShadowControl(p)
-			
+
 			p.pos = groundPos - self.Owner:GetRight() * 8 + Vector(0, 0, 4 * mult - idleOffset)
-			
+
 			bone_l_foot:Wake()
 			bone_l_foot:ComputeShadowControl(p)
 		end
@@ -874,12 +889,19 @@ end
 
 function ent:GetUpToStandPos()
 	if IsValid(self.Owner) then
-		local boneh = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Head1")))
-		local bone_spine = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine")))
-		local bonel = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Calf")))
-		local boner = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Calf")))
-		
+		local headBone = self:LookupBone("ValveBiped.Bip01_Head1")
+		if not headBone then return end
+		local boneh = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(headBone))
+		if not IsValid(boneh) then return end
+		local spineBone = self:LookupBone("ValveBiped.Bip01_Spine")
+		local bone_spine = spineBone and self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(spineBone)) or nil
+		local calfLBone = self:LookupBone("ValveBiped.Bip01_L_Calf")
+		local bonel = calfLBone and self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(calfLBone)) or nil
+		local calfRBone = self:LookupBone("ValveBiped.Bip01_R_Calf")
+		local boner = calfRBone and self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(calfRBone)) or nil
+
 		local pos1 = MuR:BoneData(self, "ValveBiped.Bip01_Head1")
+		if not pos1 then return end
 		local tr = util.TraceLine({
 			start = pos1,
 			endpos = pos1 - Vector(0, 0, 999999),
@@ -892,47 +914,32 @@ function ent:GetUpToStandPos()
 				end 
 			end,
 		})
-		
+
 		local pos2 = tr.HitPos
+		if pos2:DistToSqr(pos1) > 10000 then return end
+
 		local p = {}
-		
-		local isUsingE = self.Owner:KeyDown(IN_USE)
-		
-		local ang
-		if isUsingE then
-			if not self.FixedAngle then
-				self.FixedAngle = Angle(self.Owner:EyeAngles())
-				self.FixedAngle:RotateAroundAxis(self.FixedAngle:Forward(), 90)
-				self.FixedAngle:RotateAroundAxis(self.FixedAngle:Up(), 90)
-			end
-			
-			local currentEyeAng = self.Owner:EyeAngles()
-			local angleDiff = math.abs(math.AngleDifference(currentEyeAng.y, self.FixedAngle.y))
-			
-			ang = self.FixedAngle
-		else
-			self.FixedAngle = nil
-			ang = self.Owner:EyeAngles()
-			ang:RotateAroundAxis(ang:Forward(), 90)
-			ang:RotateAroundAxis(ang:Up(), 90)
-		end
-		
+
+		local ang = self.Owner:EyeAngles()
+		ang:RotateAroundAxis(ang:Forward(), 90)
+		ang:RotateAroundAxis(ang:Up(), 90)
+
 		p.secondstoarrive = 0.0001
-		p.pos = pos2 + Vector(0, 0, 16)
+		p.pos = pos2 + Vector(0, 0, 20)
 		local hg = self.CustomHeightHead
 		if hg then
 			p.pos = pos2 + Vector(0, 0, hg)
 			self.CustomHeightHead = nil
 		end
-		
+
 		if IsValid(constraint.GetAllConstrainedEntities(game.GetWorld())[self]) then
 			p.pos = boneh:GetPos() + Vector(0, 0, 4)
 		end
-		
+
 		if self.Owner.using_twohand then
 			p.pos = p.pos - self.Owner:EyeAngles():Forward() * 1
 		end
-		
+
 		p.angle = ang
 		p.maxangular = 1200
 		p.maxangulardamp = 1000
@@ -941,7 +948,7 @@ function ent:GetUpToStandPos()
 		p.teleportdistance = 0
 		p.deltatime = CurTime() - self.delta
 
-		if p.angle:IsEqualTol(boneh:GetAngles(), 20) then
+		if p.angle:IsEqualTol(boneh:GetAngles(), 10) then
 			boneh:SetAngles(LerpAngle(0.5, boneh:GetAngles(), p.angle))
 		else
 			boneh:SetAngles(LerpAngle(0.1, boneh:GetAngles(), p.angle))
@@ -989,20 +996,28 @@ function ent:GrabHand(bool, isright)
 			local weld = constraint.Weld(self, prop, self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Hand")), physObjId, 10000, false, false)
 			self.RightHandGrab = weld
 			self:EmitSound("physics/body/body_medium_impact_soft" .. math.random(1, 7) .. ".wav", 50, 110, 0.5)
+
+			if IsValid(self.Owner) then
+				self.Owner:SetActiveWeapon(nil)
+			end
 		elseif not bool and IsValid(self.RightHandGrab) then
 			self.RightHandGrab:Remove()
 			self:EmitSound("physics/body/body_medium_impact_soft" .. math.random(1, 7) .. ".wav", 50, 70, 0.5)
 		end
 	else
+
 		if bool and not IsValid(self.LeftHandGrab) then
 			local limbBone = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Hand")))
 			local prop, physObjId, physObj = FindClosestEntity(limbBone:GetPos(), nil, true, limbBone:GetVelocity():GetNormalized(), self)
 			if not prop or ((not IsValid(prop) or not IsValid(physObj)) and not prop:IsWorld()) then return false end
 			local weld = constraint.Weld(self, prop, self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Hand")), physObjId, 10000, false, false)
 			self.LeftHandGrab = weld
+			self:SetNW2Bool("LeftHandHoldsObject", true)
+
 			self:EmitSound("physics/body/body_medium_impact_soft" .. math.random(1, 7) .. ".wav", 50, 110)
 		elseif not bool and IsValid(self.LeftHandGrab) then
 			self.LeftHandGrab:Remove()
+			self:SetNW2Bool("LeftHandHoldsObject", false)
 			self:EmitSound("physics/body/body_medium_impact_soft" .. math.random(1, 7) .. ".wav", 50, 70)
 		end
 	end
@@ -1037,16 +1052,46 @@ function ent:GiveDamageOnRag(dmg)
 	end
 
 	if bonetype == "r_hand" or bonetype == "l_hand" then
-		dm = dm * 0.4
+		dm = dm * 0.8
 	elseif bonetype == "r_leg" or bonetype == "l_leg" then
-		dm = dm * 0.6
+		dm = dm * 0.8
 	elseif bonetype == "torso" then
 		dm = dm * 1
 	elseif bonetype == "head" then
 		if dmg:IsBulletDamage() then
-			dm = dm * 4
-		else
 			dm = dm * 2
+		else
+			dm = dm * 1.5
+		end
+	end
+
+	local ply = self.Owner
+	if IsValid(ply) and ply.MuR_Armor and not table.IsEmpty(ply.MuR_Armor) then
+		local hitgroup = nil
+		if bonetype == "head" then
+			hitgroup = HITGROUP_HEAD
+		elseif bonetype == "torso" then
+			hitgroup = HITGROUP_CHEST
+		elseif bonetype == "r_leg" or bonetype == "l_leg" then
+			hitgroup = bonetype == "r_leg" and HITGROUP_RIGHTLEG or HITGROUP_LEFTLEG
+		elseif bonetype == "r_hand" or bonetype == "l_hand" then
+			hitgroup = bonetype == "r_hand" and HITGROUP_RIGHTARM or HITGROUP_LEFTARM
+		end
+
+		if hitgroup then
+			local reduction = ply:GetArmorDamageReductionByHitgroup(hitgroup, dmg)
+			if reduction > 0 then
+				dm = dm * (1 - reduction)
+
+				local effectdata = EffectData()
+				effectdata:SetOrigin(pos)
+				effectdata:SetNormal(dir:GetNormalized() * -1)
+				effectdata:SetMagnitude(0.5)
+				effectdata:SetScale(0.3)
+				util.Effect("ManhackSparks", effectdata, true, true)
+
+				self:EmitSound("physics/metal/metal_solid_impact_bullet" .. math.random(1, 4) .. ".wav", 50, math.random(100, 120))
+			end
 		end
 	end
 
@@ -1055,13 +1100,12 @@ function ent:GiveDamageOnRag(dmg)
 		MuR:CreateBloodPool(self, self:LookupBone(bonename), 1, 0)
 	end
 
-	local ply = self.Owner
 	if IsValid(ply) and ply:Alive() and dm > 0 then
 		local is_limb = bonename and (string.find(bonename, "_L_") or string.find(bonename, "_R_"))
-		
+
 		local player_damage = is_limb and (dm / 8) or dm
 		local timeget_damage = is_limb and (dm / 8 / 5) or (dm / 5)
-		
+
 		self:TakeImpact(dm, bonename, dir)
 		dmg:SetDamage(player_damage)
 		ply:TakeDamageInfo(dmg)
@@ -1072,14 +1116,8 @@ end
 function ent:TakeImpact(dm, bonename, dir)
 	local normal = dir:GetNormalized()*dm*50
 	local bone = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone(bonename)))
-	local standing = self.Owner.IsRagStanding
 	bone:ApplyForceCenter(normal)
-	if standing then
-		timer.Simple(math.Rand(0.01, 0.3), function()
-			if !IsValid(self) or !IsValid(self.Owner) then return end
-			self.Owner.IsRagStanding = true
-		end)
-	end
+	self.Owner.IsRagStanding = true
 end
 
 function ent:GetNearestBoneFromPos(pos, dir)
@@ -1147,32 +1185,123 @@ end
 function ent:CrawlLogic()
 	local ply = self.Owner
 	if IsValid(ply) then
+		if IsRagdollMissingHand(self) or self.CanStanding or !ply.IsRagStanding or ply:Health() < 40 then return end
 		if ply.ragcrawl_clickTime == nil then ply.ragcrawl_clickTime = 0 end
 		if ply.ragcrawl_clickType == nil then ply.ragcrawl_clickType = "" end
 		if ply.ragcrawl_prevLeft == nil then ply.ragcrawl_prevLeft = false end
 		if ply.ragcrawl_prevRight == nil then ply.ragcrawl_prevRight = false end
 
-		local makemove = SysTime() - ply.ragcrawl_clickTime <= 0.2
-		if not makemove then
-			
-		end
+		local s4 = self:LookupBone("ValveBiped.Bip01_Head1")
+		if not s4 then return end
+		local p_s4 = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(s4))
+		if not IsValid(p_s4) then return end
 
-		if ply:KeyDown(IN_ATTACK) and not ply.ragcrawl_prevLeft then
+		local isLeft = ply:KeyDown(IN_ATTACK)
+		local isRight = ply:KeyDown(IN_ATTACK2)
+		local fwd = ply:GetAimVector()
+		fwd.z = 0
+		fwd:Normalize()
+
+		if isLeft and not ply.ragcrawl_prevLeft then
+			if ply.ragcrawl_clickType == "right" and SysTime() - ply.ragcrawl_clickTime < 0.5 then
+				p_s4:ApplyForceCenter(fwd * 40000)
+			end
 			ply.ragcrawl_clickTime = SysTime()
 			ply.ragcrawl_clickType = "left"
 		end
 
-		if ply:KeyDown(IN_ATTACK2) and not ply.ragcrawl_prevRight then
+		if isRight and not ply.ragcrawl_prevRight then
+			if ply.ragcrawl_clickType == "left" and SysTime() - ply.ragcrawl_clickTime < 0.5 then
+				p_s4:ApplyForceCenter(fwd * 40000)
+			end
 			ply.ragcrawl_clickTime = SysTime()
 			ply.ragcrawl_clickType = "right"
 		end
+
+		ply.ragcrawl_prevLeft = isLeft
+		ply.ragcrawl_prevRight = isRight
 	end
 end
 
-------------------------HOOKS-----------------------------------
+function ent:PullUpLogic()
+	local ply = self.Owner
+	if not IsValid(ply) then return end
+
+	if not ply:KeyDown(IN_JUMP) then return end
+	if ply:GetNW2Bool("IsUnconscious", false) or self.IsNailed then return end
+
+	if IsValid(self.LeftHandGrab) or IsValid(self.RightHandGrab) then
+		local constraints = constraint.GetAllConstrainedEntities(self)
+		for _, constrained in pairs(constraints) do
+			if IsValid(constrained) and constrained ~= self and not constrained:IsWorld() then
+				local phys = constrained:GetPhysicsObject()
+				if IsValid(phys) and phys:GetMass() < 250 then
+					return
+				end
+			end
+		end
+	end
+
+	local physHead = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Head1")))
+	if not IsValid(physHead) then return end
+
+	local grabbedTwoHands = IsValid(self.LeftHandGrab) or IsValid(self.RightHandGrab)
+
+	local targetPos = nil
+	local isPullUp = false
+
+	if grabbedTwoHands then
+		local physL = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Hand")))
+		local physR = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Hand")))
+
+		if IsValid(physL) and IsValid(physR) then
+			local handsCenter = (physL:GetPos() + physR:GetPos()) / 2
+			local height = math.max(physL:GetPos().z, physR:GetPos().z)
+
+			if height > physHead:GetPos().z - 4 then
+				targetPos = handsCenter + Vector(0,0,40)
+				isPullUp = true
+			else
+				targetPos = handsCenter
+			end
+		end
+
+		ply.IsRagStanding = false
+	end
+
+	local p = {}
+	p.deltatime = FrameTime() 
+	p.teleportdistance = 0
+	p.secondstoarrive = 0.5
+	p.angle = physHead:GetAngles()
+
+	if isPullUp and targetPos then 
+
+		p.pos = targetPos
+		p.maxangular = 500
+		p.maxangulardamp = 100
+		p.maxspeed = 90
+		p.maxspeeddamp = 50
+	elseif targetPos then 
+
+		local fwd = ply:GetAimVector()
+		fwd.z = 0
+		fwd:Normalize()
+
+		p.pos = physHead:GetPos() + fwd * 40 + Vector(0,0,100)
+		p.maxangular = 500
+		p.maxangulardamp = 100
+		p.maxspeed = 120
+		p.maxspeeddamp = 50
+	end
+
+	physHead:Wake()
+	physHead:ComputeShadowControl(p)
+end
 
 hook.Add("PlayerSwitchWeapon", "MuR_ChangeWeaponInRagdoll", function(ply, oldwep, wep)
-	if (MuR.Gamemode == 5 or MuR.Gamemode == 11 or MuR.Gamemode == 12 or MuR.Gamemode == 17) and MuR.TimeCount + 22 > CurTime() or ply:GetNW2String("Class") == "Zombie" and IsValid(wep) and wep:GetClass() != "mur_zombie" then
+	local mode = MuR.Mode(MuR.Gamemode)
+	if (mode.disables or mode.custom_spawning) and MuR.TimeCount + 22 > CurTime() or ply:GetNW2String("Class") == "Zombie" and IsValid(wep) and wep:GetClass() != "mur_zombie" then
 		return true
 	end
 	if ply:GetNW2Bool("IsUnconscious", false) then
@@ -1180,7 +1309,7 @@ hook.Add("PlayerSwitchWeapon", "MuR_ChangeWeaponInRagdoll", function(ply, oldwep
 	end
 	local rag = ply:GetRD()
 	if IsValid(rag) then
-		ply:GiveRagdollWeapon(rag, wep)
+		ply.RagdollStoredWeapon = wep
 	end
 end)
 
@@ -1200,25 +1329,70 @@ hook.Add("SetupPlayerVisibility", "AddRTCamera", function(ply)
 end)
 
 hook.Add("Think", "MuR.RagdollDamage", function()
-	for _, ply in pairs(player.GetAll()) do
+	for _, ply in player.Iterator() do
 		local rag = ply:GetRD()
 
 		if IsValid(rag) and ply:Alive() then
-			ply.CanStandInRag = ply:Health() >= 30 and !rag.Gibbed and ply:GetNW2Float('RD_GetUpTime')-CurTime() < 20 and !ply:GetNW2Bool("LegBroken") and not ply:GetNW2Bool("IsUnconscious", false)
+			if rag.IsNailed and not IsValid(rag.NailConstraint) then
+				rag.IsNailed = false
+			end
+			ply.CanStandInRag = ply:Health() >= 30 and !rag.Gibbed and ply:GetNW2Float('RD_GetUpTime')-CurTime() < 20 and !ply:GetNW2Bool("LegBroken") and not ply:GetNW2Bool("IsUnconscious", false) and not rag.IsNailed
 			ply.CurrentEyeAngle = ply:GetAimVector():Angle()
 			ply:SetNoDraw(true)
 			ply:SetNotSolid(true)
 			ply:DrawShadow(false)
-			ply:SetActiveWeapon(nil)
-			local pos = rag:GetAttachment(rag:LookupAttachment("eyes")).Pos-Vector(0,0,48)
-			ply:SetPos(pos)
+			ply:SetMaterial("null")
+
+			local isUnconscious = ply:GetNW2Bool("IsUnconscious", false)
+			local wpn = ply.RagdollStoredWeapon or ply:GetActiveWeapon()
+			local canTPIK = ply.IsRagStanding and not isUnconscious and IsValid(wpn) and (wpn.IsTFAWeapon or wpn.TPIKForce) and not wpn.TPIKDisabled and not IsRagdollMissingHand(rag)
+
+			if IsValid(wpn) then
+				ply.RagdollStoredWeapon = wpn
+			end
+
+			if canTPIK then
+				if ply:GetActiveWeapon() ~= wpn and IsValid(wpn) then
+					//ply:SetActiveWeapon(wpn)
+				end
+			else
+				ply:SetActiveWeapon(nil)
+			end
+
+			local Head = rag:LookupAttachment("eyes")
+			if Head then
+				local HeadPos = rag:GetAttachment(Head).Pos - Vector(0,0,60) + ply:GetForward()*8
+				ply:SetPos(HeadPos)
+			end
+
 			ply:SetVelocity(-ply:GetVelocity())
 			ply:SetNW2Entity("RD_EntCam", rag)
-			ply:SetSVAnimation("rd_getup1")
 			ply:ExitVehicle()
 			ply:SetNoTarget(true)
+			ply:SetMoveType(MOVETYPE_OBSERVER)
+
+			local eyes = rag:LookupAttachment("eyes")
+			if eyes > 0 then
+				local eyeatt = rag:GetAttachment(eyes)
+				local dist = (eyeatt.Ang:Forward() * 10000):Distance(ply:GetAimVector() * 10000)
+				local distmod = math.Clamp(1 - (dist / 20000), 0.1, 1)
+				local lookat = LerpVector(distmod, eyeatt.Ang:Forward() * 100000, ply:GetAimVector() * 100000)
+				local LocalPos, LocalAng = WorldToLocal(lookat, Angle(0, 0, 0), eyeatt.Pos, eyeatt.Ang)
+
+				if not ply:GetNW2Bool("IsUnconscious", false) then
+					rag:SetEyeTarget(LocalPos)
+				else
+					rag:SetEyeTarget(Vector(0, 0, 0))
+				end
+			end
 			if IsValid(ply.Bullseye) then
-				ply.Bullseye:SetPos(rag:GetBonePosition(rag:LookupBone("ValveBiped.Bip01_Spine2")))
+				local eyes = rag:LookupAttachment("eyes")
+				if eyes > 0 then
+					local eyeatt = rag:GetAttachment(eyes)
+					ply.Bullseye:SetPos(eyeatt.Pos + eyeatt.Ang:Forward() * 5 + eyeatt.Ang:Up() * -5)
+				else
+					ply.Bullseye:SetPos(rag:GetBonePosition(rag:LookupBone("ValveBiped.Bip01_Spine2")))
+				end
 				ply.Bullseye.VJ_NPC_Class = ply.VJ_NPC_Class
 			end
 
@@ -1232,16 +1406,7 @@ hook.Add("Think", "MuR.RagdollDamage", function()
 			local posh = MuR:BoneData(rag, "ValveBiped.Bip01_Pelvis")
 			local isUnconscious = ply:GetNW2Bool("IsUnconscious", false)
 
-			local isfire = IsValid(rag.Weapon) and rag.Weapon:GetClass() == "murwep_ragdoll_weapon"
-			if isfire and not isUnconscious then
-				if rag.Weapon.data.twohand and ply:KeyDown(IN_ATTACK2) then
-					rag:PullHand("all", 120)
-				elseif ply:KeyDown(IN_ATTACK2) then
-					rag:PullHand("right", 120)
-				else
-					ply.using_twohand = false
-				end
-			elseif not isUnconscious then
+			if not isUnconscious and not rag.IsNailed then
 				rag:CrawlLogic()
 				if ply:KeyDown(IN_ATTACK) and ply:KeyDown(IN_ATTACK2) then
 					rag:PullHand("all", 120)
@@ -1252,20 +1417,12 @@ hook.Add("Think", "MuR.RagdollDamage", function()
 				else
 					ply.using_twohand = false
 				end
-			end
-
-			local wep = rag.Weapon
-			if IsValid(wep) and not isUnconscious then
-				wep:Shoot(ply:KeyDown(IN_ATTACK))
-
-				if ply:KeyDown(IN_RELOAD) then
-					wep:Reload()
-				end
+				rag:PullUpLogic()
 			end
 
 			local hpos = MuR:BoneData(rag, "ValveBiped.Bip01_Spine4")
 			local isGrabbed = IsValid(rag.LeftHandGrab) or IsValid(rag.RightHandGrab)
-			
+
 			if ((not isGrabbed and MuR:CheckHeight(rag, hpos) < 80) or isGrabbed) and ply.IsRagStanding == true and not isUnconscious then
 				rag:GetUpToStandPos()
 			end
@@ -1282,7 +1439,12 @@ hook.Add("Think", "MuR.RagdollDamage", function()
 				rag:RollBone(tab, standing)
 			end
 
+			if rag:GetNW2Bool("LeftHandHoldsObject") and not IsValid(rag.LeftHandGrab) then
+				rag:SetNW2Bool("LeftHandHoldsObject", false)
+			end
+
 			ply.delta = CurTime()
+			ply:SetNW2Bool("IsRagStanding", ply.IsRagStanding or false)
 		end
 	end
 
@@ -1301,7 +1463,7 @@ hook.Add("Think", "MuR.RagdollDamage", function()
 
 			if rag.Moans > 0 and not rag.IsDead and rag.DelayBetweenStruggle < CurTime() then
 				rag.DelayBetweenStruggle = CurTime() + math.Rand(0.1, 1)
-				--rag:StruggleBone()
+
 			end
 		end
 	end
@@ -1329,9 +1491,11 @@ hook.Add("PlayerDeath", "MuR.RagdollDamage", function(ply)
 		end
 	else
 		rag = ply:CreateAdvancedRagdoll(true)
-		rag:GiveWeaponsFromPly()
-		rag:MakeEffects(ply)
-		ply:UnconnectRagdoll(true)
+		if IsValid(rag) then
+			rag:GiveWeaponsFromPly()
+			rag:MakeEffects(ply)
+			ply:UnconnectRagdoll(true)
+		end
 	end
 	if ply:IsRolePolice() and IsValid(rag) then
 		rag.IsPoliceCorpse = true
@@ -1340,6 +1504,7 @@ hook.Add("PlayerDeath", "MuR.RagdollDamage", function(ply)
 			MuR:CallPolice(0.4)
 		end)
 	end
+
 end)
 
 hook.Add("KeyPress", "Murdered_Ragdolling", function( ply, key)
@@ -1350,8 +1515,7 @@ hook.Add("KeyPress", "Murdered_Ragdolling", function( ply, key)
 			rag:GrabHand(not IsValid(rag.LeftHandGrab), false)
 		elseif key == IN_WALK then
 			rag:GrabHand(not IsValid(rag.RightHandGrab), true)
-		elseif key == IN_JUMP then
-			rag:JumpOutGrab()
+
 		end
 	end
 end)
@@ -1372,17 +1536,7 @@ hook.Add("PlayerButtonDown", "Murdered_Ragdolling", function(ply, but)
 	local rag = ply:GetRD()
 
 	if IsValid(rag) and ply:Alive() then
-		if but == KEY_C then
-			local pos = MuR:BoneData(rag, "ValveBiped.Bip01_Pelvis")
-			
-			if ply:TimeGetUp(true) and MuR:CheckHeight(rag, pos) < 72 and ply:CanGetUp() and not rag.Gibbed and not ply:GetNW2Bool("IsUnconscious", false) then
-				if MuR:CheckHeight(rag, pos) < 16 then
-					ply:StopRagdolling(false, true)
-				else
-					ply:StopRagdolling(false)
-				end
-			end
-		elseif but == KEY_F then
+		if but == KEY_F then
 			if not ply:GetNW2Bool("IsUnconscious", false) then
 				if not ply.IsRagStanding then
 					ply.IsRagStanding = false

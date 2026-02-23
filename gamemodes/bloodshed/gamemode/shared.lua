@@ -1,27 +1,13 @@
---[[
-WARNING: CC BY-NC 4.0
-
-This gamemod is distributed under the terms of CC BY-NC 4.0
-(https://creativecommons.org/licenses/by-nc/4.0/deed.en) with ADDITIONAL TERMS:
-
-- It is prohibited to change or delete the GM.Author and GM.License fields.
-- Before publishing, distributing or significantly modifying, you MUST
-notify the original author (hari_devs - discord_tag or profile link).
-- Any use outside the terms of this license is prohibited.
-
-Note: additional terms go beyond the "pure" CC BY-NC 4.0.
-By using this gamemode, you accept both the terms of CC BY-NC 4.0 and the additional terms listed above.
-If you do not agree, do not use the material or obtain separate written permission from the author.
-]]--
-
+﻿
 DeriveGamemode("sandbox")
 
-GM.License = "https://creativecommons.org/licenses/by-nc/4.0/deed.en"
+GM.License = "https://creativecommons.org/licenses/by/4.0/"
 GM.Author = "https://steamcommunity.com/id/harionplayz/"
 GM.Name = "Bloodshed: Redux"
+GM.Version = "1.3.0"
 
 MuR = MuR or {}
-
+MuR.Language = MuR.Language or {}
 MuR.EnableDebug = false
 
 MuR.shared("shared/sh_cvars.lua")
@@ -29,17 +15,22 @@ MuR.shared("shared/sh_rd.lua")
 MuR.shared("shared/sh_woundfix.lua")
 MuR.shared("shared/sh_policedispatch.lua")
 MuR.shared("shared/sh_convars.lua")
+MuR.shared("shared/sh_roles.lua")
 MuR.shared("shared/sh_sniper.lua")
 MuR.shared("shared/sh_modes.lua")
-MuR.shared("shared/sh_roles.lua")
 MuR.shared("shared/sh_tpik.lua")
 MuR.shared("shared/sh_lib.lua")
 MuR.shared("shared/sh_bloodsmearing.lua")
 MuR.shared("shared/sh_move.lua")
+MuR.shared("shared/sh_crafting.lua")
+MuR.shared("shared/sh_hostage.lua")
+MuR.shared("shared/sh_organs.lua")
+MuR.shared("shared/sh_armor.lua")
 
 local function LoadDir(dir)
 	local files, dirs = file.Find( dir .. "*", "LUA" )
 	for _, f in ipairs(files or {}) do
+		if !string.find(f, ".lua") then continue end
 		local path = "modes/"..f
 		AddCSLuaFile(path)
 		include(path)
@@ -50,6 +41,7 @@ MuR:RebuildGamemodeChances()
 
 MuR.server("lang/sv_init.lua")
 MuR.server("server/sv_functions.lua")
+MuR.server("server/sv_substance_system.lua")
 MuR.server("server/sv_rounds.lua")
 MuR.server("server/sv_rd.lua")
 MuR.server("server/sv_npc.lua")
@@ -64,18 +56,29 @@ MuR.server("server/sv_weaponry.lua")
 MuR.server("server/sv_executions.lua")
 MuR.server("server/sv_sandbox.lua")
 MuR.server("server/sv_newfunctions.lua")
+MuR.server("server/sv_crafting.lua")
+MuR.server("server/sv_hostage.lua")
+MuR.server("server/sv_killfeed.lua")
+MuR.server("server/sv_organs.lua")
+MuR.server("server/sv_bonefractures.lua")
+MuR.server("server/sv_armor.lua")
+MuR.server("server/sv_reverb.lua")
+MuR.server("server/sv_ragdoll_menu.lua")
 
 MuR.shared("zippy_gore/zippygoremod3.lua")
 MuR.shared("zippy_blood/zippy_dynamic_blood_splatter.lua")
 
 MuR.client("lang/cl_init.lua")
 MuR.client("client/cl_execcam.lua")
+MuR.client("client/cl_substance_effects.lua")
+MuR.client("client/cl_phrases.lua")
 MuR.client("client/cl_hud.lua")
 MuR.client("client/cl_rd.lua")
 MuR.client("client/cl_chat.lua")
 MuR.client("client/cl_util.lua")
 MuR.client("client/cl_scoreboard.lua")
 MuR.client("client/cl_body.lua")
+MuR.client("client/cl_binds.lua")
 MuR.client("client/cl_q_menu.lua")
 MuR.client("client/cl_shop.lua")
 MuR.client("client/cl_pain.lua")
@@ -83,12 +86,21 @@ MuR.client("client/cl_deathlist.lua")
 MuR.client("client/cl_body_inventory.lua")
 MuR.client("client/cl_addhud.lua")
 MuR.client("client/cl_settings.lua")
-MuR.client("client/cl_animcreator.lua")
 MuR.client("client/cl_sandbox.lua")
 MuR.client("client/cl_rormusic.lua")
 MuR.client("client/cl_presence.lua")
 MuR.client("client/cl_policeraidcam.lua")
 MuR.client("client/cl_storm.lua")
+MuR.client("client/cl_crafting.lua")
+MuR.client("client/cl_hostage.lua")
+MuR.client("client/cl_killfeed.lua")
+MuR.client("client/cl_organs.lua")
+MuR.client("client/cl_armor.lua")
+MuR.client("client/cl_armor_ui.lua")
+MuR.client("client/cl_nzdeath.lua")
+MuR.client("client/cl_reverb.lua")
+MuR.client("client/cl_ragdoll_menu.lua")
+//MuR.client("client/cl_netprofiler.lua")
 
 MuR.shared("extensions/sh_tfa_lean.lua")
 MuR.shared("extensions/sh_better_flashlight.lua")
@@ -98,30 +110,8 @@ MuR.server("extensions/sv_litewounds.lua")
 MuR.client("extensions/cl_chands.lua")
 MuR.client("extensions/cl_autoicon.lua")
 MuR.client("extensions/cl_litewounds.lua")
-
-MuR.Language = MuR.Language or {}
-
-MuR.PlayerModels = {
-	["Civilian_Male"] = {"models/murdered/pm/citizen/male_01.mdl", "models/murdered/pm/citizen/male_02.mdl", "models/murdered/pm/citizen/male_03.mdl", "models/murdered/pm/citizen/male_04.mdl", "models/murdered/pm/citizen/male_05.mdl", "models/murdered/pm/citizen/male_06.mdl", "models/murdered/pm/citizen/male_07.mdl", "models/murdered/pm/citizen/male_08.mdl", "models/murdered/pm/citizen/male_09.mdl", "models/murdered/pm/citizen/male_10.mdl", "models/murdered/pm/citizen/male_11.mdl"},
-	["Civilian_Female"] = {"models/murdered/pm/citizen/female_01.mdl", "models/murdered/pm/citizen/female_02.mdl", "models/murdered/pm/citizen/female_03.mdl", "models/murdered/pm/citizen/female_04.mdl", "models/murdered/pm/citizen/female_06.mdl", "models/murdered/pm/citizen/female_07.mdl"},
-	["Medic_Male"] = {"models/murdered/pm/medic_01.mdl", "models/murdered/pm/medic_02.mdl", "models/murdered/pm/medic_03.mdl", "models/murdered/pm/medic_04.mdl", "models/murdered/pm/medic_05.mdl", "models/murdered/pm/medic_06.mdl", "models/murdered/pm/medic_07.mdl"},
-	["Medic_Female"] = {"models/murdered/pm/medic_01_f.mdl", "models/murdered/pm/medic_02_f.mdl", "models/murdered/pm/medic_03_f.mdl", "models/murdered/pm/medic_04_f.mdl", "models/murdered/pm/medic_05_f.mdl", "models/murdered/pm/medic_06_f.mdl"},
-	["Builder"] = {"models/murdered/pm/odessa.mdl",},
-	["Maniac"] = {"models/murdered/pm/jason_v.mdl",},
-	["Terrorist"] = {"models/murdered/pm/t_grunts.mdl",},
-	["Shooter"] = {"models/murdered/pm/hatred_mh.mdl",},
-	["Anarchist"] = {"models/murdered/pm/t_grunts.mdl",},
-	["Police"] = {"models/murdered/pm/police/male_01.mdl", "models/murdered/pm/police/male_03.mdl", "models/murdered/pm/police/male_04.mdl", "models/murdered/pm/police/male_05.mdl", "models/murdered/pm/police/male_06.mdl", "models/murdered/pm/police/male_07.mdl", "models/murdered/pm/police/male_08.mdl", "models/murdered/pm/police/male_09.mdl"},
-	["SWAT"] = {"models/murdered/pm/swat/male_01.mdl", "models/murdered/pm/swat/male_02.mdl", "models/murdered/pm/swat/male_03.mdl", "models/murdered/pm/swat/male_04.mdl", "models/murdered/pm/swat/male_05.mdl", "models/murdered/pm/swat/male_06.mdl", "models/murdered/pm/swat/male_07.mdl", "models/murdered/pm/swat/male_08.mdl", "models/murdered/pm/swat/male_09.mdl"},
-	["Riot"] = {"models/murdered/pm/swat/male_01.mdl", "models/murdered/pm/swat/male_02.mdl", "models/murdered/pm/swat/male_03.mdl", "models/murdered/pm/swat/male_04.mdl", "models/murdered/pm/swat/male_05.mdl", "models/murdered/pm/swat/male_06.mdl", "models/murdered/pm/swat/male_07.mdl", "models/murdered/pm/swat/male_08.mdl", "models/murdered/pm/swat/male_09.mdl"},
-	["Terrorist_TDM"] = {"models/murdered/pm/t_phoenix.mdl", "models/murdered/pm/t_leet.mdl", "models/murdered/pm/t_guerilla.mdl", "models/murdered/pm/t_arctic.mdl"},
-	["Police_TDM"] = {"models/murdered/pm/ct_spetsnaz.mdl"},
-	["Zombie"] = {"models/murdered/pm/zombie/zombie_male_01.mdl", "models/murdered/pm/zombie/zombie_male_02.mdl", "models/murdered/pm/zombie/zombie_male_03.mdl", "models/murdered/pm/zombie/zombie_male_04.mdl", "models/murdered/pm/zombie/zombie_male_05.mdl", "models/murdered/pm/zombie/zombie_male_06.mdl", "models/murdered/pm/zombie/zombie_male_07.mdl", "models/murdered/pm/zombie/zombie_male_08.mdl", "models/murdered/pm/zombie/zombie_male_09.mdl"},
-	["Security"] = {"models/murdered/pm/guard/guard_01.mdl", "models/murdered/pm/guard/guard_02.mdl", "models/murdered/pm/guard/guard_03.mdl", "models/murdered/pm/guard/guard_04.mdl", "models/murdered/pm/guard/guard_05.mdl", "models/murdered/pm/guard/guard_06.mdl", "models/murdered/pm/guard/guard_07.mdl", "models/murdered/pm/guard/guard_08.mdl", "models/murdered/pm/guard/guard_09.mdl"},
-	["SecurityForces"] = {"models/murdered/pm/sf/guard_01.mdl", "models/murdered/pm/sf/guard_02.mdl", "models/murdered/pm/sf/guard_03.mdl", "models/murdered/pm/sf/guard_04.mdl", "models/murdered/pm/sf/guard_05.mdl", "models/murdered/pm/sf/guard_06.mdl", "models/murdered/pm/sf/guard_07.mdl", "models/murdered/pm/sf/guard_08.mdl", "models/murdered/pm/sf/guard_09.mdl"},
-	["GangGreen"] = {"models/murdered/pm/gangs/gang_groove_chem.mdl", "models/murdered/pm/gangs/gang_1.mdl", "models/murdered/pm/gangs/gang_2.mdl"},
-	["GangRed"] = {"models/murdered/pm/gangs/gang_ballas_chem.mdl", "models/murdered/pm/gangs/gang_ballas_1.mdl", "models/murdered/pm/gangs/gang_ballas_2.mdl"}
-}
+MuR.client("extensions/cl_weapon_selector.lua")
+MuR.shared("extensions/sh_kicks.lua")
 
 local ftab = {"mur_food_apple", "mur_food_banana", "mur_food_beer1", "mur_food_beer2", "mur_food_burger", "mur_food_chickenwrap", "mur_food_colabig", "mur_food_colasmall", "mur_food_doritos", "mur_food_hotdog", "mur_food_icecream", "mur_food_lays", "mur_food_monster", "mur_food_mtndewcan", "mur_food_pepsican", "mur_food_redbull", "mur_food_sandwich"}
 
@@ -133,6 +123,7 @@ MuR.Shop = {
 			name = "Food",
 			icon = "entities/food.png",
 			price = 5,
+			limit = 0,
 			func = function(ply)
 				ply:GiveWeapon(table.Random(ftab))
 			end,
@@ -149,6 +140,8 @@ MuR.Shop = {
 			name = "Bandage",
 			icon = "entities/mur_loot_bandage.png",
 			price = 25,
+			limit = 4,
+			zombieprice = 250,
 			func = function(ply)
 				ply:GiveWeapon("mur_loot_bandage")
 			end,
@@ -157,6 +150,8 @@ MuR.Shop = {
 			name = "Adrenaline",
 			icon = "entities/mur_loot_adrenaline.png",
 			price = 50,
+			limit = 2,
+			zombieprice = 500,
 			func = function(ply)
 				ply:GiveWeapon("mur_loot_adrenaline")
 			end,
@@ -165,16 +160,38 @@ MuR.Shop = {
 			name = "Duct Tape",
 			icon = "entities/mur_loot_ducttape.png",
 			price = 50,
+			limit = 2,
 			func = function(ply)
 				ply:GiveWeapon("mur_loot_ducttape")
+			end,
+		},
+		{
+			name = "Tourniquet",
+			icon = "entities/mur_loot_tourniquet.png",
+			price = 60,
+			limit = 3,
+			zombieprice = 300,
+			func = function(ply)
+				ply:GiveWeapon("mur_loot_tourniquet")
 			end,
 		},
 		{
 			name = "First Aid Kit",
 			icon = "entities/mur_loot_medkit.png",
 			price = 75,
+			limit = 2,
+			zombieprice = 500,
 			func = function(ply)
 				ply:GiveWeapon("mur_loot_medkit")
+			end,
+		},
+		{
+			name = "Fire Extinguisher",
+			icon = "entities/mur_extinguisher.png",
+			price = 75,
+			limit = 2,
+			func = function(ply)
+				ply:GiveWeapon("mur_extinguisher")
 			end,
 		},
 		{
@@ -202,11 +219,44 @@ MuR.Shop = {
 			end,
 		},
 		{
+			name = "Surgical Kit",
+			icon = "entities/mur_loot_surgicalkit.png",
+			price = 175,
+			zombieprice = 500,
+			func = function(ply)
+				ply:GiveWeapon("mur_loot_surgicalkit")
+			end,
+		},
+		{
 			name = "Pepper Spray",
 			icon = "entities/mur_pepperspray.png",
-			price = 250,
+			price = 200,
 			func = function(ply)
 				ply:GiveWeapon("mur_pepperspray")
+			end,
+		},
+		{
+			name = "Chemistry Tablet",
+			icon = "entities/mur_loot_phone.png",
+			price = 225,
+			func = function(ply)
+				ply:GiveWeapon("mur_chemistry_basic")
+			end,
+		},
+		{
+			name = "Radio",
+			icon = "entities/mur_radio.png",
+			price = 250,
+			func = function(ply)
+				ply:GiveWeapon("mur_radio")
+			end,
+		},
+		{
+			name = "Welder",
+			icon = "entities/mur_welder.png",
+			price = 300,
+			func = function(ply)
+				ply:GiveWeapon("mur_welder")
 			end,
 		},
 	},
@@ -215,6 +265,7 @@ MuR.Shop = {
 			name = "Ammo",
 			icon = "entities/am_bullets.png",
 			price = 25,
+			limit = 0,
 			func = function(ply)
 				local wep = ply:GetActiveWeapon()
 
@@ -227,6 +278,7 @@ MuR.Shop = {
 			name = "Midazolam",
 			icon = "entities/mur_tranq.png",
 			price = 25,
+			limit = 4,
 			func = function(ply)
 				ply:GiveWeapon("mur_tranq")
 			end,
@@ -244,6 +296,7 @@ MuR.Shop = {
 			name = "Phencyclidine",
 			icon = "entities/mur_loot_heroin.png",
 			price = 50,
+			limit = 4,
 			traitor = true,
 			func = function(ply)
 				ply:GiveWeapon("mur_bredogen")
@@ -253,6 +306,7 @@ MuR.Shop = {
 			name = "Tetrodotoxin",
 			icon = "entities/mur_poisoncanister.png",
 			price = 75,
+			limit = 2,
 			traitor = true,
 			func = function(ply)
 				ply:GiveWeapon("mur_poisoncanister")
@@ -262,6 +316,7 @@ MuR.Shop = {
 			name = "Hydrogen Cyanide",
 			icon = "entities/mur_cyanide.png",
 			price = 75,
+			limit = 2,
 			traitor = true,
 			func = function(ply)
 				ply:GiveWeapon("mur_cyanide")
@@ -271,6 +326,7 @@ MuR.Shop = {
 			name = "Hydrofluoric Acid",
 			icon = "entities/mur_acid.png",
 			price = 75,
+			limit = 8,
 			traitor = false,
 			func = function(ply)
 				ply:GiveWeapon("mur_acid")
@@ -280,6 +336,7 @@ MuR.Shop = {
 			name = "Bear Trap",
 			icon = "entities/mur_beartrap.png",
 			price = 100,
+			limit = 4,
 			traitor = false,
 			func = function(ply)
 				ply:GiveWeapon("mur_beartrap")
@@ -298,6 +355,7 @@ MuR.Shop = {
 			name = "Heroin",
 			icon = "entities/mur_loot_heroin.png",
 			price = 100,
+			limit = 3,
 			func = function(ply)
 				ply:GiveWeapon("mur_loot_heroin")
 			end,
@@ -306,8 +364,43 @@ MuR.Shop = {
 			name = "Gasoline",
 			icon = "entities/mur_gasoline.png",
 			price = 125,
+			limit = 2,
 			func = function(ply)
 				ply:GiveWeapon("mur_gasoline")
+			end,
+		},
+		{
+			name = "12x Reagents",
+			icon = "entities/mur_acid.png",
+			price = 125,
+			limit = 4,
+			traitor = true,
+			func = function(ply)
+				for i = 1, 12 do
+					local ent = ents.Create("mur_loot_reagent")
+					if IsValid(ent) then
+						ent:SetPos(ply:GetPos() + Vector(math.random(-20, 20), math.random(-20, 20), 20))
+						ent:Spawn()
+						ent:Use(ply, ply)
+					end
+				end
+			end,
+		},
+		{
+			name = "Gas Mask",
+			icon = "entities/mur_armor_gasmask.png",
+			price = 125,
+			traitor = true,
+			func = function(ply)
+				ply:EquipArmor("gasmask")
+			end,
+		},
+		{
+			name = "Cocktail Molotov",
+			icon = "entities/mur_molotov.png",
+			price = 125,
+			func = function(ply)
+				ply:GiveWeapon("mur_molotov")
 			end,
 		},
 		{
@@ -331,7 +424,7 @@ MuR.Shop = {
 			icon = "entities/tfa_bs_glock.png",
 			price = 200,
 			func = function(ply)
-				ply:GiveWeapon(table.Random(MuR.WeaponTable["Secondary"]).class)
+				ply:GiveWeapon(table.Random(MuR.WeaponsTable["Secondary"]).class)
 			end,
 		},
 		{
@@ -347,6 +440,7 @@ MuR.Shop = {
 			name = "FPV Drone",
 			icon = "entities/mur_drone.png",
 			price = 250,
+			limit = 2,
 			traitor = true,
 			func = function(ply)
 				ply:GiveWeapon("mur_drone")
@@ -355,6 +449,7 @@ MuR.Shop = {
 		{
 			name = "Mind Controller",
 			icon = "entities/mur_loot_heroin.png",
+			limit = 2,
 			price = 300,
 			traitor = true,
 			func = function(ply)
@@ -362,11 +457,19 @@ MuR.Shop = {
 			end,
 		},
 		{
+			name = "Class I Armor",
+			icon = "entities/mur_armor_classI_armor.png",
+			price = 350,
+			func = function(ply)
+				ply:EquipArmor("classI_armor")
+			end,
+		},
+		{
 			name = "Heavy Weapon",
 			icon = "entities/tfa_bs_akm.png",
 			price = 500,
 			func = function(ply)
-				ply:GiveWeapon(table.Random(MuR.WeaponTable["Primary"]).class)
+				ply:GiveWeapon(table.Random(MuR.WeaponsTable["Primary"]).class)
 			end,
 		},
 		{
@@ -384,6 +487,8 @@ MuR.Shop = {
 			name = "Ammo",
 			icon = "entities/am_bullets.png",
 			price = 25,
+			limit = 0,
+			zombieprice = 200,
 			func = function(ply)
 				local wep = ply:GetActiveWeapon()
 
@@ -393,9 +498,21 @@ MuR.Shop = {
 			end,
 		},
 		{
+			name = "Melee Weapon",
+			icon = "entities/mur_combat_knife.png",
+			price = 25,
+			limit = 0,
+			zombieprice = 500,
+			func = function(ply)
+				ply:GiveWeapon(table.Random(MuR.WeaponsTable["Melee"]).class)
+			end,
+		},
+		{
 			name = "F1 Grenade",
 			icon = "entities/mur_f1.png",
 			price = 50,
+			limit = 4,
+			zombieprice = 1000,
 			func = function(ply)
 				ply:GiveWeapon("mur_f1")
 			end,
@@ -404,6 +521,8 @@ MuR.Shop = {
 			name = "M67 Grenade",
 			icon = "entities/mur_m67.png",
 			price = 50,
+			limit = 4,
+			zombieprice = 1000,
 			func = function(ply)
 				ply:GiveWeapon("mur_m67")
 			end,
@@ -412,6 +531,8 @@ MuR.Shop = {
 			name = "Flashbang",
 			icon = "entities/mur_flashbang.png",
 			price = 50,
+			limit = 4,
+			zombieprice = 1000,
 			func = function(ply)
 				ply:GiveWeapon("mur_flashbang")
 			end,
@@ -420,14 +541,18 @@ MuR.Shop = {
 			name = "Light Weapon",
 			icon = "entities/tfa_bs_glock.png",
 			price = 75,
+			limit = 0,
+			zombieprice = 1750,
 			func = function(ply)
-				ply:GiveWeapon(table.Random(MuR.WeaponTable["Secondary"]).class)
+				ply:GiveWeapon(table.Random(MuR.WeaponsTable["Secondary"]).class)
 			end,
 		},
 		{
 			name = "IED",
 			icon = "entities/mur_ied.png",
 			price = 75,
+			limit = 2,
+			zombieprice = 1250,
 			func = function(ply)
 				ply:GiveWeapon("mur_ied")
 			end,
@@ -436,6 +561,8 @@ MuR.Shop = {
 			name = "FPV Drone",
 			icon = "entities/mur_drone.png",
 			price = 150,
+			limit = 2,
+			zombieprice = 1250,
 			func = function(ply)
 				ply:GiveWeapon("mur_drone")
 			end,
@@ -444,14 +571,17 @@ MuR.Shop = {
 			name = "Heavy Weapon",
 			icon = "entities/tfa_bs_akm.png",
 			price = 250,
+			limit = 0,
+			zombieprice = 3500,
 			func = function(ply)
-				ply:GiveWeapon(table.Random(MuR.WeaponTable["Primary"]).class)
+				ply:GiveWeapon(table.Random(MuR.WeaponsTable["Primary"]).class)
 			end,
 		},
 		{
 			name = "RPG-7",
 			icon = "entities/tfa_bs_rpg7.png",
 			price = 500,
+			zombieprice = 10000,
 			func = function(ply)
 				ply:GiveWeapon("tfa_bs_rpg7")
 			end,
@@ -489,7 +619,7 @@ MuR.PoliceClasses = {
 MuR.MaxLootNumber = 100
 
 MuR.Loot = {
-	---WEAPONS---
+
 	{
 		class = "mur_pepperspray",
 		chance = 12
@@ -590,7 +720,7 @@ MuR.Loot = {
 		class = "tfa_bs_deagle",
 		chance = 1
 	},
-	---OTHERS---
+
 	{
 		class = "mur_loot_money",
 		chance = 50
@@ -624,6 +754,10 @@ MuR.Loot = {
 		chance = 5
 	},
 	{
+		class = "mur_loot_tourniquet",
+		chance = 5
+	},
+	{
 		class = "mur_loot_hammer",
 		chance = 5
 	},
@@ -634,6 +768,66 @@ MuR.Loot = {
 	{
 		class = "mur_gasoline",
 		chance = 5
+	},
+	{
+		class = "mur_loot_surgicalkit",
+		chance = 4
+	},
+	{
+		class = "mur_acid",
+		chance = 8
+	},
+	{
+		class = "mur_chemistry_basic",
+		chance = 15
+	},
+	{
+		class = "mur_loot_reagent",
+		chance = 40
+	},
+	{
+		class = "mur_armor_classI_armor",
+		chance = 3
+	},
+	{
+		class = "mur_armor_classII_armor",
+		chance = 2
+	},
+	{
+		class = "mur_armor_gasmask",
+		chance = 3
+	},
+	{
+		class = "mur_armor_pot",
+		chance = 5
+	},
+	{
+		class = "mur_armor_moto_helmet",
+		chance = 4
+	},
+	{
+		class = "mur_meth",
+		chance = 3
+	},
+	{
+		class = "mur_lsd",
+		chance = 3
+	},
+	{
+		class = "mur_cocaine",
+		chance = 3
+	},
+	{
+		class = "mur_welder",
+		chance = 1
+	},
+		{
+		class = "mur_radio",
+		chance = 3
+	},
+	{
+		class = "mur_extinguisher",
+		chance = 4
 	},
 }
 
@@ -651,6 +845,32 @@ MuR.CustomLootEntityIcons = {
 	["mur_loot_money"] = {"Money", "entities/money.png"},
 	["mur_loot_flashlight"] = {"Flashlight", "entities/flashlight.png"},
 	["mur_loot_ammo"] = {"Ammo", "entities/am_bullets.png"},
+	["mur_acid"] = {"Acid", "entities/mur_acid.png"},
+	["mur_chemistry_basic"] = {"Tablet", "entities/mur_loot_phone.png"},
+	["mur_loot_reagent"] = {"Reagent", "entities/mur_acid.png"},
+	["mur_armor_classI_armor"] = {"Class I Armor", "entities/mur_armor_classI_armor.png"},
+	["mur_armor_classII_armor"] = {"Class II Armor", "entities/mur_armor_classII_armor.png"},
+	["mur_armor_classIII_armor"] = {"Class III Armor", "entities/mur_armor_classIII_armor.png"},
+	["mur_armor_classII_police"] = {"Class II Armor", "entities/mur_armor_classII_police.png"},
+	["mur_armor_classIII_police"] = {"Class III Armor", "entities/mur_armor_classIII_police.png"},
+	["mur_armor_gasmask"] = {"Gas Mask", "entities/mur_armor_gasmask.png"},
+	["mur_armor_pot"] = {"Cooking Pot", "entities/mur_armor_pot.png"},
+	["mur_armor_moto_helmet"] = {"Moto Helmet", "entities/mur_armor_moto_helmet.png"},
+	["mur_armor_helmet_ulach"] = {"Helmet Ulach", "entities/mur_armor_helmet_ulach.png"},
+}
+
+MuR.EntityReplaceMapModel = {
+	["models/props_interiors/pot02a.mdl"] = "mur_armor_pot",
+	["models/props_c17/canister01a.mdl"] = "mur_gasoline",
+	["models/props_c17/canister02a.mdl"] = "mur_gasoline",
+	["models/props_canal/mattpipe.mdl"] = "tfa_bs_pipe",
+	["models/props_junk/shovel01a.mdl"] = "tfa_bs_spade",
+	["models/props_c17/tools_wrench01a.mdl"] = "tfa_bs_wrench",
+	["models/weapons/w_crowbar.mdl"] = "tfa_bs_crowbar",
+	["models/props_forest/axe.mdl"] = "tfa_bs_hatchet",
+	["models/props_mining/pickaxe01.mdl"] = "tfa_bs_pickaxe",
+	["models/props/cs_militia/axe.mdl"] = "tfa_bs_hatchet",
+	["models/weapons/w_stunbaton.mdl"] = "tfa_bs_baton",
 }
 
 MuR.LootableProps = {
@@ -999,7 +1219,6 @@ MuR.RagdollGunData = {
         automatic = true,
     },
 
-
     ["AK47"] = {
         model = "models/weapons/w_rif_ak47.mdl",
         offsetpos = Vector(-1,12,-3),
@@ -1045,10 +1264,6 @@ MuR.RagdollGunData = {
         automatic = false,
     },
 
-    ------------------
-
-    -- [[ PISTOLS ]]
-
 	["tfa_bs_m9"] = {model = "models/sidearms/w_m9.mdl", offsetpos = Vector(-1.5,5,1.5), offsetang = Angle(180,180,0), twohand = false, automatic = false},
 	["tfa_bs_colt"] = {model = "models/sidearms/w_1911.mdl", offsetpos = Vector(-1.5,5,1.5), offsetang = Angle(180,180,0), twohand = false, automatic = false},
     ["tfa_bs_glock"] = {model = "models/sidearms/w_glock.mdl", offsetpos = Vector(5,1,3), offsetang = Angle(180,90,20), twohand = false, automatic = false},
@@ -1060,8 +1275,7 @@ MuR.RagdollGunData = {
 	["tfa_bs_mateba"] = {model = "models/sidearms/w_mateba.mdl", offsetpos = Vector(-1.5,5,2), offsetang = Angle(180,180,0), twohand = false, automatic = false},
 	["tfa_bs_p320"] = {model = "models/sidearms/w_p320.mdl", offsetpos = Vector(-1.5,5,2), offsetang = Angle(180,180,0), twohand = false, automatic = false},
 	["tfa_bs_walther"] = {model = "models/sidearms/w_ins2_pist_p99.mdl", offsetpos = Vector(-1.5,5,2), offsetang = Angle(180,180,0), twohand = false, automatic = false},
-
-	-- [[ SNIPER RIFLES ]]
+	["tfa_bs_ruger"] = {model = "models/sidearms/w_pistol_a.mdl", offsetpos = Vector(-1.5,1,0), offsetang = Angle(180,180,0), twohand = false, automatic = false},
 
 	["tfa_bs_mosin"] = {model = "models/snipers/w_ins2_mosin.mdl", offsetpos = Vector(-5.5,-2,6), offsetang = Angle(180,180,0), twohand = true, automatic = false},
 	["tfa_bs_svd"] = {model = "models/marksman/w_nam_svd.mdl", offsetpos = Vector(-2.5,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = false},
@@ -1069,12 +1283,8 @@ MuR.RagdollGunData = {
 	["tfa_bs_m24"] = {model = "models/snipers/w_m24.mdl", offsetpos = Vector(-2,8,1), offsetang = Angle(180,180,0), twohand = true, automatic = false},
 	["tfa_bs_kar98"] = {model = "models/snipers/w_k98.mdl", offsetpos = Vector(-2,6,1), offsetang = Angle(180,180,0), twohand = true, automatic = false},
 
-        -- [[ MARKSMAN RIFLES ]]
-
 	["tfa_bs_sks"] = {model = "models/marksman/w_sks.mdl", offsetpos = Vector(-3,8,0), offsetang = Angle(180,180,0), twohand = true, automatic = false},
 	["tfa_bs_sr25"] = {model = "models/marksman/w_sr25_gleb.mdl", offsetpos = Vector(-2.5,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = false},
-
-        -- [[ SHOTGUNS ]]
 
 	["tfa_bs_spas"] = {model = "models/shotguns/w_spas12_bri.mdl", offsetpos = Vector(-2,7,4), offsetang = Angle(180,180,0), twohand = true, automatic = false},
 	["tfa_bs_m500"] = {model = "models/shotguns/w_m500.mdl", offsetpos = Vector(-1.8,6,3), offsetang = Angle(180,180,0), twohand = true, automatic = false},
@@ -1086,47 +1296,44 @@ MuR.RagdollGunData = {
 	["tfa_bs_ks23"] = {model = "models/shotguns/w_coldwar_ks23.mdl", offsetpos = Vector(-2,1,0), offsetang = Angle(180,180,0), twohand = true, automatic = false},
 	["tfa_bs_m37"] = {model = "models/shotguns/w_tfa_ithaca m37.mdl", offsetpos = Vector(-4,-5,5), offsetang = Angle(0,270,0), twohand = true, automatic = false},
 
-        -- [[ RIFLES ]]
-
-	["tfa_bs_ak74"] = {model = "models/rifles/w_ak74.mdl", offsetpos = Vector(-2.5,5,3), offsetang = Angle(180,180,0), twohand = true, automatic = true},
-	["tfa_bs_akm"] = {model = "models/rifles/w_akm.mdl", offsetpos = Vector(-2.5,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
-	["tfa_bs_aks74u"] = {model = "models/rifles/w_aks74u.mdl", offsetpos = Vector(-2,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
+	["tfa_bs_ak74"] = {model = "models/rifles/w_ak74.mdl", offsetpos = Vector(-5, -2, 8), offsetang = Angle(180,180,0), twohand = true, automatic = true},
+	["tfa_bs_akm"] = {model = "models/rifles/w_akm.mdl", offsetpos = Vector(-5, -2, 8), offsetang = Angle(180,180,0), twohand = true, automatic = true},
+	["tfa_bs_aks74u"] = {model = "models/rifles/w_aks74u.mdl", offsetpos = Vector(-5, -2, 8), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_aug"] = {model = "models/rifles/w_aug.mdl", offsetpos = Vector(-2.5,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_badger"] = {model = "models/rifles/w_inss_q_honeybadger.mdl", offsetpos = Vector(-2.5,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_g3"] = {model = "models/rifles/g3a3/w_fal.mdl", offsetpos = Vector(-2.5,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_hk416"] = {model = "models/rifles/w_hk416.mdl", offsetpos = Vector(-2,6,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
-	["tfa_bs_m4a1"] = {model = "models/rifles/m4a1/w_m4a1.mdl", offsetpos = Vector(-2,6,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
+	["tfa_bs_m4a1"] = {model = "models/rifles/w_m4a1.mdl", offsetpos = Vector(-5, -5, 8), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_l1a1"] = {model = "models/rifles/l1a1/w_l1a1.mdl", offsetpos = Vector(-2.5,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_val"] = {model = "models/rifles/w_asval.mdl", offsetpos = Vector(-1,12,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_acr"] = {model = "models/rifles/w_acr.mdl", offsetpos = Vector(-2.5,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
-	["tfa_bs_draco"] = {model = "models/rifles/w_draco.mdl", offsetpos = Vector(-2,6,1), offsetang = Angle(0,0,180), twohand = true, automatic = true},
-	["tfa_bs_ak12"] = {model = "models/rifles/w_ak12.mdl", offsetpos = Vector(-2,8,1), offsetang = Angle(0,0,180), twohand = true, automatic = true},
+	["tfa_bs_draco"] = {model = "models/rifles/w_draco.mdl", offsetpos = Vector(-2,6,1), offsetang = Angle(0,0,180), twohand = true, automatic = false},
+	["tfa_bs_ak12"] = {model = "models/rifles/w_ak12.mdl", offsetpos = Vector(-5, -2, 8), offsetang = Angle(0,0,180), twohand = true, automatic = true},
 	["tfa_bs_m16"] = {model = "models/rifles/w_doi_m16a1.mdl", offsetpos = Vector(-4,-4,6), offsetang = Angle(0,0,180), twohand = true, automatic = true},
 	["tfa_bs_sg552"] = {model = "models/rifles/w_sg55x.mdl", offsetpos = Vector(2,-16,1), offsetang = Angle(0,180,180), twohand = true, automatic = true},
-
-        -- [[ MACHINE GUNS ]]
+	["tfa_bs_mk17"] = {model = "models/rifles/w_mk17.mdl", offsetpos = Vector(-5, -2, 8), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 
 	["tfa_bs_m249"] = {model = "models/machine/w_m249.mdl", offsetpos = Vector(-2,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_pkm"] = {model = "models/machine/w_pkm.mdl", offsetpos = Vector(-7,-1,2), offsetang = Angle(180,270,0), twohand = true, automatic = true},
-	["tfa_bs_rpk"] = {model = "models/machine/w_rpk.mdl", offsetpos = Vector(-2.5,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
-
-	    -- [[ SUBMACHINE GUNS ]]
+	["tfa_bs_rpk"] = {model = "models/machine/w_rpk.mdl", offsetpos = Vector(-5, -2, 8), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 
 	["tfa_bs_ump"] = {model = "models/submachine/w_ump45.mdl", offsetpos = Vector(-2,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_uzi"] = {model = "models/submachine/w_uzi.mdl", offsetpos = Vector(-2,5,2), offsetang = Angle(180,180,0), twohand = false, automatic = true},
-	["tfa_bs_vector"] = {model = "models/submachine/w_t2_vector.mdl", offsetpos = Vector(-2,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
-	["tfa_bs_mp5a5"] = {model = "models/submachine/w_inss2_mp5a5.mdl", offsetpos = Vector(-3,7,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
+	["tfa_bs_vector"] = {model = "models/submachine/w_krissv.mdl", offsetpos = Vector(-2,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
+	["tfa_bs_mp5a5"] = {model = "models/submachine/w_mp5a2.mdl", offsetpos = Vector(-5,-5,8), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_mp7"] = {model = "models/submachine/w_mp7.mdl", offsetpos = Vector(-2,5,2), offsetang = Angle(180,180,0), twohand = true, automatic = true},
 	["tfa_bs_mac11"] = {model = "models/submachine/w_mac11.mdl", offsetpos = Vector(2,-2,1), offsetang = Angle(180,0,0), twohand = false, automatic = true},
-
-	    -- [[ OTHERS ]]
 
 	["tfa_bs_annabelle"] = {model = "models/hl/w_annabelle.mdl", offsetpos = Vector(1,-16,1), offsetang = Angle(180,0,0), twohand = true, automatic = false},
 	["tfa_bs_ar2"] = {model = "models/hl/w_iiopnirifle.mdl", offsetpos = Vector(3,-16,1), offsetang = Angle(180,0,0), twohand = true, automatic = true},
 
-        -- [[ END ]]
 }
 
--------------------------------------------------------------------------
+MuR.DeathAnimClasses = {
+    ["npc_vj_bloodshed_nz_mangler"] = "Mangler",
+    ["npc_vj_bloodshed_nz_vermin"] = "Vermin",
+    ["npc_vj_bloodshed_nz_amalgam"] = "Amalgam",
+    ["npc_vj_bloodshed_nz_mimic"] = "Mimic",
+}
 
 game.AddDecal("mur_ducttape", "decals/mur_ducttape")

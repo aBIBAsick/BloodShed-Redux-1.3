@@ -1,4 +1,4 @@
-local flags = CLIENT and {FCVAR_REPLICATED} or {FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY}
+﻿local flags = CLIENT and {FCVAR_REPLICATED} or {FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY}
 local concommand_flags = {FCVAR_CLIENTCMD_CAN_EXECUTE}
 
 local lean_amount = 20
@@ -38,7 +38,7 @@ local function bool_to_str(bool)
     if bool then return "On" else return "Off" end
 end
 
-local function get_in_sights(ply) -- arccw, arc9, tfa, mgbase, fas2 works
+local function get_in_sights(ply) 
     if !auto_in_sights then return false end
     local weapon = ply:GetActiveWeapon()
     return ply:KeyDown(IN_ATTACK2) or (weapon.GetInSights and weapon:GetInSights()) or (weapon.ArcCW and weapon:GetState() == ArcCW.STATE_SIGHTS) or (weapon.GetIronSights and weapon:GetIronSights())
@@ -97,12 +97,12 @@ hook.Add("PlayerButtonUp", "leaning_keys", function(ply, button)
 end)
 
 local function can_lean(ply)
-    if !ply:OnGround() then return false end -- no leans in air
-    if ply:IsSprinting() and ply:KeyDown(IN_FORWARD + IN_BACK + IN_MOVELEFT + IN_MOVERIGHT) then return false end -- no leans while sprint, checking if ply is actually moving
-    if ply.GetSliding and ply:GetSliding() then return false end -- sliding mods support
+    if !ply:OnGround() then return false end 
+    if ply:IsSprinting() and ply:KeyDown(IN_FORWARD + IN_BACK + IN_MOVELEFT + IN_MOVERIGHT) then return false end 
+    if ply.GetSliding and ply:GetSliding() then return false end 
     if !allow_crouch_leans and ply:Crouching() then return false end
     local wep = ply:GetActiveWeapon()
-    if wep and wep.CanLean == false then return false end -- arc9 has this on some guns, some other mods could add this too
+    if wep and wep.CanLean == false then return false end 
     return true
 end
 
@@ -306,9 +306,9 @@ local function lean_bones(ply, roll)
     if CLIENT then ply:SetupBones() end
 
     if not ply.pressed_button then
-        --return 
+
     end
-    
+
     for _, bone_name in ipairs({"ValveBiped.Bip01_Spine", "ValveBiped.Bip01_Spine1", "ValveBiped.Bip01_Head1"}) do
         local bone = ply:LookupBone(bone_name)
 
@@ -346,7 +346,7 @@ end
 
 if SERVER then
     hook.Add("Think", "leaning_bend", function()
-        for k, ply in ipairs(player.GetAll()) do
+        for k, ply in player.Iterator() do
             local absolute = math.abs(ply:GetNW2Float("leaning_fraction_smooth"))
 
             if absolute > 0 then
@@ -366,7 +366,7 @@ if SERVER then
     hook.Add("Think", "draw_hitboxes", function()
         if not debugmode then return end
 
-        for _, ent in pairs(ents.GetAll()) do
+        for _, ent in ents.Iterator() do
             if ent:GetHitboxSetCount() == nil then continue end
             if not ent:IsPlayer() then continue end
 
@@ -409,7 +409,7 @@ if CLIENT then
     local lerped_fraction = 0
 
     hook.Add("PreRender", "leaning_bend", function()
-        for k, ply in ipairs(player.GetAll()) do
+        for k, ply in player.Iterator() do
             ply.leaning_fraction_true_smooth = Lerp(FrameTime() / (engine.TickInterval() * interp), ply.leaning_fraction_true_smooth or 0, ply:GetNW2Float("leaning_fraction_smooth") * lean_amount)
             local absolute = math.abs(ply.leaning_fraction_true_smooth)
 
@@ -438,8 +438,6 @@ if CLIENT then
     local cl_ehw_override = GetConVar("cl_ehw_override")
 
     hook.Add("CalcViewModelView", "leaning_roll", function(wep, vm, oldpos, oldang, pos, ang)
-        if string.StartsWith(wep:GetClass(), "mg_") then return end
-
         ang.z = ang.z + lerped_fraction
 
         if (cl_ehw_override and cl_ehw_override) then
@@ -498,7 +496,7 @@ if CLIENT then
             l:DockMargin(m, m, m, 0)
             l:SetColor(color_white)
             l:SetText(data[2])
-            
+
             local binder = vgui.Create("DBinder", scroll)
 
             local convar_name = data[1]

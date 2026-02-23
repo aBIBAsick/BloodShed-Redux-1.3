@@ -1,4 +1,4 @@
-﻿if SERVER then
+if SERVER then
 	AddCSLuaFile()
 	SWEP.Weight = 5
 	SWEP.AutoSwitchTo = false

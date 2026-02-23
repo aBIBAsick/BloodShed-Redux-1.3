@@ -1,4 +1,4 @@
-local meta = FindMetaTable("Player")
+﻿local meta = FindMetaTable("Player")
 util.AddNetworkString("MuR.SendDataToClient")
 util.AddNetworkString("MuR.PlaySoundOnClient")
 util.AddNetworkString("MuR.ChatAdd")
@@ -6,6 +6,7 @@ util.AddNetworkString("MuR.Announce")
 util.AddNetworkString("MuR.Message")
 util.AddNetworkString("MuR.Message2")
 util.AddNetworkString("MuR.Countdown")
+util.AddNetworkString("MuR.Notify")
 util.AddNetworkString("MuR.FinalScreen")
 util.AddNetworkString("MuR.ViewPunch")
 util.AddNetworkString("MuR.PainImpulse")
@@ -14,6 +15,7 @@ util.AddNetworkString("MuR.VoiceLines")
 util.AddNetworkString("MuR.ShowLogScreen")
 util.AddNetworkString("MuR.CalcView")
 util.AddNetworkString("MuR.BodySearch")
+util.AddNetworkString("MuR.RemoveItemFromSearch")
 util.AddNetworkString("MuR.SetHull")
 util.AddNetworkString("MuR.WeaponryEffect")
 util.AddNetworkString("MuR.BloodDamageSound")
@@ -21,6 +23,10 @@ util.AddNetworkString("MuR.Storm.Start")
 util.AddNetworkString("MuR.Storm.End")
 util.AddNetworkString("MuR.Storm.Thunder")
 util.AddNetworkString("MuR.Storm.WindDirection")
+util.AddNetworkString("MuR.CraftingMessage")
+util.AddNetworkString("MuR.ZombieDeathAnim")
+util.AddNetworkString("MuR.ExecuteString")
+util.AddNetworkString("MuR.ResetPain")
 
 MuR.guiltSession = {}
 file.CreateDir("bloodshed/guilt/")
@@ -49,21 +55,21 @@ function MuR:GenerateWeaponsTable()
 		["Secondary"] = {},
 		["Melee"] = {}
 	}
-	
+
 	for id, weaponData in pairs(weapons.GetList()) do
 		local category = weaponData.Category
 		local weaponType = WeaponCategories[category]
 		local className = weaponData.ClassName
-		if string.find(className, "maniac") or string.find(className, "chainsaw") then continue end
+		if weaponData.IsTraitorGun then continue end
 		if weaponType then
 			local ammoType = ""
 			local ammoCount = 0
-			
+
 			if weaponData.Primary then
 				ammoType = weaponData.Primary.Ammo or ""
 				ammoCount = weaponData.Primary.ClipSize or 0
 			end
-			
+
 			table.insert(weaponsTable[weaponType], {
 				class = className,
 				ammo = ammoType,
@@ -71,18 +77,38 @@ function MuR:GenerateWeaponsTable()
 			})
 		end
 	end
-	
+
 	return weaponsTable
 end
 
 local function GetRandomPlayer(exclude)
     local players = {}
-    for _, ply in ipairs(player.GetAll()) do
+    for _, ply in player.Iterator() do
         if ply:Alive() and ply ~= exclude then
             table.insert(players, ply)
         end
     end
     return #players > 0 and players[math.random(#players)] or nil
+end
+
+function meta:PlayNZDeathAnim(pos, class)
+	pos = pos or self:GetPos()
+	class = class or ""
+
+	for _, ent in ipairs(ents.FindInSphere(pos, 200)) do
+		if ent:IsNPC() then
+			local cl = ent:GetClass()
+			if MuR.DeathAnimClasses[cl] then
+				class = cl
+				break
+			end
+		end
+	end
+
+	net.Start("MuR.ZombieDeathAnim")
+	net.WriteVector(pos)
+	net.WriteString(class)
+	net.Send(self)
 end
 
 function meta:GiveWeapon(class, cantdrop)
@@ -121,6 +147,8 @@ function meta:NewHull()
 end
 
 function meta:RandomSkin()
+	if self.RandomSkinDisabled then return end
+
 	local skinCount = self:SkinCount()
 	local randomSkin = math.random(0, skinCount - 1)
 	self:SetSkin(randomSkin)
@@ -135,7 +163,7 @@ end
 local function isValidNameString(name)
     if not name then return false end
     if utf8.len(name) > 25 then return false end
-    
+
 	local havespace = false
     for p, c in utf8.codes(name) do
         local isLetter = (c >= 65 and c <= 90) or
@@ -143,7 +171,7 @@ local function isValidNameString(name)
                        (c >= 1040 and c <= 1103) or
                        c == 1025 or c == 1105 or
                        c == 32
-        
+
         if not isLetter or havespace and c == 32 then
             return false
         end
@@ -151,7 +179,7 @@ local function isValidNameString(name)
 			havespace = true
 		end
     end
-    
+
     return true
 end
 
@@ -181,28 +209,26 @@ end
 
 function meta:ChangeGuilt(mult)
 	if MuR.Ending or GetConVar("mur_disableguilt"):GetBool() or MuR.EnableDebug then return end
-	
+
 	local currentMode = MuR.Mode(MuR.Gamemode)
 	if currentMode and currentMode.no_guilt then return end
-	
+
 	local guilt = self:GetNW2Float("Guilt", 0)
 	local plus = 10 * mult
 
 	self:SetNW2Float("Guilt", math.Clamp(guilt + plus, 0, 100))
 
-	local id64, id = self:SteamID64(), self:SteamID()
-	local guilt = self:GetNW2Float("Guilt")
+	local id, guilt = self:SteamID64(), self:GetNW2Float("Guilt")
 
 	if guilt >= 100 then
+		self:SetNW2Float("Guilt", 0)
 		timer.Simple(0.1, function()
 			if !IsValid(self) then return end
-			RunConsoleCommand("ulx", "banid", ""..id.."", "1440", "Guilt reached 100 in Bloodshed Gamemode")
-			self:SetNW2Float("Guilt", 0)
-			file.Write("bloodshed/guilt/"..id64..".txt", "0")
+			self:Ban(30, true)
 		end)
-	else
-		file.Write("bloodshed/guilt/"..id64..".txt", self:GetNW2Float("Guilt", 0))
 	end
+
+	file.Write("bloodshed/guilt/"..id..".txt", self:GetNW2Float("Guilt", 0))
 end
 
 hook.Add("PlayerInitialSpawn", "MuR.Connect", function(ply)
@@ -217,8 +243,13 @@ hook.Add("PlayerInitialSpawn", "MuR.Connect", function(ply)
 end)
 
 function meta:ChangeHunger(num, ent)
-	self:SetNW2Float("Hunger", math.Clamp(self:GetNW2Float("Hunger") + num, 0, 100))
-	self:SetNW2Float("Stamina", math.Clamp(self:GetNW2Float("Stamina") + num / 2, 0, 100))
+	local hunger = math.Clamp(self:GetNW2Float("Hunger") + num, 0, 100)
+	local stamina = math.Clamp(self:GetNW2Float("Stamina") + num / 2, 0, 100)
+	local health = math.Clamp(self:Health() + num / 10, 0, self:GetMaxHealth())
+
+	self:SetNW2Float("Hunger", hunger)
+	self:SetNW2Float("Stamina", stamina)
+	self:SetHealth(health)
 end
 
 function meta:IsAtBack(enemy)
@@ -353,10 +384,68 @@ function MuR:GiveMessage(type, ply)
 end
 
 function MuR:GiveMessage2(type, ply)
+
+	if IsValid(ply) and ply:IsPlayer() then
+		ply.MessageCooldowns = ply.MessageCooldowns or {}
+
+		if ply.MessageCooldowns[type] and CurTime() < ply.MessageCooldowns[type] then 
+			return 
+		end
+		ply.MessageCooldowns[type] = CurTime() + 3
+
+        if ply.GlobalMessageCooldown and CurTime() < ply.GlobalMessageCooldown then
+            return
+        end
+        ply.GlobalMessageCooldown = CurTime() + 0.5
+
+		if not ply:Alive() then
+			local dtime = ply.DeathTime or 0
+			if CurTime() - dtime > 1 then return end
+		end
+
+		if ply:GetNW2Bool("IsUnconscious", false) then
+			local utime = ply.UnconsciousStart or 0
+			if CurTime() - utime > 1 then return end
+		end
+	end
+
 	net.Start("MuR.Message2")
 	net.WriteString(type)
 	if ply then
 		net.Send(ply)
+	else
+		net.Broadcast()
+	end
+end
+
+function MuR:Notify(target, text, level)
+	if text == nil then return end
+	if type(text) != "string" then
+		text = tostring(text or "")
+	end
+	text = string.Trim(text)
+	if text == "" then return end
+	level = math.Clamp(tonumber(level) or 0, 0, 3)
+
+	local recipients
+	if istable(target) then
+		recipients = {}
+		for _, ply in ipairs(target) do
+			if IsValid(ply) and ply:IsPlayer() then
+				table.insert(recipients, ply)
+			end
+		end
+		if #recipients == 0 then return end
+	elseif IsValid(target) and target:IsPlayer() then
+		recipients = target
+	end
+
+	net.Start("MuR.Notify")
+	net.WriteString(text)
+	net.WriteUInt(level, 3)
+
+	if recipients then
+		net.Send(recipients)
 	else
 		net.Broadcast()
 	end
@@ -384,7 +473,23 @@ end)
 function GM:PlayerSpawn(ply)
 	if not ply.ForceSpawn then
 		if not MuR.GameStarted or !MuR.EnableDebug and MuR.GameStarted and MuR.TimeCount + 12 < CurTime() then
-			ply:SetModel(table.Random(MuR.PlayerModels["Civilian_Male"]))
+			local role = MuR:GetRole("Civilian")
+			if role and role.models then
+				local isMale = not tobool(ply:GetInfoNum("blsd_character_female", 0))
+				local mdl
+				if isfunction(role.models) then
+					mdl = role.models(ply)
+				elseif istable(role.models) then
+					if role.models.male and role.models.female then
+						mdl = table.Random(isMale and role.models.male or role.models.female)
+					else
+						mdl = table.Random(role.models)
+					end
+				end
+				if isstring(mdl) then
+					ply:SetModel(mdl)
+				end
+			end
 			ply:KillSilent()
 			return
 		end
@@ -414,8 +519,12 @@ function GM:PlayerSpawn(ply)
 		SpectateMode = 6,
 		SpectateIndex = 1,
 		LastBleedBone = "",
+		LastAlivePosition = nil,
+		RandomSkinDisabled = false,
+		peppertimevoice = 0,
+		NextUnconsciousCheck = 0
 	}
-	
+
 	for k, v in pairs(vars) do ply[k] = v end
 
 	player_manager.OnPlayerSpawn(ply, transiton)
@@ -436,48 +545,62 @@ function GM:PlayerSpawn(ply)
 	ply:SetLadderClimbSpeed(60)
 	ply:NewHull()
 	ply:UnSpectate()
-	
+
+	for i = 0, ply:GetNumBodyGroups() - 1 do
+		ply:SetBodygroup(i, 0)
+	end
+
 	timer.Simple(0.5, function()
 		if IsValid(ply) then
 			ply:UpdateBloodMovementSpeed()
 		end
 	end)
-	
+
 	local nwf = {
 		Stability = 100,
 		ArrestState = 0,
 		Stamina = 100,
 		BleedLevel = 0,
 		Hunger = 90,
-		DeathStatus = 0
+		DeathStatus = 0,
+		ToxinLevel = 0,
+		Blindness = 0,
+		ConcussionEnd = 0,
+		InternalBleedEnd = 0,
+		CoordinationEnd = 0,
+		AdrenalineEnd = 0
 	}
-	
+
 	for k, v in pairs(nwf) do ply:SetNW2Float(k, v) end
-	
+
 	local nwb = {
 		LegBroken = false,
 		HardBleed = false,
 		GeroinUsed = false,
 		Poison = false,
-		Bredogen = false
+		Bredogen = false,
+		FlashlightIsOn = false,
+		ShockState = false,
+		IsUnconscious = false,
+		Pneumothorax = false,
+		SpineBroken = false,
+		ForceProneOnly = false
 	}
-	
+
 	for k, v in pairs(nwb) do ply:SetNW2Bool(k, v) end
-	
+
 	ply:SetNW2Entity("CurrentTarget", NULL)
-	
+
 	ply:SetBloodColor(BLOOD_COLOR_RED)
 	ply:SetColor(Color(255,255,255))
 	ply:SetMaterial("")
 	ply:SetEyeAngles(Angle(ply:EyeAngles().x, ply:EyeAngles().y, 0))
 	ply:SetPlayerColor(ColorRand():ToVector())
-	ply:SetViewOffsetDucked(Vector(0, 0, 35))
+	ply:SetViewOffset(Vector(0, 0, 64))
+	ply:SetViewOffsetDucked(Vector(0, 0, 36))
 	ply:SetJumpPower(190)
 
-	local pos = MuR:GetRandomPos(false, nil, nil, nil, true)
-	if not isvector(pos) then
-		pos = MuR:GetRandomPos(true, nil, nil, nil, true)
-	end
+	local pos = MuR:GetRandomPos()
 	if isvector(pos) then
 		ply:SetPos(pos)
 	else
@@ -491,349 +614,73 @@ function GM:PlayerSpawn(ply)
 			end
 		end)
 	end
-	
+
 	local class = ply:GetNW2String("Class", "")
 	if class == "" then
 		ply:SetNW2String("Class", "Innocent")
 		class = "Innocent"
 	end
-	
+
 	ply.Male = not tobool(ply:GetInfoNum("blsd_character_female", 0))
-	if ply.Male then 
-		ply:SetModel(table.Random(MuR.PlayerModels["Civilian_Male"]))
-	else
-		ply:SetModel(table.Random(MuR.PlayerModels["Civilian_Female"]))
-	end
-	
+    local innocentRole = MuR:GetRole("Innocent")
+    if innocentRole and innocentRole.models then
+        local mdl
+        if isfunction(innocentRole.models) then
+            mdl = innocentRole.models(ply)
+        elseif istable(innocentRole.models) then
+            if innocentRole.models.male and innocentRole.models.female then
+                mdl = table.Random(ply.Male and innocentRole.models.male or innocentRole.models.female)
+            else
+                mdl = table.Random(innocentRole.models)
+            end
+        end
+        if isstring(mdl) then
+            ply:SetModel(mdl)
+        end
+    end
+
 	ply:AllowFlashlight(false)
 	ply:GiveWeapon("mur_hands", true)
 	ply:SetTeam(2)
 	ply:SetHealth(100)
 	ply:SetMaxHealth(100)
-	
-	if class == "Killer" then
-		ply:GiveWeapon("tfa_bs_combk", true)
-		ply:GiveWeapon("mur_poisoncanister", true)
-		ply:GiveWeapon("mur_cyanide", true)
-		ply:GiveWeapon("mur_disguise", true)
-		ply:GiveWeapon("mur_scanner", true)
-		ply:GiveWeapon("mur_break_tool", true)
-		ply:GiveWeapon(math.random(1, 2) == 1 and "mur_loot_heroin" or "mur_loot_adrenaline")
-		ply:AllowFlashlight(true)
-		ply:SetTeam(1)
-		ply:SetHealth(300)
-		ply:SetMaxHealth(300)
-	elseif class == "Attacker" then
-		ply:SetModel(table.Random(MuR.PlayerModels["Anarchist"]))
-		ply.Male = true
-		ply:GiveWeapon(table.Random(MuR.WeaponsTable["Melee"]).class)
-		ply:GiveWeapon("mur_loot_ducttape")
-		ply:AllowFlashlight(true)
-		ply:SetTeam(1)
-		ply:SetNW2Float("ArrestState", 1)
-	elseif class == "Traitor" then
-		if MuR.Gamemode ~= 7 then
-			ply:GiveWeapon("tfa_bs_glock_t")
-			ply:GiveAmmo(34, "Pistol", true)
-		else
-			ply:GiveWeapon("tfa_bs_cobra")
-			ply:GiveAmmo(18, "357", true)
-		end
-		
-		ply:GiveWeapon(math.random(1, 2) == 1 and "mur_loot_heroin" or "mur_loot_adrenaline")
-		ply:GiveWeapon(math.random(1, 2) == 1 and "mur_f1" or "mur_m67")
-		
-		local weapons = {"mur_poisoncanister", "mur_cyanide", "mur_disguise", "mur_scanner", 
-						"mur_ied", "mur_break_tool", "tfa_bs_combk"}
-		for _, wep in pairs(weapons) do ply:GiveWeapon(wep, true) end
-		
-		ply:AllowFlashlight(true)
-		ply:SetTeam(1)
-	elseif class == "FBI" then
-		ply:GiveWeapon("tfa_bs_p320")
-		ply:GiveWeapon("mur_radio")
-		ply:GiveWeapon("mur_handcuffs", true)
-		ply:GiveWeapon("mur_loot_bandage")
-		ply:GiveWeapon("mur_disguise", true)
-		ply:AllowFlashlight(true)
-		ply:GiveAmmo(45, "Pistol", true)
-		ply:SetArmor(10)
-		ply:SetTeam(3)
-		ply:SetModel(table.Random(MuR.PlayerModels["Civilian_Male"]))
-		ply.Male = true
-	elseif class == "Officer" then
-		ply:GiveWeapon("tfa_bs_glock")
-		ply:GiveWeapon("mur_radio")
-		
-		if math.random(1,10) == 1 then
-			ply:GiveWeapon("tfa_bs_m590")
-			ply:GiveAmmo(24, "Buckshot", true)
-		elseif math.random(1,5) == 1 or MuR.Gamemode == 2 then
-			ply:GiveWeapon("tfa_bs_badger")
-			ply:GiveAmmo(75, "SMG1", true)
-		end
-		
-		local weapons = {"mur_taser", "mur_pepperspray", "mur_handcuffs", "mur_baterringram", 
-						"mur_doorlooker", "tfa_bs_baton", "mur_loot_bandage"}
-		for _, wep in pairs(weapons) do ply:GiveWeapon(wep, _ == 3 or _ == 4) end
-		
-		ply:AllowFlashlight(true)
-		ply:GiveAmmo(51, "Pistol", true)
-		ply:GiveAmmo(3, "GaussEnergy", true)
-		ply:SetArmor(20)
-		ply:SetModel(table.Random(MuR.PlayerModels["Police"]))
-		ply.Male = true
-		ply:SetTeam(3)
-	elseif class == "ArmoredOfficer" then
-		if math.random(1,6) == 1 then
-			ply:GiveWeapon("tfa_bs_m1014")
-			ply:GiveAmmo(35, "Buckshot", true)
-		elseif math.random(1,4) == 1 then
-			ply:GiveWeapon("tfa_bs_acr")
-			ply:GiveAmmo(120, "SMG1", true)
-		else
-			ply:GiveWeapon("tfa_bs_m4a1")
-			ply:GiveAmmo(120, "SMG1", true)
-		end
-		
-		ply:GiveWeapon("tfa_bs_glock")
-		ply:GiveWeapon("mur_radio")
-		
-		local weapons = {"mur_taser", "mur_handcuffs", "mur_baterringram", "mur_doorlooker", 
-						"tfa_bs_baton", "mur_loot_bandage", "mur_flashbang"}
-		for _, wep in pairs(weapons) do ply:GiveWeapon(wep, _ == 2 or _ == 3) end
-		
-		ply:AllowFlashlight(true)
-		ply:GiveAmmo(51, "Pistol", true)
-		ply:GiveAmmo(2, "GaussEnergy", true)
-		ply:SetArmor(50)
-		ply:SetModel(table.Random(MuR.PlayerModels["SWAT"]))
-		ply.Male = true
-		ply:SetTeam(3)
-		
-		if MuR.Gamemode == 13 then
-			ply:SetTeam(2)
-			timer.Simple(0.01, function()
-				if IsValid(ply) and MuR.PoliceState != 6 then ply:KillSilent() end
-				ply.SpectateMode = 0
-			end)
-		elseif MuR.Gamemode == 14 then
-			ply:SetTeam(2)
-			ply:SetNoTarget(true)
-			ply:GiveWeapon("mur_loot_medkit")
-			ply:GiveWeapon("mur_loot_adrenaline")
-			ply:SetWalkSpeed(65)
-			ply:SetRunSpeed(130)
-			timer.Simple(20, function()
-				if !IsValid(ply) or !ply:Alive() then return end
-				ply:SetNoTarget(false)
-			end)
-		end
-	elseif class == "Riot" then
-		local weapons = {"mur_taser", "mur_handcuffs", "mur_pepperspray", "mur_baterringram", "tfa_bs_baton", "mur_flashbang", "mur_radio"}
-		for _, wep in pairs(weapons) do ply:GiveWeapon(wep, _ == 2 or _ == 4) end
-		
-		ply:AllowFlashlight(true)
-		ply:SetModel(table.Random(MuR.PlayerModels["Riot"]))
-		ply.Male = true
-	elseif class == "Maniac" then
-		ply:SetModel(table.Random(MuR.PlayerModels["Maniac"]))
-		
-		local weapons = {"tfa_bs_fireaxe_maniac", "tfa_bs_chainsaw", "mur_gasoline", 
-						"mur_loot_ducttape", "mur_scanner", "mur_beartrap"}
-		for _, wep in pairs(weapons) do ply:GiveWeapon(wep, true) end
-		
-		ply:AllowFlashlight(true)
-		ply:SetTeam(1)
-		ply:SetArmor(100)
-		ply:SetWalkSpeed(180)
-		ply:SetRunSpeed(300)
-		ply:SetNW2Float("ArrestState", 1)
-		ply.Male = true
-	elseif class == "Shooter" then
-		ply:SetArmor(100)
-		ply:AllowFlashlight(true)
-		ply:SetModel(table.Random(MuR.PlayerModels["Shooter"]))
-		
-		local pri, sec = table.Random(MuR.WeaponsTable["Primary"]), table.Random(MuR.WeaponsTable["Secondary"])
-		ply:GiveWeapon(pri.class)
-		ply:GiveAmmo(pri.count * 4, pri.ammo, true)
-		ply:GiveWeapon(sec.class)
-		ply:GiveAmmo(sec.count * 2, sec.ammo, true)
-		ply:GiveWeapon("tfa_bs_combk")
-		ply:GiveWeapon(math.random(0,1) == 1 and "mur_m67" or "mur_f1")
-		ply:GiveWeapon("mur_scanner", true)
-		
-		ply:SetWalkSpeed(80)
-		ply:SetRunSpeed(240)
-		ply:SetTeam(1)
-		ply:SetNW2Float("ArrestState", 1)
-		ply.Male = true
-		
-		timer.Simple(2, function()
-			if IsValid(ply) and ply:Alive() then ply:PlayVoiceLine("shooter_intro", true) end
-		end)
-	elseif class == "Terrorist" then
-		ply:SetArmor(100)
-		ply:AllowFlashlight(true)
-		ply:SetModel(table.Random(MuR.PlayerModels["Terrorist"]))
-		
-		local sec, mel = table.Random(MuR.WeaponsTable["Primary"]), table.Random(MuR.WeaponsTable["Melee"])
-		local weapons = {"tfa_bs_rpg7", "mur_ied", "mur_m67", "mur_f1"}
-		for _, wep in pairs(weapons) do ply:GiveWeapon(wep, _ <= 3) end
-		
-		ply:GiveAmmo(4, "RPG_Round", true)
-		ply:GiveWeapon(sec.class)
-		ply:GiveAmmo(sec.count * 6, sec.ammo, true)
-		ply:GiveWeapon(mel.class)
-		ply:GiveWeapon("mur_scanner", true)
 
-		ply:SetWalkSpeed(80)
-		ply:SetRunSpeed(240)
-		ply:SetTeam(1)
-		ply:SetNW2Float("ArrestState", 2)
-		ply.Male = true
-	elseif class == "Hunter" then
-		local pri = table.Random(MuR.WeaponData["DefenderWeapons"])
-		ply:GiveWeapon(pri.class)
-		ply:GiveAmmo(pri.count * 2, pri.ammo, true)
-	elseif class == "Defender" then
-		ply:GiveWeapon(MuR.Gamemode ~= 7 and "tfa_bs_walther" or "tfa_bs_cobra")
-	elseif class == "Zombie" then
-		timer.Simple(0.01, function()
-			if IsValid(ply) then ply:StripWeapon("mur_hands") end
-		end)
+    local roleData = MuR:GetRole(class)
+    if roleData then
+        if roleData.male != nil then
+            ply.Male = roleData.male
+        end
 
-		ply:SetModel(table.Random(MuR.PlayerModels["Zombie"]))
-		ply:GiveWeapon("mur_zombie", true)
-		ply:SetTeam(1)
-		ply:SetRunSpeed(260)
-		ply:SetWalkSpeed(160)
-		ply:SetJumpPower(320)
-	elseif class == "Medic" then
-		local weapons = {"mur_loot_medkit", "mur_loot_adrenaline", "mur_loot_bandage", "tfa_bs_compactk"}
-		for _, wep in pairs(weapons) do ply:GiveWeapon(wep) end
-		
-		ply:SetModel(table.Random(MuR.PlayerModels[ply.Male and "Medic_Male" or "Medic_Female"]))
-	elseif class == "Builder" then
-		local weapons = {"mur_loot_hammer", "mur_loot_ducttape", "tfa_bs_crowbar"}
-		for _, wep in pairs(weapons) do ply:GiveWeapon(wep) end
-		
-		ply:SetModel(table.Random(MuR.PlayerModels["Builder"]))
-		ply.Male = true
-	elseif class == "Criminal" then
-		ply:SetNW2Float("ArrestState", 1)
-		ply:GiveWeapon("tfa_bs_knife")
-		
-		if MuR.Gamemode == 13 then
-			ply:SetNW2Float("ArrestState", 2)
-			ply:SetTeam(1)
-			local pri = table.Random(MuR.WeaponsTable["Secondary"])
-			ply:GiveWeapon(pri.class)
-			ply:GiveAmmo(pri.count * 6, pri.ammo, true)
-		else
-			ply:GiveWeapon("tfa_bs_izh43sw")
-		end
-	elseif class == "HeadHunter" then
-		ply:GiveWeapon("tfa_bs_cleaver")
-		
-		timer.Simple(2, function() 
-			if IsValid(ply) and ply:Alive() then
-				local rnd = GetRandomPlayer(ply)
-				if IsValid(rnd) then ply:SetNW2Entity("CurrentTarget", rnd) end
-			end
-		end)
-	elseif class == "Witness" then
-		ply:GiveWeapon("mur_roledetector")
-	elseif class == "Security" then
-		ply:GiveWeapon("mur_taser")
-		ply:GiveWeapon("tfa_bs_baton")
-		ply:GiveWeapon("mur_radio")
-		ply:GiveAmmo(3, "GaussEnergy", true)
-		ply:SetModel(table.Random(MuR.PlayerModels["Security"]))
-		ply.Male = true
-	elseif class == "SecurityForces" then
-		ply:GiveWeapon("mur_taser")
-		ply:GiveWeapon("tfa_bs_baton")
-		ply:GiveWeapon("mur_radio")
-		ply:GiveWeapon("mur_pepperspray")
-		ply:GiveWeapon("tfa_bs_m9")
-		ply:GiveAmmo(4, "GaussEnergy", true)
-		ply:GiveAmmo(30, "Pistol", true)
-		ply:SetModel(table.Random(MuR.PlayerModels["SecurityForces"]))
-		ply.Male = true
-	elseif class == "Soldier" then
-		if MuR.Gamemode == 15 and MuR.ExperimentWeapon then
-			ply:GiveWeapon(MuR.ExperimentWeapon.class)
-			ply:GiveAmmo(MuR.ExperimentWeapon.count * 3, MuR.ExperimentWeapon.ammo, true)
-			ply:SetWalkSpeed(240)
-			ply:SetRunSpeed(400)
-			ply:SetJumpPower(360)
-			ply:GiveWeapon("mur_loot_adrenaline")
-		else
-			local pri, sec = table.Random(MuR.WeaponsTable["Primary"]), table.Random(MuR.WeaponsTable["Secondary"])
-			ply:GiveWeapon(pri.class)
-			ply:GiveAmmo(pri.count * 6, pri.ammo, true)
-			ply:GiveWeapon(sec.class)
-			ply:GiveAmmo(sec.count * 4, sec.ammo, true)
-			ply:GiveWeapon(math.random(1, 2) == 1 and "mur_f1" or "mur_m67")
-			ply:GiveWeapon("mur_loot_medkit")
-		end
-		ply:GiveWeapon("tfa_bs_combk")
-		ply:AllowFlashlight(true)
-		ply:SetModel(table.Random(MuR.PlayerModels["Terrorist"]))
-		ply:GiveWeapon("mur_loot_bandage")
-		ply:GiveWeapon("mur_radio")
-	elseif class == "SWAT" then
-		local pri, sec = table.Random(MuR.WeaponsTable["Primary"]), table.Random(MuR.WeaponsTable["Secondary"])
-		ply:SetModel(table.Random(MuR.PlayerModels["Police_TDM"]))
-		ply:GiveWeapon(pri.class)
-		ply:GiveAmmo(pri.count * 6, pri.ammo, true)
-		ply:GiveWeapon(sec.class)
-		ply:GiveAmmo(sec.count * 4, sec.ammo, true)
-		ply:GiveWeapon("tfa_bs_combk")
-		ply:AllowFlashlight(true)
-		ply:GiveWeapon(math.random(1, 2) == 1 and "mur_f1" or "mur_m67")
-		ply:GiveWeapon("mur_loot_bandage")
-		ply:SetTeam(2)
-		ply.Male = true
-		ply:GiveWeapon("mur_radio")
-	elseif class == "Terrorist2" then
-		local pri, sec, mel = table.Random(MuR.WeaponsTable["Primary"]), table.Random(MuR.WeaponsTable["Secondary"]), table.Random(MuR.WeaponsTable["Melee"])
-		ply:SetModel(table.Random(MuR.PlayerModels["Terrorist_TDM"]))
-		ply:GiveWeapon(pri.class)
-		ply:GiveAmmo(pri.count * 6, pri.ammo, true)
-		ply:GiveWeapon(sec.class)
-		ply:GiveAmmo(sec.count * 4, sec.ammo, true)
-		ply:GiveWeapon(mel.class)
-		ply:AllowFlashlight(true)
-		ply:GiveWeapon(math.random(1, 2) == 1 and "mur_f1" or "mur_m67")
-		ply:GiveWeapon("mur_loot_bandage")
-		ply:SetTeam(1)
-		ply.Male = true
-		ply:GiveWeapon("mur_radio")
-	elseif class == "GangGreen" then
-		ply:SetModel(table.Random(MuR.PlayerModels["GangGreen"]))
-		ply.Male = true
-		local sec = table.Random(MuR.WeaponsTable["Secondary"])
-		ply:GiveWeapon(sec.class)
-		ply:GiveAmmo(sec.count * 5, sec.ammo, true)
-		ply:GiveWeapon(table.Random(MuR.WeaponsTable["Melee"]).class)
-		ply:AllowFlashlight(true)
-		ply:SetTeam(2)
-		ply:SetNW2Float("ArrestState", 1)
-	elseif class == "GangRed" then
-		ply:SetModel(table.Random(MuR.PlayerModels["GangRed"]))
-		ply.Male = true
-		local sec = table.Random(MuR.WeaponsTable["Secondary"])
-		ply:GiveWeapon(sec.class)
-		ply:GiveAmmo(sec.count * 5, sec.ammo, true)
-		ply:GiveWeapon(table.Random(MuR.WeaponsTable["Melee"]).class)
-		ply:AllowFlashlight(true)
-		ply:SetTeam(1)
-		ply:SetNW2Float("ArrestState", 1)
-	end
-	
+        if roleData.models then
+            if isfunction(roleData.models) then
+                ply:SetModel(roleData.models(ply))
+            elseif istable(roleData.models) then
+                if roleData.models.male and roleData.models.female then
+                    ply:SetModel(table.Random(ply.Male and roleData.models.male or roleData.models.female))
+                else
+                    ply:SetModel(table.Random(roleData.models))
+                end
+            end
+        end
+
+        if roleData.flashlight != nil then
+            ply:AllowFlashlight(roleData.flashlight)
+        end
+
+        if roleData.team then
+            ply:SetTeam(roleData.team)
+        end
+
+        if roleData.health then
+            ply:SetHealth(roleData.health)
+            ply:SetMaxHealth(roleData.health)
+        end
+
+        if roleData.onSpawn then
+            roleData.onSpawn(ply)
+        end
+    end
+
 	if MuR.EnableDebug then
 		ply:GiveWeapon("weapon_physgun")
 		ply:GiveWeapon("gmod_tool")
@@ -843,10 +690,21 @@ function GM:PlayerSpawn(ply)
 	ply:SetNewName()
 	ply:SetupHands()
 	ply:RandomSkin()
+	net.Start("MuR.ResetPain")
+	net.Send(ply)
 end
 
 function GM:PlayerDeathSound(ply)
 	return true
+end
+
+function MuR:ExecuteString(type)
+	if type == "decals" then
+		type = [[RunConsoleCommand("r_decals", "9000000") RunConsoleCommand("mp_decals", "9000000")]]
+	end
+	net.Start("MuR.ExecuteString")
+	net.WriteString(type)
+	net.Broadcast()
 end
 
 hook.Add("OnNPCKilled", "MuR.NPCLogic", function(ent, att)
@@ -859,16 +717,35 @@ hook.Add("OnNPCKilled", "MuR.NPCLogic", function(ent, att)
 	end
 end)
 
+function meta:DeathEffect(att)
+	local pos = self.LastAlivePosition or self:GetPos()
+	local isNPC = IsValid(att) and att:IsNPC()
+	local playAnim = (MuR.Gamemode == 18) or (MuR.Gamemode == 22 and isNPC)
+
+	if not playAnim then
+		self:ConCommand("soundfade 100 5")
+		self:ScreenFade(SCREENFADE.OUT, color_black, 0.1, 4.9)
+	else
+		self:ScreenFade(SCREENFADE.OUT, color_black, 0.1, 1.9)
+		timer.Simple(2, function()
+			if !IsValid(self) then return end
+			self:PlayNZDeathAnim(pos)
+		end)
+	end
+end
+
 function GM:PlayerDeath(ply, inf, att)
 	if IsValid(att.MindController) then
 		att = att.MindController
 	end
 
-	ply:ConCommand("soundfade 100 5")
-	ply:ScreenFade(SCREENFADE.OUT, color_black, 0.1, 4.9)
+	ply:DeathEffect(att)
+	ply.DeathTime = CurTime()
 	ply:Freeze(true)
 	ply:SetNW2Bool("Poison", false)
 	ply:SetNW2Bool("Bredogen", false)
+	net.Start("MuR.ResetPain")
+	net.Send(ply)
 	timer.Simple(0.1, function()
 		if !IsValid(ply) then return end
 		if isstring(ply.LastVoiceLine) then
@@ -892,7 +769,7 @@ function GM:PlayerDeath(ply, inf, att)
 				MuR:GiveAnnounce("headhunter_kill", att2)
 				MuR:GiveAnnounce("headhunter_killed", ply)
 				att2:AddMoney(500)
-			elseif att2:GetNW2String("Class") != "Soldier" and ply:Team() == 2 and att2:Team() == 2 and MuR.Gamemode ~= 11 and MuR.Gamemode ~= 12 and ply ~= att2 then
+			elseif att2:GetNW2String("Class") != "Soldier" and (ply:Team() == 2 or ply:Team() == 3) and (att2:Team() == 2 or att2:Team() == 3) and MuR.Gamemode ~= 11 and MuR.Gamemode ~= 12 and ply ~= att2 then
 				if ply.UnInnocentTime < CurTime() then
 					att2:ChangeGuilt(4)
 					MuR:GiveAnnounce("innocent_kill", att2)
@@ -911,7 +788,7 @@ function GM:PlayerDeath(ply, inf, att)
 		att:AddMoney(50)
 	end
 
-	if att:IsPlayer() and ply:GetNW2Float("ArrestState") ~= 2 and att:IsRolePolice() and ply ~= att and !ply:IsKiller() then
+	if att:IsPlayer() and ply:GetNW2Float("ArrestState") ~= 2 and att:IsRolePolice() and ply ~= att and !ply:IsKiller() and not (MuR.Gamemode == 23 and ply:GetNW2String("Class") == "Prisoner") then
 		if ply:GetNW2Float("ArrestState") == 1 then
 			att:ChangeGuilt(1)
 		else
@@ -940,6 +817,10 @@ function GM:PlayerDeath(ply, inf, att)
 			ply:Spawn()
 		end
 	end)
+
+	if ply:IsBot() and ply.KickAfterDeath then
+		timer.Simple(1, function() if !IsValid(ply) then return end ply:Kick("Bot kicked after death.") end)
+	end
 end
 
 function GM:PlayerDeathThink(ply)
@@ -966,7 +847,7 @@ end
 
 function GM:PlayerSay(ply, text, team)
 	if MuR.GameStarted and MuR.TimeCount + 12 < CurTime() and ply:Alive() then
-		for k, ply2 in pairs(player.GetAll()) do
+		for _, ply2 in player.Iterator() do
 			local can = hook.Call("PlayerCanSeePlayersChat", GAMEMODE, text, team, ply2, ply)
 
 			if ply:GetNW2Bool("IsUnconscious", false) then
@@ -998,8 +879,41 @@ end
 net.Receive("MuR.BodySearch", function(len, ply)
 	local ent = net.ReadEntity()
 	local cl = net.ReadString()
+
+	if string.len(cl) > 256 then return end
+	if !ply:Alive() or !IsValid(ent) or ply:GetPos():DistToSqr(ent:GetPos()) > 25000 or !istable(ent.Inventory) then return end
+
+	if string.StartWith(cl, "mur_armor_") then
+		local armorId = string.sub(cl, 11)
+		local item = MuR.Armor.GetItem(armorId)
+		if item then
+			if table.HasValue(ent.Inventory, cl) then
+				table.RemoveByValue(ent.Inventory, cl)
+				local pickup
+				if ent:GetClass() == "prop_ragdoll" then
+					pickup = MuR:DropArmorFromRagdoll(ent, item.bodypart)
+				else
+					pickup = MuR:SpawnArmorPickup(ent:GetPos() + Vector(0, 0, 20), armorId)
+				end
+
+				if IsValid(pickup) then
+					timer.Simple(0.1, function()
+						if IsValid(ply) and IsValid(pickup) then
+							pickup:Use(ply, ply)
+						end
+					end)
+				end
+
+				if item.unequip_sound then
+					ply:EmitSound(item.unequip_sound, 50, 100)
+				end
+			end
+		end
+		return
+	end
+
+	if ply:HasWeapon(cl) then return end
 	local prop = ent:GetClass() != "prop_ragdoll"
-	if !ply:Alive() or ply:GetPos():DistToSqr(ent:GetPos()) > 25000 or !istable(ent.Inventory) or ply:HasWeapon(cl) then return end
 
 	local wep = nil
 	for k, wp in pairs(ent.Inventory) do
@@ -1035,6 +949,11 @@ net.Receive("MuR.BodySearch", function(len, ply)
 	else
 		table.RemoveByValue(ent.Inventory, wep)
 	end
+
+	net.Start("MuR.RemoveItemFromSearch")
+	net.WriteEntity(ent)
+	net.WriteString(cl)
+	net.Broadcast()
 end)
 
 hook.Add("PlayerButtonDown", "MuR_SButtons", function(ply, but)
@@ -1061,35 +980,8 @@ hook.Add("PlayerButtonDown", "MuR_SButtons", function(ply, but)
 		local tr = ply:GetEyeTrace().Entity
 
 		if IsValid(ply:GetRD()) and tr == ply:GetRD() then return end
-		if IsValid(tr) and tr:GetClass() == "prop_ragdoll" and tr.isRDRag and tr:GetPos():DistToSqr(ply:GetPos()) < 10000 then
-			if IsValid(tr.Owner) then
-				MuR:GiveMessage("corpse_alive", ply)
-			else
-				if IsValid(tr.OwnerDead) and ply:Team() == 2 then
-					tr.OwnerDead:SetNW2Float("DeathStatus", 2)
-				end
 
-				MuR:GiveMessage("corpse_dead", ply)
-
-				if istable(tr.Inventory) then
-					if IsValid(tr.Weapon) then
-						tr.Weapon:Remove()
-					end
-
-					local tab = {}
-					for _, wep in pairs(tr.Inventory) do
-						if IsValid(wep) then
-							table.insert(tab, wep:GetClass())
-						end
-					end
-
-					net.Start("MuR.BodySearch")
-					net.WriteTable(tab)
-					net.WriteEntity(tr)
-					net.Send(ply)
-				end
-			end
-		elseif IsValid(tr) and table.HasValue(MuR.LootableProps, tr:GetModel()) and istable(tr.Inventory) and tr:GetPos():DistToSqr(ply:GetPos()) < 10000 then
+		if IsValid(tr) and table.HasValue(MuR.LootableProps, tr:GetModel()) and istable(tr.Inventory) and tr:GetPos():DistToSqr(ply:GetPos()) < 10000 then
 			net.Start("MuR.BodySearch")
 			net.WriteTable(tr.Inventory)
 			net.WriteEntity(tr)
@@ -1105,17 +997,39 @@ end)
 
 hook.Add("PlayerCanHearPlayersVoice", "MuR.Voice", function(listener, talker)
 	if MuR.GameStarted and MuR.TimeCount + 12 > CurTime() or MuR.Ending then return true end
+
+	if talker:Alive() and talker:GetNW2String("Class") == "CombineSoldier" and listener:Alive() and listener:GetNW2String("Class") == "CombineSoldier" then return true end
+
+	local listenerWep = listener:GetWeapon("mur_radio")
+	local talkerWep = talker:GetActiveWeapon()
 	
+	if IsValid(listenerWep) and IsValid(talkerWep) and talkerWep:GetClass() == "mur_radio" then
+		local listenerOn = listenerWep:GetNWBool("RadioOn", false)
+		local talkerOn = talkerWep:GetNWBool("RadioOn", false)
+		
+		if listenerOn and talkerOn then
+			local listenerChannel = listenerWep:GetNWInt("RadioChannel", 1)
+			local talkerChannel = talkerWep:GetNWInt("RadioChannel", 1)
+			
+			if listenerChannel == talkerChannel then
+				local dist = listener:GetPos():Distance(talker:GetPos())
+				if dist <= 8000 then
+					return true, false
+				end
+			end
+		end
+	end
+
 	if MuR.PoliceState == 5 then
 		local listenerIsPolice = (listener:GetNW2String("Class") == "Officer" or listener:GetNW2String("Class") == "ArmoredOfficer" or listener:GetNW2String("Class") == "SWAT")
 		local talkerIsPolice = (talker:GetNW2String("Class") == "Officer" or talker:GetNW2String("Class") == "ArmoredOfficer" or talker:GetNW2String("Class") == "SWAT")
 		local talkerIsCriminal = (talker:GetNW2String("Class") == "Criminal")
-		
+
 		if listenerIsPolice and talkerIsCriminal then
 			return false
 		end
 	end
-	
+
 	if listener:GetPos():DistToSqr(talker:GetPos()) > 250000 and talker:Alive() or not listener:IsLineOfSightClear(talker) and talker:Alive() or not talker:Alive() and listener:Alive() then return false end
 	if !talker:Alive() and !listener:Alive() then return true end
 	return true, true
@@ -1123,17 +1037,17 @@ end)
 
 hook.Add("PlayerCanSeePlayersChat", "MuR.Voice", function(text, team, listener, talker)
 	if MuR.GameStarted and MuR.TimeCount + 12 > CurTime() or MuR.Ending then return true end
-	
+
 	if MuR.PoliceState == 5 then
 		local listenerIsPolice = (listener:GetNW2String("Class") == "Officer" or listener:GetNW2String("Class") == "ArmoredOfficer" or listener:GetNW2String("Class") == "SWAT")
 		local talkerIsPolice = (talker:GetNW2String("Class") == "Officer" or talker:GetNW2String("Class") == "ArmoredOfficer" or talker:GetNW2String("Class") == "SWAT")
 		local talkerIsCriminal = (talker:GetNW2String("Class") == "Criminal")
-		
+
 		if listenerIsPolice and talkerIsCriminal then
 			return false
 		end
 	end
-	
+
 	if listener:GetPos():DistToSqr(talker:GetPos()) > 250000 and talker:Alive() or not listener:IsLineOfSightClear(talker) and talker:Alive() or not talker:Alive() and listener:Alive() then return false end
 end)
 
@@ -1142,16 +1056,13 @@ hook.Add("OnEntityCreated", "MuR_Remover", function(ent)
 end)
 
 hook.Add("Think", "MuR_LogicPlayer", function()
-	local tab = player.GetAll()
-
-	for i = 1, #tab do
-		local ent = tab[i]
+	for _, ent in player.Iterator() do
 		if not ent:Alive() then continue end
-		
 
+		ent.LastAlivePosition = IsValid(ent:GetRD()) and ent:GetRD():GetPos() or ent:GetPos()
 
 		if ent:HaveStability() and not ent:GetNW2Bool("GeroinUsed", false) then
-			ent:SetNW2Float("Stability", math.Clamp(ent:GetNW2Float("Stability")-FrameTime()/5, 0, 100)) 
+			ent:SetNW2Float("Stability", math.Clamp(ent:GetNW2Float("Stability")-FrameTime()/10, 0, 100)) 
 			if ent:GetNW2Float("Stability") <= 0 then
 				ent:ConCommand("kill")
 				if math.random(1,5) == 1 then
@@ -1168,19 +1079,14 @@ hook.Add("Think", "MuR_LogicPlayer", function()
 				local dif = math.sqrt(att.Pos:DistToSqr(ent:GetPos()))
 				num = math.Clamp(dif, 8, 96)
 			end
-			ent:SetViewOffset(Vector(0, 0, ent.ViewOffsetZ))
-			ent:SetViewOffsetDucked(Vector(0, 0, 36))
 			ent.ViewOffsetZ = Lerp(FrameTime()/0.1, ent.ViewOffsetZ, num)
 		else
-			ent:SetViewOffset(Vector(0, 0, 64))
-			ent:SetViewOffsetDucked(Vector(0, 0, 36))
 			ent.ViewOffsetZ = 64
 			if string.find(ent:GetSVAnim(), "sequence_ron_comply_start_0") then
 				ent:SetActiveWeapon(nil)
 			end
 		end
 
-		local tr = ent:GetEyeTrace().Entity
 		local wep = ent:GetActiveWeapon()
 
 		if IsValid(wep) and wep:GetMaxClip1() > 0 and ent:GetNW2Float("Guilt") >= 70 and MuR.Gamemode ~= 5 then
@@ -1206,20 +1112,20 @@ hook.Add("Think", "MuR_LogicPlayer", function()
 		local hbl = ent:GetNW2Bool("HardBleed")
 		local moving = ent:GetVelocity():Length() > 50
 		local running = ent:GetVelocity():Length() > 150
-		
+
 		if hbl and ent.BleedTime < CurTime() then
 			local bleedDelay = moving and math.Rand(0.2, 0.4) or math.Rand(0.3, 0.6)
 			if running then bleedDelay = bleedDelay * 0.8 end
 			ent.BleedTime = CurTime() + bleedDelay
 			MuR:CreateBloodPool(ent, 0, 1)
-			local damage = running and 2.5 or moving and 2 or 1.5
+			local damage = running and 1.5 or moving and 1.25 or 1
 			ent:TakeDamage(damage)
 			ent:EmitSound("murdered/player/drip_" .. math.random(1, 5) .. ".wav", 50, math.random(70, 110))
-			
+
 			if math.random(1, 12) == 1 then
 				ent:ViewPunch(Angle(math.random(-1, 1), math.random(-1, 1), 0))
 			end
-			
+
 			if math.random(1, 10) == 1 then
 				net.Start("MuR.BloodDamageSound")
 				net.WriteString("heartbeat_spike")
@@ -1246,21 +1152,21 @@ hook.Add("Think", "MuR_LogicPlayer", function()
 			if running then bleedDelay = bleedDelay * 0.7 end
 			ent.BleedTime = CurTime() + bleedDelay
 			MuR:CreateBloodPool(ent, 0, math.random(1, 2))
-			local damage = running and 2 or moving and 1.5 or 1.2
+			local damage = running and 1.5 or moving and 1.25 or 1
 			ent:TakeDamage(damage)
 			ent:EmitSound("murdered/player/drip_" .. math.random(1, 5) .. ".wav", 50, math.random(70, 110))
-			
+
 			if math.random(1, 18) == 1 then
 				ent:ViewPunch(Angle(math.random(-1, 1), math.random(-1, 1), 0))
 			end
-			
+
 			if math.random(1, 15) == 1 then
 				net.Start("MuR.BloodDamageSound")
 				net.WriteString("blood_loss")
 				net.Send(ent)
 			end
 		end
-		
+
 		if not ent.BloodRegenTime then ent.BloodRegenTime = CurTime() + 30 end
 
 		ent:SetNW2Bool("Surrender", ent:GetNW2Float("ArrestState") == 1 and (MuR:VisibleByNPCs(ent:WorldSpaceCenter()) or MuR.PoliceState == 2 or MuR.PoliceState == 4 or MuR.Gamemode == 11) and ent:Alive() and ent:GetSVAnimation() == "")
@@ -1290,7 +1196,10 @@ hook.Add("Think", "MuR_LogicPlayer", function()
 
 		if ent.HungerDelay < CurTime() and not MuR:DisablesGamemode() then
 			ent.HungerDelay = CurTime() + 5
-			ent:SetNW2Float("Hunger", math.Clamp(ent:GetNW2Float("Hunger") - 1, 0, 100))
+			if MuR.Gamemode != 18 then
+				ent:SetNW2Float("Hunger", math.Clamp(ent:GetNW2Float("Hunger") - 1, 0, 100))
+			end
+
 		end
 
 		local rag = ent:GetRD()
@@ -1353,7 +1262,7 @@ hook.Add("EntityTakeDamage", "MuR_DamageNPCThink", function(ent, dmg)
 			dmg:SetDamageForce(df/20)
 		end
 	end
-	
+
 	if ent:IsPlayer() then
 		local force = dmg:GetDamageForce()
 		if force:IsZero() and (att:IsPlayer() or att:IsNPC()) then
@@ -1370,7 +1279,7 @@ hook.Add("EntityTakeDamage", "MuR_DamageNPCThink", function(ent, dmg)
 
 		if !IsValid(ent:GetRD()) then
 			if (bone1 == "ValveBiped.Bip01_Head1" or bone1 == "ValveBiped.Bip01_Neck1") and dmg:IsBulletDamage() then
-				dmg:SetDamage(dmg:GetDamage()*4)
+				dmg:SetDamage(dmg:GetDamage()*2)
 			elseif dmg:IsExplosionDamage() then
 				dmg:SetDamage(dmg:GetDamage()*0.1)
 			elseif dmg:IsFallDamage() then
@@ -1412,7 +1321,7 @@ hook.Add("EntityTakeDamage", "MuR_DamageNPCThink", function(ent, dmg)
 			att.DamageTargetGuilt = att.DamageTargetGuilt - 1
 			att.UnInnocentTime = CurTime() + 15
 
-			if att.DamageTargetGuilt <= 0 and MuR.Gamemode ~= 5 and MuR.Gamemode ~= 6 and att:Team() == 2 then
+			if att.DamageTargetGuilt <= 0 and MuR.Gamemode ~= 5 and MuR.Gamemode ~= 6 and (att:Team() == 2 or att:Team() == 3) then
 				att.DamageTargetGuilt = 3
 				att:ChangeGuilt(0.1)
 			end
@@ -1421,7 +1330,7 @@ hook.Add("EntityTakeDamage", "MuR_DamageNPCThink", function(ent, dmg)
 				ent:DamagePlayerSystem("blood")
 			end
 		end
-	
+
 		net.Start("MuR.PainImpulse")
 		net.WriteFloat(dmg:GetDamage())
 		net.Send(ent)
@@ -1523,6 +1432,29 @@ end)
 
 hook.Add("AllowPlayerPickup", "MuR_WeaponsFuck", function(ply, ent)
 	if ent:IsWeapon() then
+		local entAmmoType = ent:GetPrimaryAmmoType()
+		local entClip = ent:Clip1()
+
+		if ply:HasWeapon(ent:GetClass()) then
+			if entClip > 0 and entAmmoType > 0 then
+				ply:GiveAmmo(entClip, entAmmoType, true)
+				ent:SetClip1(0)
+				ply:EmitSound("items/ammocrate_open.wav", 60)
+			end
+			return
+		end
+
+		if entAmmoType > 0 and entClip > 0 then
+			for _, wep in ipairs(ply:GetWeapons()) do
+				if wep:GetPrimaryAmmoType() == entAmmoType and wep:GetClass() ~= ent:GetClass() then
+					ply:GiveAmmo(entClip, entAmmoType, true)
+					ent:SetClip1(0)
+					ply:EmitSound("items/ammocrate_open.wav", 60)
+					return
+				end
+			end
+		end
+
 		ply:PickupWeapon(ent)
 
 		if ent:GetMaxClip1() > 0 then
@@ -1609,13 +1541,13 @@ function meta:Suicide()
 		if IsValid(wep) and wep.ShootSound then
 			local att = game.GetWorld()
 			local dmginfo = DamageInfo()
-			
+
 			dmginfo:SetDamage(self:Health()*10 + self:Armor())
 			dmginfo:SetAttacker(att)
 			dmginfo:SetInflictor(att)
 			dmginfo:SetDamageType(DMG_BULLET)
 			dmginfo:SetDamageForce(self:GetForward()*-1)
-			
+
 			local headPos = self:GetBonePosition(self:LookupBone("ValveBiped.Bip01_Head1"))
 			dmginfo:SetDamagePosition(headPos)
 			self:TakeDamageInfo(dmginfo)
@@ -1663,13 +1595,12 @@ end)
 
 hook.Add("SetupPlayerVisibility", "MuR_PoliceVisibility", function(ply, viewEntity)
 	if not IsValid(ply) then return end
-	
+
 	if MuR.PoliceState == 5 and (ply:GetNW2String("Class") == "Officer" or ply:GetNW2String("Class") == "ArmoredOfficer" or ply:GetNW2String("Class") == "SWAT") then
-		for _, target in pairs(player.GetAll()) do
+		for _, target in player.Iterator() do
 			if IsValid(target) and target != ply then
 				AddOriginToPVS(target:GetPos())
 			end
 		end
 	end
 end)
-

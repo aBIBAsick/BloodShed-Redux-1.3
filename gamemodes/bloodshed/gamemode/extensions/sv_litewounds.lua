@@ -1,14 +1,12 @@
--- LiteWounds: Server Code
+﻿
 if CLIENT then return end
 
--- ===== NETWORK STRINGS =====
 util.AddNetworkString("LITEGIBDMG")
 util.AddNetworkString("LITEGIBPS")
 util.AddNetworkString("LITEGIBCLIENTRAG")
 util.AddNetworkString("LGCopyWounds")
 util.AddNetworkString("CLBloodType")
 
--- ===== DAMAGE PROCESSING =====
 local ValidHitGroups = {HITGROUP_HEAD, HITGROUP_CHEST, HITGROUP_STOMACH, HITGROUP_LEFTARM, HITGROUP_RIGHTARM, HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG}
 local keepcorpses = GetConVar("ai_serverragdolls")
 
@@ -131,7 +129,7 @@ local function NetworkDamage(ent, hg, dmg)
 
 	if dmgVal > ent:GetMaxHealth() * 2 and hg == 0 then hg = HITGROUP_STOMACH end
 	AddToDamageTable(ent, hgf, math.Round(dmgVal), math.Round(dmg:GetDamageType()), vec)
-	
+
 	net.Start("LITEGIBDMG")
 	net.WriteEntity(ent)
 	net.WriteUInt(hgf, 4)
@@ -143,7 +141,6 @@ local function NetworkDamage(ent, hg, dmg)
 	ent.LGLastNWDamage = CurTime()
 end
 
--- ===== HOOKS =====
 hook.Add("ScaleNPCDamage", "LGNetworkDamage", NetworkDamage)
 hook.Add("ScalePlayerDamage", "LGNetworkDamage", NetworkDamage)
 
@@ -170,7 +167,6 @@ hook.Add("PlayerSpawn", "LGPlayerSpawn", function(ply)
 	net.Broadcast()
 end)
 
--- ===== BLOOD TYPE NETWORKING =====
 local btOverrides = {
 	["npc_antlion"] = BLOOD_COLOR_ANTLION,
 	["npc_antlionguard"] = BLOOD_COLOR_ANTLION,
@@ -182,7 +178,7 @@ hook.Add("OnEntityCreated", "LGNWBloodType", function(ent)
 	timer.Simple(0.01, function()
 		if IsValid(ent) then
 			ent.BloodColor = btOverrides[ent:GetClass()] or ent.BloodColor or ent:GetBloodColor()
-			if ent.BloodColor then
+			if isnumber(ent.BloodColor) then
 				net.Start("CLBloodType")
 				net.WriteEntity(ent)
 				net.WriteInt(ent.BloodColor, 8)
@@ -203,12 +199,10 @@ function meta:CopyWoundsFrom(ent)
 	end)
 end
 
--- ===== RAGDOLL HANDLING =====
 hook.Add("CreateEntityRagdoll", "LGCreateEntityRag", function(ent, rag)
 	rag:CopyWoundsFrom(ent)
 end)
 
--- ===== CLIENT RAGDOLL PATCHES =====
 LiteWounds.EntitiesPatched = {}
 
 local function patch(cl)
@@ -231,7 +225,7 @@ hook.Add("OnEntityCreated", "LGForceClientRagdolls_NextBot", function(ent)
 		patch(cl) 
 		LiteWounds.EntitiesPatched[cl] = true
 	end
-	-- Patch max health
+
 	timer.Simple(0, function() 
 		if IsValid(ent) and ent:Health() > ent:GetMaxHealth() then 
 			ent:SetMaxHealth(ent:Health()) 

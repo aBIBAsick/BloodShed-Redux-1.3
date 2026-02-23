@@ -1,4 +1,4 @@
-MuR.RegisterMode(16, {
+﻿MuR.RegisterMode(16, {
 	name = "Storm",
 	chance = 20,
 	need_players = 2,
@@ -62,14 +62,14 @@ MuR.RegisterMode(16, {
 		timer.Create("Storm_PhysCache", 3, 0, function()
 			if not MuR.GameStarted or MuR.Gamemode ~= 16 then return end
 			local list = {}
-			local function addAll(tab)
-				for _, e in ipairs(tab) do if IsValid(e) then table.insert(list, e) end end
+			local function addAll(class)
+				for _, ent in ipairs(ents.FindByClass(class)) do if IsValid(ent) then table.insert(list, ent) end end
 			end
-			addAll(ents.FindByClass("prop_physics*"))
-			addAll(ents.FindByClass("prop_ragdoll"))
-			addAll(ents.FindByClass("weapon_*"))
-			addAll(ents.FindByClass("item_*"))
-			addAll(ents.FindByClass("gmod_*"))
+			addAll("prop_physics*")
+			addAll("prop_ragdoll")
+			addAll("weapon_*")
+			addAll("item_*")
+			addAll("gmod_*")
 			MuR.StormPhysList = list
 			MuR.StormPhysIndex = 1
 		end)
@@ -124,7 +124,7 @@ MuR.RegisterMode(16, {
 			timer.Create("Storm_WindOnPlayers", 0.2, 0, function()
 				if not MuR.GameStarted or MuR.Gamemode ~= 16 then timer.Remove("Storm_WindOnPlayers") return end
 				local mult = MuR.TornadoActive and 2 or 1
-				for _, ply in ipairs(player.GetAll()) do
+				for _, ply in player.Iterator() do
 					if not ply:Alive() or ply:IsFlagSet(FL_FROZEN) then continue end
 					local p = ply:GetPos()
 					local t1 = util.TraceLine({start = p, endpos = p + Vector(0, 0, 2000), filter = ply, mask = MASK_SOLID_BRUSHONLY})
@@ -159,7 +159,7 @@ MuR.RegisterMode(16, {
 					"ambient/weather/thunder6.wav"
 				}
 				local s = table.Random(thunderSounds)
-				for _, ply in ipairs(player.GetAll()) do
+				for _, ply in player.Iterator() do
 					ply:EmitSound(s, 90, math.random(90, 110), 0.8)
 				end
 
@@ -177,14 +177,19 @@ MuR.RegisterMode(16, {
 				util.Effect("Sparks", eff, true, true)
 				util.Effect("StunstickImpact", eff, true, true)
 
+				local lightsOut = math.random(1, 2) == 1
+				local outageDuration = math.random(10, 45)
+
 				net.Start("MuR.Storm.Thunder")
 				net.WriteBool(true)
 				net.WriteVector(hitPos)
 				net.WriteUInt(300, 12)
+				net.WriteBool(lightsOut)
+				net.WriteUInt(outageDuration, 8)
 				net.Broadcast()
 
 				local radius = 300
-				for _, p in ipairs(player.GetAll()) do
+				for _, p in player.Iterator() do
 					if not p:Alive() then continue end
 					if p:GetPos():Distance(hitPos) <= radius and IsExposedWind(p:GetPos(), p) then
 						p:Ignite(math.random(2, 5), 0)
@@ -193,9 +198,9 @@ MuR.RegisterMode(16, {
 				end
 
 				local lights = {}
-				table.Add(lights, ents.FindByClass("light"))
-				table.Add(lights, ents.FindByClass("light_spot"))
-				table.Add(lights, ents.FindByClass("light_dynamic"))
+				for _, ent in ipairs(ents.FindByClass("light")) do table.insert(lights, ent) end
+				for _, ent in ipairs(ents.FindByClass("light_spot")) do table.insert(lights, ent) end
+				for _, ent in ipairs(ents.FindByClass("light_dynamic")) do table.insert(lights, ent) end
 				for _, e in ipairs(lights) do
 					if IsValid(e) and e:GetPos():Distance(hitPos) < 1200 then
 						e:Fire("TurnOff")
@@ -205,16 +210,13 @@ MuR.RegisterMode(16, {
 					end
 				end
 
-				if math.random(1, 2) == 1 then
-					local doors = ents.FindByClass("func_door")
-					local triggers = ents.FindByClass("trigger_*")
-					local buttons = ents.FindByClass("func_button")
+				if lightsOut then
 					local toToggle = {}
 					for _, e in ipairs(lights) do if IsValid(e) and e:GetPos():Distance(hitPos) < 1500 then table.insert(toToggle, e) end end
-					for _, e in ipairs(doors) do if IsValid(e) and e:GetPos():Distance(hitPos) < 1500 then table.insert(toToggle, e) end end
-					for _, e in ipairs(triggers) do if IsValid(e) and e:GetPos():Distance(hitPos) < 1500 then table.insert(toToggle, e) end end
-					for _, e in ipairs(buttons) do if IsValid(e) and e:GetPos():Distance(hitPos) < 1500 then table.insert(toToggle, e) end end
-					local outage = math.random(10, 45)
+					for _, e in ipairs(ents.FindByClass("func_door")) do if IsValid(e) and e:GetPos():Distance(hitPos) < 1500 then table.insert(toToggle, e) end end
+					for _, e in ipairs(ents.FindByClass("trigger_*")) do if IsValid(e) and e:GetPos():Distance(hitPos) < 1500 then table.insert(toToggle, e) end end
+					for _, e in ipairs(ents.FindByClass("func_button")) do if IsValid(e) and e:GetPos():Distance(hitPos) < 1500 then table.insert(toToggle, e) end end
+
 					for _, e in ipairs(toToggle) do
 						if not IsValid(e) then continue end
 						if not MuR.StormDisabledEntities[e] then MuR.StormDisabledEntities[e] = {class = e:GetClass()} end
@@ -224,7 +226,7 @@ MuR.RegisterMode(16, {
 						if cls == "func_button" then e.StormOriginalUse = e.StormOriginalUse or e.Use e.Use = function() end end
 						if cls == "light" or cls == "light_spot" or cls == "light_dynamic" then e:Fire("TurnOff") end
 					end
-					timer.Simple(outage, function()
+					timer.Simple(outageDuration, function()
 						for _, e in ipairs(toToggle) do
 							if not IsValid(e) then continue end
 							local cls = e:GetClass()
@@ -261,8 +263,7 @@ MuR.RegisterMode(16, {
 					if #cands > 0 then center = cands[math.random(1, #cands)] end
 				end
 				if not center then
-					local spawns = ents.FindByClass("info_player_*")
-					for _, s in ipairs(spawns) do
+					for _, s in ipairs(ents.FindByClass("info_player_*")) do
 						local t = util.TraceLine({start = s:GetPos(), endpos = s:GetPos() + Vector(0, 0, 2500), filter = s, mask = MASK_SOLID_BRUSHONLY})
 						if t.HitSky or t.Fraction > 0.9 then center = s:GetPos() break end
 					end
@@ -272,13 +273,14 @@ MuR.RegisterMode(16, {
 				local down = util.TraceLine({start = top, endpos = center - Vector(0, 0, 5000), mask = MASK_SOLID_BRUSHONLY})
 				if down.Hit then center = Vector(center.x, center.y, down.HitPos.z + 10) end
 				MuR.TornadoCenter = center
-				for _, ply in ipairs(player.GetAll()) do
+				MuR.TornadoTarget = center
+				for _, ply in player.Iterator() do
 					ply:EmitSound("ambient/alarms/apc_alarm_loop1.wav", 100, 100, 1)
 					ply:SendLua([[chat.AddText(Color(255,0,0),"[A.R.T. NEWS] ",Color(255,255,255),"HURRICANE WILL ARRIVE SOON! SEEK SHELTER IMMEDIATLY!")]])
 				end
 				timer.Simple(15, function()
 					if not MuR.GameStarted or MuR.Gamemode ~= 16 then return end
-					for _, ply in ipairs(player.GetAll()) do ply:StopSound("ambient/alarms/apc_alarm_loop1.wav") end
+					for _, ply in player.Iterator() do ply:StopSound("ambient/alarms/apc_alarm_loop1.wav") end
 					MuR.TornadoActive = true
 					MuR.TornadoProps = {}
 					MuR.TornadoDisabledButtons = {}
@@ -294,7 +296,7 @@ MuR.RegisterMode(16, {
 					end
 					timer.Create("Tornado_Roar", 1, 0, function()
 						if not MuR.TornadoActive then timer.Remove("Tornado_Roar") return end
-						for _, ply in ipairs(player.GetAll()) do
+						for _, ply in player.Iterator() do
 							local d = ply:GetPos():Distance(MuR.TornadoCenter)
 							if d < 1000 then
 								local vol = math.Clamp(100 - (d / 15), 40, 100)
@@ -305,7 +307,19 @@ MuR.RegisterMode(16, {
 						end
 					end)
 					timer.Create("Tornado_Physics", 0.1, 600, function()
-						if not MuR.GameStarted or MuR.Gamemode ~= 16 then timer.Remove("Tornado_Physics") timer.Remove("Tornado_Roar") MuR.TornadoActive = false game.GetWorld():SetNW2Bool("MuR_TornadoActive", false) for _, ply in ipairs(player.GetAll()) do ply:StopSound("ambient/wind/wind_rooftop1.wav") end return end
+						if not MuR.GameStarted or MuR.Gamemode ~= 16 then timer.Remove("Tornado_Physics") timer.Remove("Tornado_Roar") MuR.TornadoActive = false game.GetWorld():SetNW2Bool("MuR_TornadoActive", false) for _, ply in player.Iterator() do ply:StopSound("ambient/wind/wind_rooftop1.wav") end return end
+
+						if not MuR.TornadoTarget or MuR.TornadoCenter:Distance(MuR.TornadoTarget) < 200 then
+							if MuR.AI_Nodes and #MuR.AI_Nodes > 0 then
+								MuR.TornadoTarget = MuR.AI_Nodes[math.random(1, #MuR.AI_Nodes)]
+							else
+								MuR.TornadoTarget = Vector(math.random(-2000, 2000), math.random(-2000, 2000), MuR.TornadoCenter.z)
+							end
+						end
+						local dir = (MuR.TornadoTarget - MuR.TornadoCenter):GetNormalized()
+						MuR.TornadoCenter = MuR.TornadoCenter + dir * 35
+						game.GetWorld():SetNW2Vector("MuR_TornadoCenter", MuR.TornadoCenter)
+
 						local R = 2400
 						local H = 1600
 						local entsIn = ents.FindInSphere(MuR.TornadoCenter, R)
@@ -339,13 +353,11 @@ MuR.RegisterMode(16, {
 							end
 						end
 						if math.random(1, 3) == 1 then
-							local surfs = ents.FindByClass("func_breakable_surf")
-							for _, g in ipairs(surfs) do
-								if not IsValid(g) then continue end
-								if g:GetPos():Distance(MuR.TornadoCenter) < R and math.random(1, 2) == 1 then g:Fire("Shatter", "0.5 0.5 1024") end
-							end
-							local brks = ents.FindByClass("func_breakable")
-							for _, b in ipairs(brks) do
+						for _, g in ipairs(ents.FindByClass("func_breakable_surf")) do
+							if not IsValid(g) then continue end
+							if g:GetPos():Distance(MuR.TornadoCenter) < R and math.random(1, 2) == 1 then g:Fire("Shatter", "0.5 0.5 1024") end
+						end
+						for _, b in ipairs(ents.FindByClass("func_breakable")) do
 								if not IsValid(b) then continue end
 								if b:GetPos():Distance(MuR.TornadoCenter) < R and math.random(1, 3) == 1 then b:Fire("Break") end
 							end
@@ -363,12 +375,30 @@ MuR.RegisterMode(16, {
 								if MuR.TornadoDoorHP[d] <= 0 then
 									d:Fire("Unlock")
 									d:Fire("Open")
-									d:EmitSound("Wood_Plank.Break", 70, 90, 0.8)
+									d:EmitSound("Wood_Plank.Break", 100, 90)
+									local mdl = d:GetModel()
+									local pos = d:GetPos()
+									local ang = d:GetAngles()
+									local skin = d:GetSkin()
+									local debris = ents.Create("prop_physics")
+									if IsValid(debris) then
+										debris:SetModel(mdl)
+										debris:SetPos(pos)
+										debris:SetAngles(ang)
+										debris:SetSkin(skin)
+										debris:Spawn()
+										local phys = debris:GetPhysicsObject()
+										if IsValid(phys) then
+											phys:SetVelocity(VectorRand() * 500 + Vector(0,0,200))
+											phys:AddAngleVelocity(VectorRand() * 200)
+										end
+										SafeRemoveEntity(d)
+									end
 									MuR.TornadoDoorHP[d] = nil
 								end
 							end
 						end
-						for _, ply in ipairs(player.GetAll()) do
+						for _, ply in player.Iterator() do
 							if not ply:Alive() then continue end
 							local d = ply:GetPos():Distance2D(MuR.TornadoCenter)
 							if d < R then
@@ -402,8 +432,8 @@ MuR.RegisterMode(16, {
 						timer.Remove("Tornado_Physics")
 						timer.Remove("Tornado_Roar")
 						game.GetWorld():SetNW2Bool("MuR_TornadoActive", false)
-						for _, ply in ipairs(player.GetAll()) do ply:StopSound("ambient/wind/wind_rooftop1.wav") end
-						for _, ply in ipairs(player.GetAll()) do
+						for _, ply in player.Iterator() do ply:StopSound("ambient/wind/wind_rooftop1.wav") end
+						for _, ply in player.Iterator() do
 							ply:SendLua([[chat.AddText(Color(0,255,0),"[A.R.T. NEWS] ",Color(255,255,255),"HURRICANE HAS PASSED. BE CAREFUL.")]])
 						end
 					end)
@@ -414,7 +444,7 @@ MuR.RegisterMode(16, {
 			timer.Create("Storm_AntiFire", 1.5, 0, function()
 				if not MuR.GameStarted or MuR.Gamemode ~= 16 then return end
 				if math.random(1, 8) ~= 1 then return end
-				for _, fire in ipairs(ents.FindByClass("vfire")) do
+			for _, fire in ipairs(ents.FindByClass("vfire")) do
 					if IsValid(fire) and IsExposedWind(fire:GetPos(), fire) then fire:Remove() end
 				end
 			end)
@@ -453,7 +483,7 @@ MuR.RegisterMode(16, {
 			end
 			MuR.StormDisabledEntities = {}
 		end
-		for _, ply in ipairs(player.GetAll()) do
+		for _, ply in player.Iterator() do
 			ply:StopSound("ambient/alarms/apc_alarm_loop1.wav")
 			ply:StopSound("ambient/wind/wind_rooftop1.wav")
 		end

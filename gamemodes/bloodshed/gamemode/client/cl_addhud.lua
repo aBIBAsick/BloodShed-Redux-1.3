@@ -1,66 +1,4 @@
-local alpha = 0
-local targetAlpha = 255
-local pulseValue = 0
-local rotationAngle = 0
-local swayX = 0
-local swayY = 0
-local swayZ = 0
-
-hook.Add("PostDrawTranslucentRenderables", "FloatingStealthMessage", function()
-    local ply = LocalPlayer()
-    if !IsValid(ply) or !ply:Alive() or !ply:IsKiller() then return end
-    
-    local tar = nil
-    local tr = util.TraceLine( {
-		start = ply:EyePos(),
-		endpos = ply:EyePos() + ply:GetAimVector()*50,
-		filter = ply
-	})
-    if IsValid(tr.Entity) and tr.Entity:IsPlayer() then
-		tar = tr.Entity
-	end
-
-    if !IsValid(tar) or ply:GetNW2Float('Stamina') < 50 then
-        alpha = 0 
-        return 
-    end
-
-    local eyeAngles = ply:EyeAngles()
-    local simpang = Angle(0,eyeAngles.y,0)
-    local basePos = tar:GetBonePosition(tar:LookupBone("ValveBiped.Bip01_Spine2"))-simpang:Forward()*12
-    
-    pulseValue = (pulseValue + FrameTime() * 2) % (math.pi * 2)
-    rotationAngle = (rotationAngle + FrameTime() * 30) % 360
-    
-    swayX = math.sin(CurTime() * 1.5) * 1
-    swayY = math.cos(CurTime() * 0.7) * 1
-    swayZ = math.sin(CurTime() * 0.9) * 1
-    
-    local textPos = basePos + Vector(swayX, swayY, swayZ)
-    
-    alpha = Lerp(0.001, alpha, targetAlpha)
-    
-    local ang = eyeAngles
-    ang:RotateAroundAxis(ang:Forward(), 180)
-    ang:RotateAroundAxis(ang:Right(), 90 + math.sin(CurTime() * 0.8) * 4)
-    ang:RotateAroundAxis(ang:Up(), 90 + math.cos(CurTime() * 1.2) * 4)
-    
-    cam.Start3D2D(textPos, ang, 0.08 + math.sin(CurTime()) * 0.005)
-        draw.SimpleTextOutlined(
-            "[V] "..MuR.Language["execution"], 
-            "MuR_Font6", 
-            0, 
-            0, 
-            Color(200,0,0,alpha * 0.2), 
-            TEXT_ALIGN_CENTER, 
-            TEXT_ALIGN_CENTER, 
-            2, 
-            Color(0, 0, 0, alpha * 0.2)
-        )
-    cam.End3D2D()
-end)
-
-
+﻿local alpha = 0
 
 local help_sounds = {
     "vo/npc/male01/gethellout.wav",
@@ -139,7 +77,7 @@ net.Receive("MuR.WeaponryEffect", function()
             timer.Simple(2, function()
                 local snd = ")murdered/weapons/melee/knife_bayonet_swing" .. math.random(1, 2) .. ".wav"
                 local snd2 = ")murdered/weapons/melee/knife_bayonet_hit" .. math.random(1, 2) .. ".wav"
-        
+
                 sound.Play(snd, pos2, 90, math.random(90,110))
                 timer.Simple(0.2, function()
                     sound.Play(snd2, pos2, 90, math.random(90,110))
@@ -150,7 +88,7 @@ net.Receive("MuR.WeaponryEffect", function()
             timer.Simple(3, function()
                 local snd = ")murdered/weapons/melee/knife_bayonet_swing" .. math.random(1, 2) .. ".wav"
                 local snd2 = ")murdered/weapons/melee/knife_bayonet_hit" .. math.random(1, 2) .. ".wav"
-        
+
                 sound.Play(snd, pos2, 90, math.random(90,110))
                 timer.Simple(0.2, function()
                     sound.Play(snd2, pos2, 90, math.random(90,110))
@@ -184,38 +122,27 @@ local showTrapDots = true
 local showPlayerInfo = true
 local maxDrawDistance = 3000
 
-
-local roleColors = {
-    ["Police"] = Color(100, 150, 255, 200),  
-    ["Suspect"] = Color(255, 100, 100, 200), 
-    ["Civilian"] = Color(150, 255, 150, 200), 
-    ["Unknown"] = Color(255, 255, 255, 200)  
-}
-
 local trapColor = Color(255, 50, 50, 255)     
 local deadPlayerColor = Color(100, 100, 100, 150) 
 
 hook.Add("HUDPaint", "MuR_ShowcaseRolesAdmin", function()
     if not MuR.DrawHUD or not adminvision then return end
-    
+
     local localPlayer = LocalPlayer()
     local localPos = localPlayer:GetPos()
-    
-    
+
     if showPlayerDots then
-        for _, ply in pairs(player.GetAll()) do
+        for _, ply in player.Iterator() do
             if ply != localPlayer and IsValid(ply) then
                 DrawPlayerDot(ply, localPos, localPlayer)
             end
         end
     end
-    
-    
+
     if showTrapDots then
         DrawTraps(localPos, localPlayer)
     end
-    
-    
+
     if showPlayerInfo then
         DrawPlayerInfo(localPlayer)
     end
@@ -224,62 +151,55 @@ end)
 function DrawPlayerDot(ply, localPos, localPlayer)
     local plyPos = ply:GetPos() + Vector(0, 0, 40) 
     local distance = localPos:Distance(plyPos)
-    
+
     if distance > maxDrawDistance then return end
-    
-    
+
     local tr = util.TraceLine({
         start = localPos + Vector(0, 0, 64),
         endpos = plyPos,
         filter = {localPlayer, ply},
         mask = MASK_SHOT
     })
-    
+
     local isVisible = not tr.Hit or tr.Entity == ply
     local screenPos = plyPos:ToScreen()
-    
+
     if not screenPos.visible then return end
-    
-    
-    local dotColor = roleColors["Unknown"]
-    
+
+    local dotColor = Color(255, 255, 255)
+
     if not ply:Alive() then
         dotColor = deadPlayerColor
     else
         local role = ply:GetNW2String("Class", "Unknown")
-        if ply.IsRolePolice and ply:IsRolePolice() then
-            dotColor = roleColors["Police"]
-        elseif ply.IsKiller and ply:IsKiller() then
-            dotColor = roleColors["Suspect"]
+        local roleData = MuR:GetRole(role)
+        if roleData and roleData.color then
+            dotColor = Color(roleData.color.r, roleData.color.g, roleData.color.b, roleData.color.a)
         else
-            dotColor = roleColors["Civilian"]
+            dotColor = Color(150, 255, 150, 200)
         end
     end
-    
-    
+
     local dotSize = 8
     if not isVisible then
         dotSize = 6 
         dotColor.a = 180 
     end
-    
-    
+
     surface.SetDrawColor(dotColor)
     surface.DrawRect(screenPos.x - dotSize/2, screenPos.y - dotSize/2, dotSize, dotSize)
-    
-    
+
     surface.SetDrawColor(0, 0, 0, dotColor.a)
     surface.DrawOutlinedRect(screenPos.x - dotSize/2, screenPos.y - dotSize/2, dotSize, dotSize)
 end
 
 function DrawTraps(localPos, localPlayer)
-    
-    for _, ent in pairs(ents.GetAll()) do
+
+    for _, ent in ents.Iterator() do
         if IsValid(ent) then
             local isTrap = false
             local trapType = "Unknown"
-            
-            
+
             if ent:GetClass() == "trap_entity" then
                 isTrap = true
                 trapType = "Floor Trap"
@@ -287,7 +207,7 @@ function DrawTraps(localPos, localPlayer)
                 isTrap = true
                 trapType = "Tripwire"
             end
-            
+
             if isTrap then
                 DrawTrapDot(ent, trapType, localPos, localPlayer)
             end
@@ -298,24 +218,20 @@ end
 function DrawTrapDot(trap, trapType, localPos, localPlayer)
     local trapPos = trap:GetPos() + Vector(0, 0, 10)
     local distance = localPos:Distance(trapPos)
-    
+
     if distance > maxDrawDistance then return end
-    
+
     local screenPos = trapPos:ToScreen()
     if not screenPos.visible then return end
-    
-    
+
     local dotSize = math.Clamp(12 - distance/200, 4, 12)
-    
-    
+
     surface.SetDrawColor(trapColor)
     surface.DrawRect(screenPos.x - dotSize/2, screenPos.y - dotSize/2, dotSize, dotSize)
-    
-    
+
     surface.SetDrawColor(0, 0, 0, 255)
     surface.DrawOutlinedRect(screenPos.x - dotSize/2, screenPos.y - dotSize/2, dotSize, dotSize)
-    
-    
+
     surface.SetDrawColor(255, 255, 255, 200)
     surface.DrawLine(screenPos.x - 2, screenPos.y - 2, screenPos.x + 2, screenPos.y + 2)
     surface.DrawLine(screenPos.x - 2, screenPos.y + 2, screenPos.x + 2, screenPos.y - 2)
@@ -324,43 +240,36 @@ end
 function DrawPlayerInfo(localPlayer)
     local tr = localPlayer:GetEyeTrace()
     local ply = tr.Entity 
-    
+
     if not IsValid(ply) or not ply:IsPlayer() then return end
-    
+
     local pos = (tr.HitPos - Vector(0,0,16)):ToScreen()
     local distance = localPlayer:GetPos():Distance(ply:GetPos())
-    
-    
+
     surface.SetDrawColor(0, 0, 0, 200)
     surface.DrawRect(pos.x - 80, pos.y + 8, 160, 80)
-    
-    
+
     surface.SetDrawColor(100, 100, 100, 255)
     surface.DrawOutlinedRect(pos.x - 80, pos.y + 8, 160, 80)
-    
-    
+
     draw.SimpleText(ply:Nick(), "DermaDefault", pos.x, pos.y + 12, Color(255, 255, 255, 255), TEXT_ALIGN_CENTER)
-    
-    
+
     local role = ply:GetNW2String("Class", "Unknown")
-    local roleColor = roleColors[role] or roleColors["Unknown"]
+    local roleData = MuR:GetRole(role)
+    local roleColor = (roleData and roleData.color) or Color(255, 255, 255, 200)
     draw.SimpleText(role, "DermaDefault", pos.x, pos.y + 24, roleColor, TEXT_ALIGN_CENTER)
-    
-    
+
     if ply:Alive() then
         local healthColor = Color(255 - (ply:Health() * 2.55), ply:Health() * 2.55, 0)
         draw.SimpleText("HP: " .. ply:Health() .. "/" .. ply:GetMaxHealth(), "DermaDefault", pos.x, pos.y + 36, healthColor, TEXT_ALIGN_CENTER)
-        
-        
+
         if ply:Armor() > 0 then
             draw.SimpleText("Armor: " .. ply:Armor(), "DermaDefault", pos.x, pos.y + 48, Color(100, 150, 255), TEXT_ALIGN_CENTER)
         end
     end
-    
-    
+
     draw.SimpleText("Distance: " .. math.Round(distance) .. "u", "DermaDefault", pos.x, pos.y + 60, Color(200, 200, 200), TEXT_ALIGN_CENTER)
-    
-    
+
     local weapon = ply:GetActiveWeapon()
     if IsValid(weapon) then
         local weaponName = weapon:GetPrintName() or weapon:GetClass()
@@ -371,7 +280,7 @@ end
 concommand.Add("mur_visionadmin", function(ply)
     if not ply:IsSuperAdmin() then return end
     adminvision = not adminvision
-    
+
     if adminvision then
         chat.AddText(Color(20, 200, 20), "[Admin Vision] ", Color(255, 255, 255), "Enabled")
     else
@@ -381,7 +290,7 @@ end)
 
 concommand.Add("mur_vision_distance", function(ply, cmd, args)
     if not ply:IsSuperAdmin() then return end
-    
+
     local newDistance = tonumber(args[1])
     if newDistance and newDistance > 0 and newDistance <= 10000 then
         maxDrawDistance = newDistance
@@ -423,7 +332,7 @@ hook.Add("HUDPaint", "MuR_NotificationIcons", function()
     local baseX, baseY = We(20), He(120)
     local iconSize = We(72)
     local spacing = We(10)
-    
+
     if MuR.Data["SniperArrived"] ~= animations.sniper.active then
         animations.sniper.active = MuR.Data["SniperArrived"]
         if MuR.Data["SniperArrived"] then
@@ -432,7 +341,7 @@ hook.Add("HUDPaint", "MuR_NotificationIcons", function()
             animations.sniper.rotation = -45
         end
     end
-    
+
     if MuR.Data["HeliArrived"] ~= animations.heli.active then
         animations.heli.active = MuR.Data["HeliArrived"]
         if MuR.Data["HeliArrived"] then
@@ -441,9 +350,9 @@ hook.Add("HUDPaint", "MuR_NotificationIcons", function()
             animations.heli.rotation = 45
         end
     end
-    
+
     local deltaTime = FrameTime() * ANIM_SPEED
-    
+
     if animations.sniper.active then
         animations.sniper.alpha = Lerp(deltaTime * 2, animations.sniper.alpha, 1)
         animations.sniper.scale = Lerp(deltaTime * 3, animations.sniper.scale, 1 + 0.1 * math.sin(currentTime * PULSE_SPEED))
@@ -451,7 +360,7 @@ hook.Add("HUDPaint", "MuR_NotificationIcons", function()
     else
         animations.sniper.alpha = Lerp(deltaTime, animations.sniper.alpha, 0)
     end
-    
+
     if animations.heli.active then
         animations.heli.alpha = Lerp(deltaTime * 2, animations.heli.alpha, 1)
         animations.heli.scale = Lerp(deltaTime * 3, animations.heli.scale, 1 + 0.1 * math.sin(currentTime * PULSE_SPEED + 1))
@@ -459,19 +368,19 @@ hook.Add("HUDPaint", "MuR_NotificationIcons", function()
     else
         animations.heli.alpha = Lerp(deltaTime, animations.heli.alpha, 0)
     end
-    
+
     local currentX = baseX
     local iconsVisible = 0
-    
+
     if animations.sniper.alpha > 0.01 then
         local iconX = currentX + (iconSize / 2)
         local iconY = baseY + (iconSize / 2)
-        
+
         surface.SetDrawColor(COLOR_ICON_SNIPER.r, COLOR_ICON_SNIPER.g, COLOR_ICON_SNIPER.b, COLOR_ICON_SNIPER.a * animations.sniper.alpha)
         surface.SetMaterial(ICON_SNIPER)
-        
+
         local scaledSize = iconSize * animations.sniper.scale
-        
+
         surface.DrawTexturedRectRotated(
             iconX, 
             iconY, 
@@ -479,20 +388,20 @@ hook.Add("HUDPaint", "MuR_NotificationIcons", function()
             scaledSize, 
             animations.sniper.rotation
         )
-        
+
         currentX = currentX + iconSize + spacing
         iconsVisible = iconsVisible + 1
     end
-    
+
     if animations.heli.alpha > 0.01 then
         local iconX = currentX + (iconSize / 2)
         local iconY = baseY + (iconSize / 2)
-        
+
         surface.SetDrawColor(COLOR_ICON_HELI.r, COLOR_ICON_HELI.g, COLOR_ICON_HELI.b, COLOR_ICON_HELI.a * animations.heli.alpha)
         surface.SetMaterial(ICON_HELI)
-        
+
         local scaledSize = iconSize * animations.heli.scale
-        
+
         surface.DrawTexturedRectRotated(
             iconX, 
             iconY, 
@@ -500,15 +409,15 @@ hook.Add("HUDPaint", "MuR_NotificationIcons", function()
             scaledSize, 
             animations.heli.rotation
         )
-        
+
         currentX = currentX + iconSize + spacing
         iconsVisible = iconsVisible + 1
     end
-    
+
     if iconsVisible > 0 then
         local alertText = ""
         local textAlpha = 0
-        
+
         if animations.sniper.active and animations.heli.active then
             alertText = MuR.Language["police_backup_helisniper"]
             textAlpha = math.max(animations.sniper.alpha, animations.heli.alpha)
@@ -519,7 +428,7 @@ hook.Add("HUDPaint", "MuR_NotificationIcons", function()
             alertText = MuR.Language["police_backup_heli"]
             textAlpha = animations.heli.alpha
         end
-        
+
         draw.SimpleText(
             alertText, 
             "MuR_Font1", 

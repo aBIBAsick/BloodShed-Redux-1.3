@@ -9,25 +9,34 @@ local DETAIL = 2
 local DEPTH_OVERRIDE = true
 local CONVERT_TO_DECAL_ON_STABLE = false
 
+local poolSizeCache = {}
+local CACHE_LIFETIME = 5
+
 local function IsSolid(pos)
 	return bit.band(util.PointContents(pos), CONTENTS_SOLID) == CONTENTS_SOLID
 end
 
+local function GetCacheKey(pos)
+	return math.floor(pos.x / 20) .. "_" .. math.floor(pos.y / 20) .. "_" .. math.floor(pos.z / 20)
+end
+
 local function GetMaximumPoolSize(pos, normal, limit)
 	local limit = limit or 50
-	local fraction = 1
+	
+	local cacheKey = GetCacheKey(pos)
+	if poolSizeCache[cacheKey] and poolSizeCache[cacheKey].time > CurTime() then
+		return math.min(poolSizeCache[cacheKey].size, limit)
+	end
+	
+	local fraction = 3
 	local dn_dist = 4
 	for size=1,limit,fraction do
 		local dir = size
 		local spots = {
 			pos + Vector(0, dir, 0),
 			pos + Vector(dir, 0, 0),
-			pos + Vector(dir, dir, 0),
-			pos + Vector(dir, -dir, 0),
 			pos + Vector(0, -dir, 0),
-			pos + Vector(-dir, -dir, 0),
 			pos + Vector(-dir, 0, 0),
-			pos + Vector(-dir, dir, 0)
 		}
 		for i=1,#spots do
 			local spos = spots[i] + Vector(0,0,1)
@@ -35,16 +44,28 @@ local function GetMaximumPoolSize(pos, normal, limit)
 			if not IsSolid(spos) then
 				local tr = util.TraceLine({start=spos, endpos=epos, mask=MASK_DEADSOLID})
 				if not tr.Hit then
-					return (size-fraction)
+					local result = math.max(size - fraction, 1)
+					poolSizeCache[cacheKey] = {size = result, time = CurTime() + CACHE_LIFETIME}
+					return result
 				end
 			end
 		end
 	end
+	
+	poolSizeCache[cacheKey] = {size = limit, time = CurTime() + CACHE_LIFETIME}
 	return limit
 end
 
 local function EaseOut(p)
 	return p^(0.6)
+end
+
+local function EaseInOut(p)
+	if p < 0.5 then
+		return 2 * p * p
+	else
+		return 1 - math.pow(-2 * p + 2, 2) / 2
+	end
 end
 
 local function ModColor(c, mult, a)
@@ -231,6 +252,29 @@ function EFFECT:CreateMainLayers()
 			offset = self.RndPos
 		})
 	end
+	
+	if detail >= 1 and self.TargetRadius > 15 then
+		local edgeDropCount = math.random(3, 6)
+		for i = 1, edgeDropCount do
+			local angle = math.Rand(0, math.pi * 2)
+			local dist = self.TargetRadius * math.Rand(0.85, 1.1)
+			local dropOff = Vector(math.cos(angle) * dist, math.sin(angle) * dist, 0)
+			local a = ang
+			a.roll = math.random(0, 360)
+			table.insert(self.Layers, {
+				mat = mats[math.random(1, 4)],
+				angle = a,
+				startSize = 0,
+				endSize = math.Rand(2, 5),
+				born = CurTime() + math.Rand(0, self.FormTime * 0.5),
+				life = self.FormTime * math.Rand(0.3, 0.6),
+				alpha = math.random(180, 230),
+				kind = "edgedrop",
+				offset = self.RndPos + dropOff
+			})
+		end
+	end
+	
 	self.CreatedMain = true
 end
 

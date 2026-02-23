@@ -1,8 +1,5 @@
-local meta = FindMetaTable("Entity")
+﻿local meta = FindMetaTable("Entity")
 util.AddNetworkString("MuR.EntityPlayerColor")
-util.AddNetworkString("MuR.PlayHandAnimation")
-util.AddNetworkString("MuR.SyncHandAnimation")
-util.AddNetworkString("MuR.ResetHandAnimation")
 
 function meta:MakePlayerColor(col)
 	timer.Simple(0.1, function()
@@ -13,8 +10,6 @@ function meta:MakePlayerColor(col)
 		net.Broadcast()
 	end)
 end
-
--------------------------------------------------------
 
 function MuR:CreateBloodPool(rag, boneid, flags, needvel)
     local time = (flags == 0 or flags == 2) and 2 or 0.01
@@ -32,8 +27,6 @@ function MuR:CreateBloodPool(rag, boneid, flags, needvel)
         util.Effect("bloodshed_blood_pool", effectdata, true, true)
     end)
 end
-
--------------------------------------------------------
 
 local entMeta = FindMetaTable( "Entity" )
 
@@ -74,7 +67,7 @@ hook.Add("AcceptInput", "MuR_StealthOpenDoors", function( ent, inp, act, ply, va
                 v:StealthOpenDoor()
             end
         end
-        for k,v in pairs( ents.FindByClass( ent:GetClass() ) ) do
+        for _, v in ipairs(ents.FindByClass( ent:GetClass() )) do
             if ent == v:GetInternalVariable( "m_hMaster" ) then
                 v:StealthOpenDoor()
             end
@@ -93,8 +86,6 @@ hook.Add("EntityEmitSound", "MuR_StealthOpenDoors_EmitSound", function( data )
         return true
     end    
 end)
-
--------------------------------------------------------
 
 player_manager.AddValidModel("Jason", "models/murdered/pm/mkx_jason.mdl")
 player_manager.AddValidHands("Jason", "models/murdered/pm/mkx_jason_hands.mdl", 0, "00000000")
@@ -160,32 +151,23 @@ player_manager.AddValidHands( "Security Forces 08", "models/weapons/c_arms_combi
 player_manager.AddValidModel( "Security Forces 09","models/murdered/pm/sf/male_09.mdl" )
 player_manager.AddValidHands( "Security Forces 09", "models/weapons/c_arms_combine.mdl", 0, "00000000" )
 
--------------------------------------------------------
+player_manager.AddValidModel( "Merryweather 1","models/murdered/pm/pmc/male_01.mdl" )
+player_manager.AddValidModel( "Merryweather 2","models/murdered/pm/pmc/male_02.mdl" )
+player_manager.AddValidModel( "Merryweather 3","models/murdered/pm/pmc/male_03.mdl" )
+player_manager.AddValidModel( "Merryweather 4","models/murdered/pm/pmc/male_04.mdl" )
+player_manager.AddValidModel( "Merryweather 5","models/murdered/pm/pmc/male_05.mdl" )
+player_manager.AddValidModel( "Merryweather 6","models/murdered/pm/pmc/male_06.mdl" )
+player_manager.AddValidModel( "Merryweather 7","models/murdered/pm/pmc/male_07.mdl" )
+player_manager.AddValidModel( "Merryweather 8","models/murdered/pm/pmc/male_08.mdl" )
+player_manager.AddValidModel( "Merryweather 9","models/murdered/pm/pmc/male_09.mdl" )
+
+player_manager.AddValidModel( "FBI UIU", "models/murdered/pm/FBI_UIU_Operative.mdl" )
+player_manager.AddValidHands( "FBI UIU", "models/murdered/pm/enigma_vm.mdl", 0, "00" )
+
+player_manager.AddValidModel( "Tony - Hotline Miami 2", "models/murdered/pm/Tony.mdl" )
+player_manager.AddValidHands( "Tony - Hotline Miami 2", "models/murdered/pm/Tony_Hands.mdl", 0, "00000000" )
 
 function ZBaseUpdateGuard() end
-
-net.Receive("MuR.PlayHandAnimation", function(len, ply)
-    local animData = net.ReadData(len)
-    if ply.PlayGestureHandAnims and ply.PlayGestureHandAnims > CurTime() then return end
-
-    ply.PlayGestureHandAnims = CurTime()+2
-    
-    net.Start("MuR.SyncHandAnimation")
-    net.WriteEntity(ply)
-    net.WriteData(animData)
-    net.Broadcast()
-end)
-
-hook.Add("KeyPress", "MuR_ResetHandAnim", function(ply, key)
-    if ply:Alive() and (key == IN_ATTACK or key == IN_ATTACK2) then
-        net.Start("MuR.ResetHandAnimation")
-        net.WriteEntity(ply)
-        net.WriteFloat(key == IN_ATTACK and 0.2 or key == IN_ATTACK2 and 0.8)
-        net.Broadcast()
-    end
-end)
-
--------------------------------------------------------
 
 local BARRICADE_SOUND = "ambient/materials/door_hit1.wav"
 local PUSH_FORCE = 400
@@ -283,7 +265,6 @@ local function CheckDoorObstacles(door, openDirection)
     return trace.Hit, trace.Entity
 end
 
-
 local function PushBackEntity(door, entity, direction)
     if not IsValid(entity) then return end
 
@@ -302,18 +283,18 @@ end
 local function HandleDoorBarricade(activator, door)
     if IsDoorLocked(door) or DoorIsOpen(door) then return false end
     if door.BarricadeDelay and door.BarricadeDelay > CurTime() then return true end
-    
+
     local openDirection = GetDoorOpenDirection(door, activator)
-    
+
     local isObstructed, obstruction = CheckDoorObstacles(door, openDirection)
     if isObstructed then
         door:EmitSound(BARRICADE_SOUND, 60, math.random(80,110))
         door:Fire("Open", "", 0, activator)
         door:Fire("Close", "", 0.05)
-        
+
         PushBackEntity(door, obstruction, openDirection)
         door.BarricadeDelay = CurTime()+0.5
-        
+
         return true
     end
 end

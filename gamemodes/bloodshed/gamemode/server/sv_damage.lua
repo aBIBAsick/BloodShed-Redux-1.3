@@ -1,4 +1,4 @@
-local meta = FindMetaTable("Player")
+﻿local meta = FindMetaTable("Player")
 local meta2 = FindMetaTable("Entity")
 
 function meta2:BloodTrailBone(bone, seconds)
@@ -39,6 +39,7 @@ function meta2:GetBloodTrails(pattern)
 end
 
 function meta:ApplyConcussion(dmg, duration, intensity)
+	if math.random(1, 100) > 30 then return end
 	duration = duration or 2
 	intensity = intensity or 1
 	if self:GetNW2Float("ConcussionEnd", 0) > CurTime() then
@@ -73,7 +74,10 @@ function meta:ApplyInternalBleed(duration, rate)
 	MuR:GiveMessage2("internal_hit", self)
 end
 
-function meta:TriggerArtery()
+function meta:TriggerArtery(source)
+	source = source or "Generic"
+	self:SetNW2Bool("Artery_"..source, true)
+
 	if not self:GetNW2Bool("HardBleed") then
 		self:SetNW2Bool("HardBleed", true)
 		MuR:GiveMessage2("artery_hit", self)
@@ -108,10 +112,12 @@ function meta:ApplyUnconsciousness(duration)
 		self:SetNW2Float("UnconsciousEnd", math.max(self:GetNW2Float("UnconsciousEnd"), CurTime() + duration * 0.7))
 		return
 	end
+	if self:GetNW2Float("AdrenalineEnd", 0) > CurTime() then return end
 	self:SetNW2Bool("IsUnconscious", true)
 	self:SetNW2Float("UnconsciousEnd", CurTime() + duration)
+	self.UnconsciousStart = CurTime()
 	self.IsRagStanding = false
-	
+
 	if isstring(self.LastVoiceLine) then
 		if IsValid(self:GetRD()) then
 			self:GetRD():StopSound(self.LastVoiceLine)
@@ -119,11 +125,11 @@ function meta:ApplyUnconsciousness(duration)
 		self:StopSound(self.LastVoiceLine)
 		self.LastVoiceLine = nil
 	end
-	
+
 	if not IsValid(self:GetRD()) then
 		self:StartRagdolling(0, 0)
 	end
-	
+
 	MuR:GiveMessage2("unconscious_state", self)
 	timer.Simple(duration, function()
 		if IsValid(self) then
@@ -136,7 +142,7 @@ function meta:WakeUpFromUnconsciousness()
 	self:SetNW2Bool("IsUnconscious", false)
 	self:SetNW2Float("UnconsciousEnd", 0)
 	self.VoiceDelay = 0
-	
+
 	MuR:GiveMessage2("wake_up", self)
 	MuR:PlaySoundOnClient("gasp/focus_gasp_0" .. math.random(1, 6) .. ".wav", self)
 end
@@ -155,6 +161,8 @@ function meta:CheckForceProneOnly()
 	elseif self:GetNW2Bool("RibFracture") and hpFrac <= 0.2 then
 		forceProneOnly = true
 	elseif CurTime() < self:GetNW2Float("UnconsciousEnd", 0) then
+		forceProneOnly = true
+	elseif self:GetNW2Bool("SpineBroken") then
 		forceProneOnly = true
 	end
 	self:SetNW2Bool("ForceProneOnly", forceProneOnly)
@@ -191,6 +199,27 @@ function meta:MakeBloodEffect(bone, delay, times)
 	end)
 end
 
+function meta:ClearBloodEffects()
+	local tar = self
+	if IsValid(self:GetRD()) then
+		tar = self:GetRD()
+	end
+
+	for i = 0, tar:GetBoneCount() - 1 do
+		local boneName = tar:GetBoneName(i)
+		if boneName then
+			local timerName = boneName .. "Hit" .. self:EntIndex()
+			if timer.Exists(timerName) then
+				timer.Remove(timerName)
+			end
+		end
+	end
+
+	if tar.GetBloodTrails then
+		tar:GetBloodTrails("remove")
+	end
+end
+
 function meta:DamagePlayerSystem(type, heal, dmgInfo)
 	if heal then
 		if type == "bone" then
@@ -207,28 +236,47 @@ function meta:DamagePlayerSystem(type, heal, dmgInfo)
 			self:EmitSound("murdered/player/legbreak.wav", 60, math.random(80, 120))
 		elseif type == "blood" then
 			local damageAmount = dmgInfo and dmgInfo:GetDamage() or 10
-			local bleedIncrease = 1
-			
+			local bleedIncrease = 0.6
+
 			if damageAmount >= 50 then
-				bleedIncrease = 2
+				bleedIncrease = 1.2
 			elseif damageAmount >= 30 then
-				bleedIncrease = 1.5
+				bleedIncrease = 0.9
 			end
-			
+
 			if dmgInfo then
 				local damageType = dmgInfo:GetDamageType()
 				if bit.band(damageType, DMG_SLASH) ~= 0 or bit.band(damageType, DMG_BULLET) ~= 0 then
-					bleedIncrease = bleedIncrease * 1.3
+					bleedIncrease = bleedIncrease * 1.2
 				elseif bit.band(damageType, DMG_CLUB) ~= 0 then
-					bleedIncrease = bleedIncrease * 0.7
+					bleedIncrease = bleedIncrease * 0.5
 				elseif bit.band(damageType, DMG_BLAST) ~= 0 then
-					bleedIncrease = bleedIncrease * 1.5
+					bleedIncrease = bleedIncrease * 1.2
 				end
 			end
-			
+
+			local armorReduction = 0
+			if dmgInfo and self.GetArmorDamageReductionByHitgroup then
+				local bone = self:GetNearestBoneFromPos(dmgInfo:GetDamagePosition(), dmgInfo:GetDamageForce())
+				local hitgroup = HITGROUP_GENERIC
+				if bone then
+					local boneToHitgroup = {
+						["ValveBiped.Bip01_Head1"] = HITGROUP_HEAD,
+						["ValveBiped.Bip01_Neck1"] = HITGROUP_HEAD,
+						["ValveBiped.Bip01_Spine"] = HITGROUP_STOMACH,
+						["ValveBiped.Bip01_Spine1"] = HITGROUP_CHEST,
+						["ValveBiped.Bip01_Spine2"] = HITGROUP_CHEST,
+						["ValveBiped.Bip01_Spine4"] = HITGROUP_CHEST,
+					}
+					hitgroup = boneToHitgroup[bone] or HITGROUP_GENERIC
+				end
+				armorReduction, _ = self:GetArmorDamageReductionByHitgroup(hitgroup, dmgInfo)
+			end
+			bleedIncrease = bleedIncrease * (1 - (armorReduction * 0.5))
+
 			local newLevel = self:GetNW2Float("BleedLevel") + bleedIncrease
 			self:SetNW2Float("BleedLevel", math.min(newLevel, 3))
-			
+
 			if newLevel >= 4 then
 				self:SetNW2Bool("HardBleed", true)
 			end
@@ -236,7 +284,7 @@ function meta:DamagePlayerSystem(type, heal, dmgInfo)
 			self:SetNW2Bool("HardBleed", true)
 		end
 	end
-	
+
 	timer.Simple(0.1, function()
 		if IsValid(self) then
 			self:UpdateBloodMovementSpeed()
@@ -248,17 +296,17 @@ end
 
 function meta:UpdateBloodMovementSpeed()
 	if not self:Alive() then return end
-	
+
 	local bleedLevel = self:GetNW2Float("BleedLevel")
 	local hardBleed = self:GetNW2Bool("HardBleed")
 	local legBroken = self:GetNW2Bool("LegBroken")
-	
+
 	local baseSlowWalk = 60
 	local baseWalk = self.SpawnDataSpeed[1] 
 	local baseRun = self.SpawnDataSpeed[2]
-	
+
 	local speedMultiplier = 1
-	
+
 	if hardBleed then
 		speedMultiplier = 0.4
 	elseif bleedLevel >= 3 then
@@ -268,11 +316,11 @@ function meta:UpdateBloodMovementSpeed()
 	elseif bleedLevel == 1 then
 		speedMultiplier = 0.9
 	end
-	
+
 	if legBroken then
 		speedMultiplier = speedMultiplier * 0.5
 	end
-	
+
 	self:SetSlowWalkSpeed(baseSlowWalk * speedMultiplier)
 	self:SetWalkSpeed(baseWalk * speedMultiplier)
 	self:SetRunSpeed(baseRun * speedMultiplier)
@@ -281,15 +329,15 @@ end
 function meta:CheckRandomUnconsciousness()
 	if not self:Alive() then return end
 	if self:GetNW2Bool("IsUnconscious", false) then return end
-	
+
 	local hp = self:Health()
 	local maxhp = self:GetMaxHealth()
 	local hpFrac = hp / maxhp
 	local bleedLevel = self:GetNW2Float("BleedLevel")
 	local hardBleed = self:GetNW2Bool("HardBleed")
-	
+
 	local unconsciousChance = 0
-	
+
 	if hpFrac <= 0.15 then
 		unconsciousChance = unconsciousChance + 0.008
 	elseif hpFrac <= 0.25 then
@@ -297,7 +345,7 @@ function meta:CheckRandomUnconsciousness()
 	elseif hpFrac <= 0.35 then
 		unconsciousChance = unconsciousChance + 0.002
 	end
-	
+
 	if hardBleed then
 		unconsciousChance = unconsciousChance + 0.006
 	elseif bleedLevel >= 3 then
@@ -305,11 +353,11 @@ function meta:CheckRandomUnconsciousness()
 	elseif bleedLevel >= 2 then
 		unconsciousChance = unconsciousChance + 0.002
 	end
-	
+
 	if self:GetNW2Bool("ShockState") then
 		unconsciousChance = unconsciousChance + 0.003
 	end
-	
+
 	if unconsciousChance > 0 and math.random() < unconsciousChance then
 		local duration = math.random(2, 5) + (1 - hpFrac) * 3
 		self:ApplyUnconsciousness(duration)
@@ -338,53 +386,14 @@ hook.Add("EntityTakeDamage", "MuR_DamageSystem", function(ent, dmg)
 		local dm = dmg:GetDamage()
 		local kndmg = dmg:GetDamageType() == DMG_SLASH
 
-		if buldmg then
-			if not (bone1 == "ValveBiped.Bip01_Head1" or bone1 == "ValveBiped.Bip01_Neck1") then
-				dmg:ScaleDamage(1/3)
-			end
-		elseif kndmg or bit.band(dmg:GetDamageType(), DMG_CLUB) ~= 0 then
-			dmg:ScaleDamage(0.5)
-		end
-		dm = dmg:GetDamage()
-
-		if (buldmg and math.random(1,4) == 1 or kndmg) and (bone1 == "ValveBiped.Bip01_Head1" or bone1 == "ValveBiped.Bip01_Neck1") then
-			MuR:GiveMessage2("neck_hit", ent)
-			ent:DamagePlayerSystem("hard_blood")
-			ent:BloodTrailBone("ValveBiped.Bip01_Neck1", 30)
-			ent:TriggerArtery()
-			if kndmg then ent:ApplyConcussion(dmg, 1.6, 0.9) end
-		end
-
 		if (buldmg or kndmg) and (bone1 == "ValveBiped.Bip01_Spine" or bone1 == "ValveBiped.Bip01_Spine2") then
 			local base = dmg:GetDamage()
-			if base >= 55 then
-				MuR:GiveMessage2("heart_hit", ent)
-				ent:DamagePlayerSystem("hard_blood")
-				ent:MakeBloodEffect("ValveBiped.Bip01_Spine4", 0.4, 30)
-				ent:TriggerArtery()
-			elseif base >= 35 then
-				MuR:GiveMessage2("lung_hit", ent)
-				ent:DamagePlayerSystem("hard_blood")
-				ent:MakeBloodEffect("ValveBiped.Bip01_Spine4", 0.4, 30)
-				if math.random(1,2)==1 then ent:ApplyInternalBleed(10,3) end
-			elseif base >= 20 then
+			if base >= 20 then
 				if not ent:GetNW2Bool("RibFracture") then
 					ent:SetNW2Bool("RibFracture", true)
 					MuR:GiveMessage2("rib_hit", ent)
-					if math.random(1,2)==1 then ent:ApplyInternalBleed(8,4) end
 				end
-			else
-				MuR:GiveMessage2("down_hit", ent)
-				ent:MakeBloodEffect("ValveBiped.Bip01_Spine2", 0.8, 15)
-				ent:DamagePlayerSystem("blood")
-				if math.random(1,2)==1 then ent:DamagePlayerSystem("blood") end
 			end
-			if dmg:GetDamageType()==DMG_BLAST then ent:ApplyInternalBleed(14,2) end
-		end
-
-		if (bone1 == "ValveBiped.Bip01_R_Forearm" or bone1 == "ValveBiped.Bip01_L_Forearm") and math.random(1, 2) == 1 and IsValid(ent:GetActiveWeapon()) and not ent:GetActiveWeapon().NeverDrop and dm > 10 then
-			MuR:GiveMessage2("arm_hit", ent)
-			ent:DropWeapon(ent:GetActiveWeapon())
 		end
 
 		if (bone1 == "ValveBiped.Bip01_L_Calf" or bone1 == "ValveBiped.Bip01_R_Calf") and math.random(1, 2) == 1 and dm > 10 then
@@ -394,7 +403,7 @@ hook.Add("EntityTakeDamage", "MuR_DamageSystem", function(ent, dmg)
 
 		if dmg:GetDamageType()==DMG_CLUB and (bone1 == "ValveBiped.Bip01_Head1" or bone1=="ValveBiped.Bip01_Neck1") then
 			ent:ApplyConcussion(dmg, 2, 1)
-			if dm >= 30 then
+			if dm >= 50 then
 				ent:ApplyUnconsciousness(4 + dm/4)
 			end
 		end
@@ -432,7 +441,7 @@ hook.Add("EntityTakeDamage", "MuR.RagdollDamage", function(ent, dmg)
 	if IsValid(att.MindController) then
 		att = att.MindController
 	end
-	
+
 	if ent.isRDRag then
 		ent:GiveDamageOnRag(dmg)
 	end
@@ -448,21 +457,25 @@ hook.Add("EntityTakeDamage", "MuR.RagdollDamage", function(ent, dmg)
 			local maxhp = ent:GetMaxHealth()
 			local frac = dm / maxhp
 			local severity = frac
-			if ent:GetNW2Bool("HardBleed") then severity = severity + 0.2 end
+			if ent:GetNW2Bool("HardBleed") then severity = severity + 0.08 end
 			local bl = ent:GetNW2Float("BleedLevel")
-			if bl >= 3 then severity = severity + 0.15 elseif bl == 2 then severity = severity + 0.08 end
-			if ent:GetNW2Bool("LegBroken") then severity = severity + 0.1 end
+			if bl >= 3 then severity = severity + 0.05 elseif bl == 2 then severity = severity + 0.02 end
+			if ent:GetNW2Bool("LegBroken") then severity = severity + 0.03 end
 			local dtsev = dmg:GetDamageType()
-			if bit.band(dtsev, DMG_CLUB) ~= 0 then severity = severity + 0.15 end
-			if bit.band(dtsev, DMG_BLAST) ~= 0 then severity = severity + 0.25 end
+			if bit.band(dtsev, DMG_CLUB) ~= 0 then severity = severity + 0.05 end
+			if bit.band(dtsev, DMG_BLAST) ~= 0 then severity = severity + 0.1 end
 			local hp = ent:Health()
-			if hp <= maxhp * 0.35 then severity = severity + 0.15 end
-			if hp <= maxhp * 0.2 then severity = severity + 0.25 end
-			if CurTime() < ent:GetNW2Float("ConcussionEnd",0) then severity = severity + 0.15 end
-			if CurTime() < ent:GetNW2Float("CoordinationEnd",0) then severity = severity + 0.1 end
-			if CurTime() < ent:GetNW2Float("UnconsciousEnd",0) then severity = severity + 0.3 end
-			if severity >= 0.6 then
-				ent:StartRagdolling(dm / 25, dm / 5, dmg)
+			if hp <= maxhp * 0.35 then severity = severity + 0.05 end
+			if hp <= maxhp * 0.2 then severity = severity + 0.08 end
+			if CurTime() < ent:GetNW2Float("ConcussionEnd",0) then severity = severity + 0.05 end
+			if CurTime() < ent:GetNW2Float("CoordinationEnd",0) then severity = severity + 0.03 end
+			if CurTime() < ent:GetNW2Float("UnconsciousEnd",0) then severity = severity + 0.1 end
+			if severity >= 1.2 then
+				if MuR.Gamemode == 18 and ent:Health() > 30 then
+
+				else
+					ent:StartRagdolling(dm / 25, dm / 5, dmg)
+				end
 			end
 		end
 
@@ -505,11 +518,188 @@ hook.Add("PlayerDeath", "MuR.ClearUnconsciousState", function(victim)
 	victim:SetNW2Float("CoordinationEnd", 0)
 end)
 
-hook.Add("PlayerSpawn", "MuR.ClearUnconsciousOnSpawn", function(ply)
-	ply:SetNW2Bool("IsUnconscious", false)
-	ply:SetNW2Float("UnconsciousEnd", 0)
-	ply:SetNW2Float("CoordinationEnd", 0)
-	ply:SetNW2Float("ConcussionEnd", 0)
-	ply:SetNW2Bool("ForceProneOnly", false)
-	ply.NextUnconsciousCheck = nil
+hook.Add("MuR.HandleCustomHitgroup", "MuR_OrganDamage", function(victim, owner, organ, dmginfo)
+	if not IsValid(victim) or not IsValid(owner) or not owner:IsPlayer() or (not victim:IsPlayer() and not victim:IsRagdoll()) then return end
+
+	local ply = victim:IsPlayer() and victim or (victim:IsRagdoll() and victim.Owner)
+	if IsValid(ply) and MuR.Gamemode == 21 and ply:GetNW2String("Class") == "Tony" then return end
+
+	if dmginfo:IsBulletDamage() or dmginfo:GetDamageType() == DMG_SLASH then
+		local armorReduction = 0
+		if ply and ply.GetArmorDamageReductionByHitgroup then
+			local bone = victim:IsPlayer() and victim:GetNearestBoneFromPos(dmginfo:GetDamagePosition(), dmginfo:GetDamageForce()) or victim:GetNearestBoneFromPos(dmginfo:GetDamagePosition(), dmginfo:GetDamageForce())
+			local hitgroup = HITGROUP_GENERIC
+			local boneToHitgroup = {
+				["ValveBiped.Bip01_Head1"] = HITGROUP_HEAD,
+				["ValveBiped.Bip01_Neck1"] = HITGROUP_HEAD,
+				["ValveBiped.Bip01_Spine"] = HITGROUP_STOMACH,
+				["ValveBiped.Bip01_Spine1"] = HITGROUP_CHEST,
+				["ValveBiped.Bip01_Spine2"] = HITGROUP_CHEST,
+				["ValveBiped.Bip01_Spine4"] = HITGROUP_CHEST,
+			}
+			hitgroup = boneToHitgroup[bone] or HITGROUP_GENERIC
+			armorReduction, _ = ply:GetArmorDamageReductionByHitgroup(hitgroup, dmginfo)
+		end
+
+		if armorReduction >= 0.8 then
+			return
+		elseif armorReduction > 0 and armorReduction < 0.5 then
+			if math.random() > (1 - armorReduction * 2) then
+				return
+			end
+		end
+		if organ == "Brain" then
+			MuR:GiveMessage2("brain_hit", owner)
+			dmginfo:ScaleDamage(2)
+			if owner:IsPlayer() then
+				owner:SetNW2Bool("IsUnconscious", true)
+				owner:SetNW2Float("UnconsciousEnd", CurTime() + math.random(30,60))
+			end
+
+		elseif organ == "Neck" then
+			MuR:GiveMessage2("neck_hit", owner)
+			dmginfo:ScaleDamage(1.25)
+			owner:TriggerArtery("Neck")
+			MuR:GiveMessage2("artery_neck_hit", owner)
+			if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_Neck1", 0.1, 8) end
+			owner:ApplyConcussion(dmginfo, 2, 0.5)
+			owner:EmitSound("murdered/player/throat_cut.wav", 60, 100)
+
+		elseif organ == "Heart" then
+			MuR:GiveMessage2("heart_hit", owner)
+			MuR:GiveMessage2("artery_heart_hit", owner)
+			dmginfo:ScaleDamage(1.5)
+			owner:TriggerArtery("Heart")
+			owner:DamagePlayerSystem("hard_blood")
+			if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_Spine4", 0.1, 10) end
+			owner:EmitSound("murdered/player/heartbeat_stop.wav", 60, 100)
+
+		elseif organ == "Right Lung" or organ == "Left Lung" then
+			MuR:GiveMessage2("lung_hit", owner)
+			owner:ApplyInternalBleed(25, 2)
+			owner:ApplyCoordinationLoss(20, 1.5)
+			owner:SetNW2Float("Stamina", 0)
+			owner:SetNW2Bool("Pneumothorax", true)
+			if math.random(1, 2) == 1 then
+				owner:EmitSound("murdered/player/gasp_0" .. math.random(1, 3) .. ".wav", 60, 100)
+			end
+
+		elseif organ == "Abdomen" then
+			MuR:GiveMessage2("stomach_hit", owner)
+			owner:ApplyInternalBleed(20, 3)
+			owner:ApplyConcussion(dmginfo, 3, 0.8)
+			if math.random(1,3) == 1 then
+				owner:EmitSound("vo/npc/male01/pain0" .. math.random(1,9) .. ".wav")
+			end
+
+		elseif organ == "Spine" then
+			MuR:GiveMessage2("spine_hit", owner)
+			dmginfo:ScaleDamage(1.5)
+			owner:SetNW2Bool("SpineBroken", true)
+			owner:StartRagdolling(0, dmginfo:GetDamage())
+			owner:EmitSound("murdered/player/bone_break.wav", 60, 100)
+
+		elseif organ == "Liver" then
+			MuR:GiveMessage2("liver_hit", owner)
+			owner:ApplyInternalBleed(30, 2)
+			owner:SetNW2Float("ToxinLevel", owner:GetNW2Float("ToxinLevel", 0) + 0.5)
+
+		elseif organ == "Right Eye" or organ == "Left Eye" then
+			MuR:GiveMessage2("eye_hit", owner)
+			dmginfo:ScaleDamage(2.0)
+			owner:ApplyConcussion(dmginfo, 10, 2)
+			local currentBlind = owner:GetNW2Int("Blindness", 0)
+			owner:SetNW2Int("Blindness", math.min(currentBlind + 1, 2))
+
+		elseif string.find(organ, "Artery") then
+			MuR:GiveMessage2("artery_hit", owner)
+			owner:TriggerArtery(organ)
+
+			if string.find(organ, "Arm") or string.find(organ, "Wrist") then
+				if owner:GetNW2Int("HP_LegRight") == 0 or owner:GetNW2Int("HP_LegLeft") == 0 or owner:GetNW2Int("HP_HandRight") == 0 or owner:GetNW2Int("HP_HandLeft") == 0 then
+				MuR:GiveMessage2("dismember_agony", owner)
+			end
+			MuR:GiveMessage2("artery_limb_hit", owner)
+				if IsValid(owner:GetActiveWeapon()) and not owner:GetActiveWeapon().NeverDrop then
+					owner:DropWeapon(owner:GetActiveWeapon())
+				end
+				if string.find(organ, "Right Wrist Artery") then
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_R_Hand", 0.1, 5) end
+				elseif string.find(organ, "Right Wrist Artery") then
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_L_Hand", 0.1, 5) end
+				elseif string.find(organ, "Right Arm Artery") then
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_R_Forearm", 0.1, 5) end
+				elseif string.find(organ, "Right Arm Artery") then
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_L_Forearm", 0.1, 5) end
+				end
+			elseif string.find(organ, "Leg") then
+				MuR:GiveMessage2("artery_leg_hit", owner)
+				owner:DamagePlayerSystem("bone")
+				if string.find(organ, "Right") then
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_R_Calf", 0.1, 5) end
+				elseif string.find(organ, "Left") then
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_L_Calf", 0.1, 5) end
+				end
+			end
+		end
+
+		local organData = MuR.GetOrgan(organ)
+		if organData and organData.bleed and organData.bleed > 0 then
+			local boneName = organData.bone
+			local seconds = math.Clamp(organData.bleed * 6, 2, 30)
+			local times = math.max(1, organData.bleed * 2)
+
+			if victim:IsRagdoll() then
+				victim._MuR_BledOrgans = victim._MuR_BledOrgans or {}
+				if not victim._MuR_BledOrgans[organ] then
+					victim._MuR_BledOrgans[organ] = true
+					if victim.BloodTrailBone then victim:BloodTrailBone(boneName, seconds) end
+					local pos = MuR:BoneData(victim, boneName)
+					if pos then
+						local eff = EffectData()
+						eff:SetOrigin(pos)
+						eff:SetMagnitude(organData.bleed)
+						eff:SetEntity(victim)
+						util.Effect("mur_organ_bleed", eff)
+					end
+				end
+			else
+				local plyVictim = victim:IsPlayer() and victim or (victim:IsRagdoll() and victim.Owner)
+				if IsValid(plyVictim) then
+					local newLevel = plyVictim:GetNW2Float("BleedLevel") + organData.bleed
+					plyVictim:SetNW2Float("BleedLevel", math.min(newLevel, 3))
+					if newLevel >= 4 then plyVictim:SetNW2Bool("HardBleed", true) end
+					if plyVictim.BloodTrailBone then plyVictim:BloodTrailBone(boneName, seconds) end
+					plyVictim:MakeBloodEffect(boneName, 0.1, times)
+				end
+			end
+		end
+
+	elseif dmginfo:GetDamageType() == DMG_CLUB and organ == "Brain" and dmginfo:GetDamage() >= 40 then
+		if owner:IsPlayer() then
+			owner:SetNW2Bool("IsUnconscious", true)
+			owner:SetNW2Float("UnconsciousEnd", CurTime() + math.random(30,60))
+		end
+	end
+end)
+
+hook.Add("PlayerPostThink", "MuR.OrganEffects", function(ply)
+	if not ply:Alive() then return end
+
+	if ply:GetNW2Bool("Pneumothorax") then
+		if ply:GetNW2Float("Stamina", 100) > 20 then
+			ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina") - FrameTime() * 10, 20))
+		end
+
+		if math.random() < 0.005 then
+			ply:EmitSound("murdered/player/gasp_0" .. math.random(1, 3) .. ".wav", 50, 90)
+		end
+	end
+
+	local toxin = ply:GetNW2Float("ToxinLevel", 0)
+	if toxin > 0 then
+		if toxin > 3 and math.random() < 0.001 then
+			ply:ApplyUnconsciousness(2)
+		end
+	end
 end)

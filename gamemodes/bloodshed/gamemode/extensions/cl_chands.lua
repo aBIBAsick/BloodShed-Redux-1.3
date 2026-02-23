@@ -1,4 +1,4 @@
-CreateClientConVar("blsd_chands", 1) 
+﻿CreateClientConVar("blsd_chands", 1) 
 CreateClientConVar("blsd_chands_shoulder",1)
 CreateClientConVar("blsd_chands_infscl", 0)
 TRANSCARMTOPMWN_CMdl = TRANSCARMTOPMWN_CMdl

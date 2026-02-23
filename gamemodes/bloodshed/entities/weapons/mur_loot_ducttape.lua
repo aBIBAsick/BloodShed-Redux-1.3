@@ -133,40 +133,74 @@ if SERVER then
             if ent1:IsPlayer() or ent2:IsPlayer() then return end
 
             if string.match(ent1:GetClass(), "_door") then
+                if not self:CanRepair(ent1) then return end
                 ply:ViewPunch(Angle(5, 0, 0))
                 ply:EmitSound("murdered/other/ducttape.mp3")
                 ent1:Fire("Lock")
                 self:SprayDecals()
+                self:ApplyRepair(ent1, 100)
                 self:RemoveMe()
-                self:MakeHealth(ent1)
+                return
             end
 
             if string.match(ent2:GetClass(), "_door") then
+                if not self:CanRepair(ent2) then return end
                 ply:ViewPunch(Angle(5, 0, 0))
                 ply:EmitSound("murdered/other/ducttape.mp3")
                 ent2:Fire("Lock")
                 self:SprayDecals()
+                self:ApplyRepair(ent2, 100)
                 self:RemoveMe()
-                self:MakeHealth(ent2)
+                return
             end
 
-            if string.match(ent1:GetClass(), "prop_physics") or ent2:GetClass() == "func_physbox" then
+            if string.match(ent1:GetClass(), "prop_physics") or ent1:GetClass() == "func_physbox" then
+                if not self:CanRepair(ent1) then return end
                 constraint.Weld(ent1, ent2, 0, 0)
                 ply:ViewPunch(Angle(5, 0, 0))
                 ply:EmitSound("murdered/other/ducttape.mp3")
-                self:MakeHealth(ent1)
                 self:SprayDecals()
+                self:ApplyRepair(ent1, 100)
                 self:RemoveMe()
+                return
             end
 
             if string.match(ent2:GetClass(), "prop_physics") or ent2:GetClass() == "func_physbox" then
+                if not self:CanRepair(ent2) then return end
                 constraint.Weld(ent2, ent1, 0, 0)
                 ply:ViewPunch(Angle(5, 0, 0))
                 ply:EmitSound("murdered/other/ducttape.mp3")
-                self:MakeHealth(ent2)
                 self:SprayDecals()
+                self:ApplyRepair(ent2, 100)
                 self:RemoveMe()
+                return
             end
+        end
+    end
+
+    function SWEP:CanRepair(ent)
+        if not ent:GetNW2Bool("BreakableThing") then
+            return true
+        end
+        
+        if (ent.FixMaxHP or 0) <= 0 then
+            MuR:GiveMessage("nofix", self:GetOwner())
+            return false
+        end
+        
+        return true
+    end
+
+    function SWEP:ApplyRepair(ent, amount)
+        if not ent:GetNW2Bool("BreakableThing") then
+            local health = math.Clamp(math.floor(ent:OBBMaxs():Length() * 10), 10, 2500)
+            ent:SetNW2Bool("BreakableThing", true)
+            ent:SetMaxHealth(health)
+            ent:SetHealth(health)
+            ent.FixMaxHP = health
+        else
+            ent:SetHealth(ent:Health() + amount)
+            ent.FixMaxHP = ent.FixMaxHP - amount
         end
     end
 

@@ -1,7 +1,22 @@
-
+﻿
 hook.Add("SetupMove", "MuR_Move", function(ply, mv, cmd)
 	local hunger = ply:GetNW2Float("Hunger")
 	local stam = ply:GetNW2Float("Stamina")
+
+	if ply:GetNW2Bool("Mode18Staminup") then
+		ply:SetNW2Float("Stamina", 100)
+		stam = 100
+		if ply:IsSprinting() and ply:GetVelocity():Length() > 60 then
+			ply.RunMult = math.min(ply.RunMult + FrameTime() * 250, ply:GetRunSpeed() * 1.2)
+			mv:SetMaxSpeed(ply:GetWalkSpeed() + ply.RunMult)
+			mv:SetMaxClientSpeed(ply:GetWalkSpeed() + ply.RunMult)
+		elseif ply:GetVelocity():Length() < 60 then
+			ply.RunMult = 0
+		else
+			ply.RunMult = 0
+		end
+		return
+	end
 
 	if not ply:GetNW2Bool("GeroinUsed") then
 		if ply:IsSprinting() and ply:GetVelocity():Length() > 60 then
@@ -11,10 +26,10 @@ hook.Add("SetupMove", "MuR_Move", function(ply, mv, cmd)
 			mv:SetMaxSpeed(ply:GetWalkSpeed() + ply.RunMult)
 			mv:SetMaxClientSpeed(ply:GetWalkSpeed() + ply.RunMult)
 		elseif ply:GetVelocity():Length() < 60 then
-			ply:SetNW2Float("Stamina", math.Clamp(stam + FrameTime() / 0.2, 0, 100))
+			ply:SetNW2Float("Stamina", math.Clamp(stam + FrameTime() / 0.18, 0, 100))
 			ply.RunMult = 0
 		else
-			ply:SetNW2Float("Stamina", math.Clamp(stam + FrameTime(), 0, 100))
+			ply:SetNW2Float("Stamina", math.Clamp(stam + FrameTime() / 0.18, 0, 100))
 			ply.RunMult = 0
 		end
 
@@ -54,7 +69,8 @@ hook.Add("SetupMove", "MuR_Move", function(ply, mv, cmd)
 			ply:SetNW2Float("Stamina", math.Clamp(stam - FrameTime() / 0.1, 0, 100))
 		end
 
-		if hunger < 20 or ply:GetNW2Bool("LegBroken") then
+		local hasAdrenaline = ply:GetNW2Float("AdrenalineEnd", 0) > CurTime()
+		if (hunger < 20 or ply:GetNW2Bool("LegBroken")) and not hasAdrenaline then
 			mv:SetMaxSpeed(ply:GetWalkSpeed() / 2)
 			mv:SetMaxClientSpeed(ply:GetWalkSpeed() / 2)
 		elseif ply:GetNW2Float("BleedLevel") >= 3 then

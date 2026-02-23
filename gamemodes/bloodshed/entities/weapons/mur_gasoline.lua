@@ -532,13 +532,16 @@ if SERVER then
         if CurTime() % 0.5 > 0 then return end
 
         local ragdolls = ents.FindByClass("prop_ragdoll")
+        if not ragdolls then return end
+        
         local fires = ents.FindByClass("vfire")
-
-        for _, ragdoll in pairs(ragdolls) do
+        if not fires then return end
+        
+        for _, ragdoll in ipairs(ragdolls) do
             local ragdollID = ragdoll:EntIndex()
             if ragdollsNearFire[ragdollID] or not ragdoll.IsDead or ragdoll.Burned then continue end
             
-            for _, fire in pairs(fires) do
+            for _, fire in ipairs(fires) do
                 if IsEntityClose(ragdoll, fire, 32) then
                     ragdollsNearFire[ragdollID] = true
                     

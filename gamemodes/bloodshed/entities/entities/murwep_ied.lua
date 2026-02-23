@@ -86,6 +86,7 @@ if SERVER then
 
             util.Decal("Scorch", self:GetPos(), self:GetPos()-Vector(0,0,8), self)
             util.BlastDamage(att, att, self:GetPos()+Vector(0,0,2), 250*(self.ExplosionDamageMult*2), 500*self.ExplosionDamageMult)
+            MakeExplosionReverb(self:GetPos())
             self:Remove()
         end)
     end

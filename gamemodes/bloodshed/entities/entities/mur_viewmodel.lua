@@ -13,7 +13,9 @@ if SERVER then
         return TRANSMIT_ALWAYS
     end
 else
-    function ENT:Draw() 
+    function ENT:Initialize()
+        local vec = Vector(16000,16000,16000)
+        self:SetRenderBounds(-vec, vec)
     end
 end
 

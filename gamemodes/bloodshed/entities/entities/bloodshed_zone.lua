@@ -56,11 +56,12 @@ function ENT:UpdateTransmitState()
 end
 
 function ENT:CheckPlayers()
-    for _, ply in ipairs(player.GetAll()) do
+    for _, ply in player.Iterator() do
         if not IsValid(ply) or not ply:Alive() then continue end
 
         local dist = ply:EyePos():Distance(self.SpawnPos)
         if dist > self:GetRadius() then
+            if ply:GetNW2Bool("Gasmask") then continue end
             local dmg = DamageInfo()
             dmg:SetDamage(15)
             dmg:SetDamageType(DMG_NERVEGAS)

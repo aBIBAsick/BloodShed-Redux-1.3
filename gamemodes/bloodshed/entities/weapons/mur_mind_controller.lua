@@ -313,7 +313,7 @@ if SERVER then
                 local closestPlayer = nil
                 local closestDist = 2000
                 
-                for _, ply in pairs(player.GetAll()) do
+                for _, ply in player.Iterator() do
                     if ply != target and ply:Alive() and ply:Health() > 1 and ply:Team() != 1 then
                         local dist = ply:GetPos():Distance(target:GetPos())
                         if dist < closestDist then

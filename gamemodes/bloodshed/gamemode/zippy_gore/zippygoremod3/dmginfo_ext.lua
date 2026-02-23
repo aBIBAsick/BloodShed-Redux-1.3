@@ -1,4 +1,4 @@
-local DMGINFO = FindMetaTable("CTakeDamageInfo")
+﻿local DMGINFO = FindMetaTable("CTakeDamageInfo")
 
 ZGM3_GIB_NEVER = 0
 ZGM3_GIB_DIRECT = 1
@@ -8,14 +8,13 @@ ZGM3_GIB_DISMEMBER = 8
 ZGM3_GIB_BULLET = 16
 ZGM3_GIB_EXPLOSION = 32
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function DMGINFO:ZippyGoreMod3_IsGibType( gib_type )
     return bit.band(self:ZippyGoreMod3_GibType(), gib_type) == gib_type
 end
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 function DMGINFO:ZippyGoreMod3_GibType()
     local gib_type = 0
-    
+
     if !( !ZGM3_CVARS["zippygore3_disable_never_gib_damage"] && self:IsDamageType(DMG_NEVERGIB ) ) then
         for dmg_type, type in pairs({
             [DMG_BLAST] = {ZGM3_GIB_AOE, ZGM3_GIB_DISMEMBER, ZGM3_GIB_EXPLOSION},
@@ -40,7 +39,7 @@ function DMGINFO:ZippyGoreMod3_GibType()
             [DMG_BUCKSHOT] = ZGM3_GIB_DIRECT,
             [DMG_SNIPER] = ZGM3_GIB_DIRECT,
             [DMG_MISSILEDEFENSE] = ZGM3_GIB_DIRECT,
-            [DMG_NEVERGIB] = ZGM3_GIB_DIRECT, -- If the effects from DMG_NEVERGIB are disabled, use direct gibbing type. 
+            [DMG_NEVERGIB] = ZGM3_GIB_DIRECT, 
             [DMG_ALWAYSGIB] = ZGM3_CVARS["zippygore3_disable_always_gib_damage"] && ZGM3_GIB_DIRECT or {ZGM3_GIB_ALWAYS, ZGM3_GIB_AOE},
         }) do
             if istable(type) then
@@ -51,14 +50,14 @@ function DMGINFO:ZippyGoreMod3_GibType()
 
     return gib_type
 end
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 function DMGINFO:ZippyGoreMod3_RagdollHitPhysBone( ent )
     local closest_phys_bone
     local closest_phys_bone_idx
     local mindist
 
     for i = 0, ent:GetPhysicsObjectCount()-1 do
-        -- If physbone is already gibbed, skip it:
+
         if ent.ZippyGoreMod3_PhysBoneHPs && ent.ZippyGoreMod3_PhysBoneHPs[i] == -1 then continue end
 
         local phys = ent:GetPhysicsObjectNum( i )
@@ -73,9 +72,8 @@ function DMGINFO:ZippyGoreMod3_RagdollHitPhysBone( ent )
 
     if closest_phys_bone then return closest_phys_bone, closest_phys_bone_idx end
 end
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 function DMGINFO:ZippyGoreMod3_RagdollHurtPosition( ent )
     local phys_bone = self:ZippyGoreMod3_RagdollHitPhysBone( ent )
     if phys_bone then return phys_bone:GetPos() end
 end
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

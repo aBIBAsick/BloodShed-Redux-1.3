@@ -50,49 +50,48 @@ if SERVER then
             return
         end
         
+        local hitEntity
+        local pos1 = self:GetPos() + Vector(0, 0, 5)
+        local pos2 = self.StakeEnt:GetPos() + Vector(0, 0, 5)
+        debugoverlay.Line(pos1, pos2, 0.2, Color(255,0,0), true)
         local tr = util.TraceLine({
-            start = self:GetPos() + Vector(0, 0, 5),
-            endpos = self.StakeEnt:GetPos() + self.StakeEnt:GetUp() * 5,
+            start = pos1,
+            endpos = pos2,
             filter = {self, self.OwnerTrap, self:GetParent(), self.StakeEnt, self.StakeEnt:GetParent()},
             mask = MASK_SOLID
         })
+        if tr.Hit and IsValid(tr.Entity) then
+            hitEntity = tr.Entity
+        end  
         
-        local hitEntity = tr.Entity
-        if not IsValid(hitEntity) then return end
-        
-        local shouldActivate = false
-        
-        if hitEntity:IsPlayer() then
-            if hitEntity:Alive() and hitEntity:Health() > 0 and !hitEntity:IsKiller() then
-                shouldActivate = true
-            end  
-        elseif hitEntity:IsNPC() then
-            if hitEntity:Health() > 0 then
-                if hitEntity:GetClass() == "npc_vj_bloodshed_suspect" then
-                    if IsValid(self.OwnerTrap) and self.OwnerTrap:IsPlayer() then
-                        shouldActivate = true
-                    elseif IsValid(self.OwnerTrap) and self.OwnerTrap:GetClass() == "npc_vj_bloodshed_suspect" then
-                        shouldActivate = false
-                    end
-                else
+        if IsValid(hitEntity) then
+            local shouldActivate = false
+            if hitEntity:IsPlayer() then
+                if hitEntity:Alive() and hitEntity:Health() > 0 then
+                    shouldActivate = true
+                end  
+            elseif hitEntity:IsNPC() then
+                if hitEntity:Health() > 0 and MuR.Gamemode != 14 then
+                    shouldActivate = true
+                end
+            else
+                local phys = hitEntity:GetPhysicsObject()
+                if IsValid(phys) and phys:IsMotionEnabled() then
                     shouldActivate = true
                 end
             end
             
-        else
-            local phys = hitEntity:GetPhysicsObject()
-            if IsValid(phys) and phys:IsMotionEnabled() then
-                shouldActivate = true
+            if hitEntity == self.OwnerTrap then
+                shouldActivate = false
+            end
+            
+            if shouldActivate then
+                self:ActivateGrenade()
             end
         end
-        
-        if hitEntity == self.OwnerTrap then
-            shouldActivate = false
-        end
-        
-        if shouldActivate then
-            self:ActivateGrenade()
-        end
+
+        self:NextThink(CurTime())
+        return true
     end
 
     function ENT:PhysicsCollide(data, phys)
@@ -180,6 +179,7 @@ if SERVER then
                 else
                     util.BlastDamage(att, att, self:GetPos(), 300, 250)
                 end
+                MakeExplosionReverb(self:GetPos())
                 if i == num then
                     self:Bullets()
                 end

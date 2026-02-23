@@ -1,15 +1,15 @@
-if SERVER then
+﻿if SERVER then
     util.AddNetworkString("MuR.RagdollBloodSmear")
-    
+
     local ragdollBloodData = {}
-    
+
     local function SendBloodSmear(pos, normal, velocity, size)
         net.Start("MuR.RagdollBloodSmear")
         net.WriteVector(pos)
         net.WriteVector(normal)
         net.WriteVector(velocity)
         net.WriteFloat(size)
-        net.Broadcast()
+        net.SendPVS(pos)
     end
 
     function MuR:RemoveSmearingBlood(ent)
@@ -25,22 +25,22 @@ if SERVER then
             nextBloodTime = 0
         }
     end
-    
+
     hook.Add("EntityRemoved", "MuR.CleanupRagdollBloodS", function(ent)
         if ragdollBloodData[ent] then
             ragdollBloodData[ent] = nil
         end
     end)
-    
+
     hook.Add("Think", "MuR.RagdollBloodSmearing", function()
         local curTime = CurTime()
-        
+
         for ragdoll, data in pairs(ragdollBloodData) do
             if not IsValid(ragdoll) then
                 ragdollBloodData[ragdoll] = nil
                 continue
             end
-            
+
             do
                 local physObj = ragdoll:GetPhysicsObjectNum(1)
                 if IsValid(physObj) then
@@ -68,7 +68,7 @@ if SERVER then
                     end
                 end
             end
-            
+
             data.lastPos = ragdoll:GetPos()
             data.lastVel = ragdoll:GetVelocity()
         end
@@ -81,21 +81,21 @@ if CLIENT then
         local imat = "rlb/blood"..i
         table.insert(bloodMaterials, imat)
     end
-    
+
     local function CreateBloodSmear(pos, normal, velocity, size)
         local speed = velocity:Length()
         local smearDir = velocity:GetNormalized()
-        
+
         if speed > 50 then
             local smearCount = math.Clamp(speed / 100, 2, 5)
             local smearLength = size * speed / 50
-            
+
             for i = 0, smearCount do
                 local offset = (i / smearCount) * smearLength
                 local smearPos = pos + smearDir * offset
                 local currentSize = size * (1 - i / smearCount * 0.3)
                 local xsize, ysize = currentSize*math.Rand(2,3), currentSize*math.Rand(0.5,1.5)
-                
+
                 util.DecalEx(
                     Material(bloodMaterials[math.random(#bloodMaterials)]),
                     game.GetWorld(),
@@ -118,13 +118,13 @@ if CLIENT then
             )
         end
     end
-    
+
     net.Receive("MuR.RagdollBloodSmear", function()
         local pos = net.ReadVector()
         local normal = net.ReadVector()
         local velocity = net.ReadVector()
         local size = net.ReadFloat()
-        
+
         CreateBloodSmear(pos, normal, velocity, size)
     end)
 end
