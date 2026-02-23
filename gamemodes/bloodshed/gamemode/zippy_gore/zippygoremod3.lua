@@ -1,4 +1,4 @@
--- Decide if custom blood effects are installed:
+﻿
 if CLIENT then
 
     net.Receive("ZippyGore3_CustomBloodInstalled", function()
@@ -26,10 +26,8 @@ if SERVER then
 
 end
 
--- New synth blood color:
 BLOOD_COLOR_ZGM3SYNTH = 7
 
--- Run files:
 local function lua_file( name, cl )
     local full_name = "zippygoremod3/"..name..".lua"
 
@@ -39,18 +37,21 @@ local function lua_file( name, cl )
         include(full_name)
     end
 end
--- Shared
+
 lua_file("cvars")
 lua_file("sounds")
 lua_file("particles")
 lua_file("dismemberment")
 lua_file("default_gibs")
 lua_file("custom_gibs")
+lua_file("cl_sync_bones", true)
 
--- Server
 if SERVER then
     lua_file("setup")
     lua_file("damage")
     lua_file("dmginfo_ext")
     lua_file("gibs")
+    lua_file("convulsions")
+    lua_file("drag_trail")
+    lua_file("facial_flex")
 end

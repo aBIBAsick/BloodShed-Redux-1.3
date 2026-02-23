@@ -46,6 +46,7 @@ function SWEP:CustomPrimaryAttack()
                     self:EmitSound("murdered/weapons/grenade/m67_explode.wav", 90, math.random(80,120))
                     ParticleEffect("AC_grenade_explosion_air", self:GetOwner():EyePos(), Angle(0,0,0))
                     util.BlastDamage(self.BrokenAtt, self.BrokenAtt, self:GetOwner():EyePos(), 128, 96)
+                    MakeExplosionReverb(self:GetPos())
                 end
 
                 self:Remove()

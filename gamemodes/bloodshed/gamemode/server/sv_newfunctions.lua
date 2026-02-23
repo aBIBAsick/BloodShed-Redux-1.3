@@ -1,6 +1,7 @@
-local excludedWeapons = {
+﻿local excludedWeapons = {
     ["tfa_bs_rpg7"] = true,
     ["tfa_bs_glock_t"] = true,
+    ["tfa_bs_vp9"] = true,
 }
 
 local function GetPlayerTFAWeapon(ply, isSidearm, equippedWeapon)
@@ -22,10 +23,10 @@ end
 hook.Add("WeaponEquip", "BloodshedWeaponLimit", function(weapon, ply)
     if not IsValid(ply) or not IsValid(weapon) or excludedWeapons[weapon:GetClass()] then return end
     if not weapon.IsTFAWeapon then return true end
-    
+
     local weaponCategory = weapon.Category or ""
     local isSidearm = weaponCategory == "Bloodshed - Sidearms"
-    
+
     local currentWeapon = GetPlayerTFAWeapon(ply, isSidearm, weapon)
     if IsValid(currentWeapon) then
         ply:DropWeapon(currentWeapon)

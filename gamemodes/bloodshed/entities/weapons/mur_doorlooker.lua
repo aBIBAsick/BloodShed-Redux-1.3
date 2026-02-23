@@ -48,57 +48,136 @@ SWEP.ViewModelBoneMods = {
 
 SWEP.ProbeActive = false
 SWEP.ProbeEntity = nil
-SWEP.MaxProbeDistance = 100
+SWEP.MaxProbeDistance = 120
 SWEP.ProbePos = Vector(0, 0, 0)
 SWEP.ProbeAng = Angle(0, 0, 0)
 
 function SWEP:CustomInit()
     self.ProbeActive = false
+    self.ProbePlayerAng = Angle(0,0,0)
     self:SetHoldType("ar2")
     
     if CLIENT then
         self.ScanlineTexture = surface.GetTextureID("effects/tvscreen_noise002a")
         self.StaticTexture = surface.GetTextureID("effects/combine_binocoverlay")
+        self.NoiseOffset = 0
+        self.GlitchTime = 0
+        self.ProbeLight = nil
     end
+end
+
+function SWEP:GetValidProbeTarget()
+    local owner = self:GetOwner()
+    if not IsValid(owner) then return nil, nil, nil end
+    
+    local trace = {}
+    trace.start = owner:EyePos()
+    trace.endpos = trace.start + owner:GetAimVector() * self.MaxProbeDistance
+    trace.filter = owner
+    
+    local tr = util.TraceLine(trace)
+    
+    if not tr.Hit then return nil, nil, nil end
+    if tr.HitPos:Distance(owner:GetPos()) > self.MaxProbeDistance then return nil, nil, nil end
+    
+    local isDoor = IsValid(tr.Entity) and string.find(tr.Entity:GetClass(), "_door")
+    local isWall = tr.HitWorld and math.abs(tr.HitNormal.z) < 0.3
+    
+    if isDoor then
+        return "door", tr, tr.Entity
+    elseif isWall then
+        local hitPoint = tr.HitPos
+        local normal = tr.HitNormal
+        local right = owner:GetAimVector():Cross(Vector(0, 0, 1)):GetNormalized()
+        
+        local checkDist = 25
+        
+        local trLeft = util.TraceLine({
+            start = hitPoint + normal * 5,
+            endpos = hitPoint + normal * 5 + right * checkDist,
+            filter = owner
+        })
+        
+        local trRight = util.TraceLine({
+            start = hitPoint + normal * 5,
+            endpos = hitPoint + normal * 5 - right * checkDist,
+            filter = owner
+        })
+        
+        local leftDist = trLeft.Fraction * checkDist
+        local rightDist = trRight.Fraction * checkDist
+        
+        if leftDist > 15 or rightDist > 15 then
+            return "corner", tr, nil
+        end
+    end
+    
+    return nil, nil, nil
 end
 
 function SWEP:PrimaryAttack()
     if SERVER and not self.ProbeActive then
+        local targetType, tr, ent = self:GetValidProbeTarget()
         local owner = self:GetOwner()
-        local trace = {}
-        trace.start = owner:EyePos()
-        trace.endpos = trace.start + owner:GetAimVector() * self.MaxProbeDistance
-        trace.filter = owner
         
-        local tr = util.TraceLine(trace)
-        
-        if tr.Hit and tr.HitPos:Distance(owner:GetPos()) < self.MaxProbeDistance and string.find(tr.Entity:GetClass(), "_door") then
-            local pos = tr.Entity:WorldSpaceCenter()
-            pos.z = owner:GetPos().z+8
-            self:DeployProbe(pos, owner:GetAimVector())
+        if targetType == "door" then
+            local pos = ent:WorldSpaceCenter()
+            pos.z = owner:GetPos().z + 8
+            self:DeployProbe(pos, owner:GetAimVector(), "door")
             
             net.Start("ProbeActivated")
             net.WriteBool(true)
+            net.WriteString("door")
             net.Send(owner)
             self:SetHoldType("passive")
+            owner:ScreenFade(SCREENFADE.IN, Color(0,0,0,255), 0.5, 0)
+        elseif targetType == "corner" then
+            local forward = owner:GetAimVector()
+            local right = forward:Cross(Vector(0, 0, 1)):GetNormalized()
+            
+            local leftTrace = util.TraceLine({
+                start = tr.HitPos,
+                endpos = tr.HitPos - right * 30,
+                mask = MASK_SOLID_BRUSHONLY
+            })
+            
+            local rightTrace = util.TraceLine({
+                start = tr.HitPos,
+                endpos = tr.HitPos + right * 30,
+                mask = MASK_SOLID_BRUSHONLY
+            })
+            
+            local peekDir = leftTrace.Fraction > rightTrace.Fraction and -right or right
+            local cornerPos = tr.HitPos - tr.HitNormal * -2
+            
+            self:DeployProbe(cornerPos, peekDir, "corner")
+            
+            net.Start("ProbeActivated")
+            net.WriteBool(true)
+            net.WriteString("corner")
+            net.Send(owner)
+            self:SetHoldType("passive")
+            owner:ScreenFade(SCREENFADE.IN, Color(0,0,0,255), 0.5, 0)
         end
     elseif SERVER and self.ProbeActive then
         self:RetrieveProbe()
         
         net.Start("ProbeActivated")
         net.WriteBool(false)
+        net.WriteString("")
         net.Send(self:GetOwner())
         self:SetHoldType("ar2")
+        self:GetOwner():ScreenFade(SCREENFADE.IN, Color(0,0,0,255), 0.5, 0)
+        self:GetOwner():SetEyeAngles(self.ProbePlayerAng)
     end
     
-    self:SetNextPrimaryFire(CurTime() + 1)
+    self:SetNextPrimaryFire(CurTime() + 0.5)
 end
 
 function SWEP:SecondaryAttack()
-
 end
 
-function SWEP:DeployProbe(pos, normal)
+function SWEP:DeployProbe(pos, normal, probeType)
     local probe = ents.Create("prop_physics")
     probe:SetModel("models/props_lab/huladoll.mdl")
     
@@ -117,11 +196,13 @@ function SWEP:DeployProbe(pos, normal)
     
     probe.Owner = self:GetOwner()
     probe:SetNoDraw(true)
+    probe.ProbeType = probeType
     
     self.ProbeEntity = probe
     self.ProbeActive = true
     self.ProbePos = probe:GetPos() + probe:GetForward() * 3
     self.ProbeAng = probe:GetAngles()
+    self.ProbePlayerAng = self:GetOwner():EyeAngles()
 end
 
 function SWEP:RetrieveProbe()
@@ -139,6 +220,7 @@ function SWEP:CustomHolster()
         
         net.Start("ProbeActivated")
         net.WriteBool(false)
+        net.WriteString("")
         net.Send(self:GetOwner())
     end
     return true
@@ -151,8 +233,13 @@ function SWEP:OnRemove()
         if IsValid(self:GetOwner()) then
             net.Start("ProbeActivated")
             net.WriteBool(false)
+            net.WriteString("")
             net.Send(self:GetOwner())
         end
+    end
+    
+    if CLIENT and IsValid(self.ProbeLight) then
+        self.ProbeLight:Remove()
     end
 end
 
@@ -163,6 +250,7 @@ function SWEP:OnDrop()
         if IsValid(self:GetOwner()) then
             net.Start("ProbeActivated")
             net.WriteBool(false)
+            net.WriteString("")
             net.Send(self:GetOwner())
         end
     end
@@ -175,6 +263,7 @@ function SWEP:Think()
             
             net.Start("ProbeActivated")
             net.WriteBool(false)
+            net.WriteString("")
             net.Send(self:GetOwner())
             return
         end
@@ -198,9 +287,11 @@ if CLIENT then
     local probeActive = false
     local probePos = Vector(0, 0, 0)
     local probeAng = Angle(0, 0, 0)
+    local probeType = ""
     
     net.Receive("ProbeActivated", function()
         probeActive = net.ReadBool()
+        probeType = net.ReadString()
         if probeActive then
             surface.PlaySound("items/nvg_on.wav")
         else
@@ -210,7 +301,7 @@ if CLIENT then
     
     net.Receive("ProbePosition", function()
         probePos = net.ReadVector()
-        probeAng = Angle(-10,net.ReadAngle().y,0)
+        probeAng = Angle(-10, net.ReadAngle().y, 0)
     end)
     
     hook.Add("CalcView", "SurveillanceProbeView", function(ply, origin, angles, fov)
@@ -222,8 +313,8 @@ if CLIENT then
         if probeActive then
             local view = {}
             view.origin = probePos
-            view.angles = Angle(-15,angles.y,0)
-            view.fov = 120
+            view.angles = Angle(angles.x/4, angles.y, 0)
+            view.fov = 50
             view.drawviewer = true
             view.znear = 1
             
@@ -231,50 +322,165 @@ if CLIENT then
         end
     end)
     
-    function SWEP:DrawHUD()
+    hook.Add("PreDrawHalos", "ProbeLight", function()
+        local ply = LocalPlayer()
+        local wep = ply:GetActiveWeapon()
+        if not IsValid(wep) or wep:GetClass() ~= "mur_doorlooker" then return end
+        
         if probeActive then
-            local w, h = ScrW(), ScrH()
-            
-            surface.SetDrawColor(0, 0, 0, 100)
-            surface.DrawRect(0, 0, w, 20)
-            surface.DrawRect(0, h - 20, w, 20)
-            surface.DrawRect(0, 0, 20, h)
-            surface.DrawRect(w - 20, 0, 20, h)
-            
-            surface.SetDrawColor(255, 255, 255, 20)
-            surface.SetTexture(self.ScanlineTexture)
-            surface.DrawTexturedRect(0, 0, w, h)
-            
-            surface.SetDrawColor(255, 255, 255, 5)
-            surface.SetTexture(self.StaticTexture)
-            surface.DrawTexturedRect(0, 0, w, h)
-            
-            draw.SimpleText("SURVEILLANCE MODE", "BudgetLabel", w / 2, 10, Color(255, 255, 255, 200), TEXT_ALIGN_CENTER)
-            draw.SimpleText("DISTANCE: " .. math.Round(LocalPlayer():GetPos():Distance(probePos)) .. " UNITS", "BudgetLabel", w / 2, h - 20, Color(255, 255, 255, 200), TEXT_ALIGN_CENTER)
-            
-            local time = CurTime() % 60
-            local timeStr = string.format("%02d:%02d", math.floor(time / 60), math.floor(time % 60))
-            draw.SimpleText(timeStr, "BudgetLabel", 30, 10, Color(255, 255, 255, 200), TEXT_ALIGN_LEFT)
-            
-            local centerSize = 5
-            surface.SetDrawColor(255, 255, 255, 200)
-            surface.DrawLine(w / 2 - centerSize, h / 2, w / 2 + centerSize, h / 2)
-            surface.DrawLine(w / 2, h / 2 - centerSize, w / 2, h / 2 + centerSize)
-            
-            surface.DrawOutlinedRect(w / 2 - 100, h / 2 - 100, 200, 200)
-            
-            if math.random(1, 100) == 1 then
-                surface.SetDrawColor(255, 255, 255, math.random(10, 50))
-                surface.DrawRect(0, 0, w, h)
-            end
-            
-            if math.random(1, 500) == 1 then
-                local glitchHeight = math.random(5, 20)
-                local glitchY = math.random(0, h - glitchHeight)
-                surface.SetDrawColor(255, 255, 255, 200)
-                surface.DrawRect(0, glitchY, w, glitchHeight)
+            local dlight = DynamicLight(ply:EntIndex())
+            if dlight then
+                dlight.pos = probePos
+                dlight.r = 180
+                dlight.g = 200
+                dlight.b = 220
+                dlight.brightness = 1
+                dlight.decay = 1024
+                dlight.size = 256
+                dlight.dietime = CurTime() + 0.1
             end
         end
+    end)
+    
+    hook.Add("RenderScreenspaceEffects", "ProbeGrayscale", function()
+        local ply = LocalPlayer()
+        local wep = ply:GetActiveWeapon()
+        if not IsValid(wep) or wep:GetClass() ~= "mur_doorlooker" or not probeActive then return end
+        
+        local tab = {}
+        tab["$pp_colour_addr_to_screen"] = 0
+        tab["$pp_colour_brightness"] = 0.2
+        tab["$pp_colour_contrast"] = 1
+        tab["$pp_colour_colour"] = 0
+        tab["$pp_colour_mulr"] = 0
+        tab["$pp_colour_mulg"] = 0
+        tab["$pp_colour_mulb"] = 0
+        
+        DrawColorModify(tab)
+    end)
+    
+    function SWEP:DrawHUD()
+        local w, h = ScrW(), ScrH()
+        
+        if not probeActive then
+            local targetType, tr, ent = self:GetValidProbeTarget()
+            
+            if targetType then
+                local screenPos = tr.HitPos:ToScreen()
+                local pulse = math.sin(CurTime() * 4) * 0.3 + 0.7
+                local col = Color(100, 255, 100, 200 * pulse)
+                
+                surface.SetDrawColor(col)
+                local size = 20
+                surface.DrawLine(screenPos.x - size, screenPos.y, screenPos.x - size/2, screenPos.y)
+                surface.DrawLine(screenPos.x + size/2, screenPos.y, screenPos.x + size, screenPos.y)
+                surface.DrawLine(screenPos.x, screenPos.y - size, screenPos.x, screenPos.y - size/2)
+                surface.DrawLine(screenPos.x, screenPos.y + size/2, screenPos.x, screenPos.y + size)
+                
+                local text = targetType == "door" and "UNDER DOOR" or "CORNER PEEK"
+                draw.SimpleText(text, "DermaDefault", screenPos.x, screenPos.y + He(50), col, TEXT_ALIGN_CENTER)
+                draw.SimpleText("[LMB] DEPLOY", "DermaDefault", screenPos.x, screenPos.y + He(65), Color(200, 200, 200, 200 * pulse), TEXT_ALIGN_CENTER)
+            end
+            return
+        end
+        
+        self.NoiseOffset = self.NoiseOffset + FrameTime() * 100
+        self.ScanOffset = (self.ScanOffset or 0) + FrameTime() * 200
+        
+        draw.RoundedBox(0, 0, 0, w, h, Color(5, 8, 5, 20))
+        
+        local vignette = 100
+        for i = 0, vignette do
+            local alpha = (1 - i / vignette) * 180
+            surface.SetDrawColor(0, 0, 0, alpha)
+            surface.DrawRect(0, i, w, 1)
+            surface.DrawRect(0, h - i, w, 1)
+            surface.DrawRect(i, 0, 1, h)
+            surface.DrawRect(w - i, 0, 1, h)
+        end
+        
+        surface.SetDrawColor(15, 20, 15, 60)
+        for y = 0, h, 2 do
+            surface.DrawRect(0, y, w, 1)
+        end
+        
+        local scanY = (self.ScanOffset % (h + 50)) - 25
+        for i = 0, 20 do
+            local lineY = scanY + i
+            local alpha = 80 - math.abs(i - 10) * 8
+            if alpha > 0 and lineY > 0 and lineY < h then
+                surface.SetDrawColor(100, 120, 100, alpha)
+                surface.DrawRect(0, lineY, w, 1)
+            end
+        end
+        
+        if math.random(1, 150) == 1 then
+            self.GlitchTime = CurTime() + math.Rand(0.02, 0.08)
+            self.GlitchIntensity = math.random(1, 3)
+        end
+        
+        if CurTime() < self.GlitchTime then
+            for i = 1, self.GlitchIntensity do
+                local glitchY = math.random(0, h)
+                local glitchH = math.random(1, 4)
+                local offset = math.random(-15, 15)
+                
+                surface.SetDrawColor(120, 140, 120, 150)
+                surface.DrawRect(offset, glitchY, w, glitchH)
+                
+                surface.SetDrawColor(80, 100, 80, 80)
+                surface.DrawRect(-offset, glitchY + math.random(-30, 30), w, 1)
+            end
+        end
+        
+        local borderSize = 25
+        surface.SetDrawColor(10, 12, 10, 220)
+        surface.DrawRect(0, 0, w, borderSize)
+        surface.DrawRect(0, h - borderSize, w, borderSize)
+        surface.DrawRect(0, 0, borderSize, h)
+        surface.DrawRect(w - borderSize, 0, borderSize, h)
+        
+        surface.SetDrawColor(60, 70, 60, 255)
+        surface.DrawOutlinedRect(borderSize, borderSize, w - borderSize * 2, h - borderSize * 2, 2)
+        
+        local textCol = Color(180, 190, 180, 230)
+        local dimCol = Color(120, 130, 120, 180)
+        
+        draw.SimpleText("◉ REC", "DermaDefaultBold", borderSize + 15, borderSize + 8, math.floor(CurTime() * 2) % 2 == 0 and Color(200, 80, 80, 255) or Color(100, 40, 40, 255))
+        
+        local time = os.date("%H:%M:%S")
+        draw.SimpleText(time, "DermaDefault", w - borderSize - 15, borderSize + 8, dimCol, TEXT_ALIGN_RIGHT)
+        
+        draw.SimpleText("SURVEILLANCE PROBE", "DermaDefaultBold", w / 2, borderSize + 8, textCol, TEXT_ALIGN_CENTER)
+        
+        local dist = math.Round(LocalPlayer():GetPos():Distance(probePos))
+        local modeText = probeType == "door" and "MODE: UNDER-DOOR" or "MODE: CORNER-PEEK"
+        draw.SimpleText(modeText, "DermaDefault", borderSize + 15, h - borderSize - 22, dimCol)
+        draw.SimpleText("DIST: " .. dist .. "u", "DermaDefault", w - borderSize - 15, h - borderSize - 22, dimCol, TEXT_ALIGN_RIGHT)
+        draw.SimpleText("[LMB] RETRIEVE", "DermaDefault", w / 2, h - borderSize - 22, dimCol, TEXT_ALIGN_CENTER)
+        
+        local cx, cy = w / 2, h / 2
+        local crossSize = 15
+        local crossGap = 5
+        surface.SetDrawColor(180, 190, 180, 150)
+        surface.DrawRect(cx - crossSize, cy, crossSize - crossGap, 1)
+        surface.DrawRect(cx + crossGap, cy, crossSize - crossGap, 1)
+        surface.DrawRect(cx, cy - crossSize, 1, crossSize - crossGap)
+        surface.DrawRect(cx, cy + crossGap, 1, crossSize - crossGap)
+        
+        surface.SetDrawColor(80, 90, 80, 100)
+        surface.DrawOutlinedRect(cx - 80, cy - 80, 160, 160, 1)
+        
+        local cornerLen = 15
+        surface.SetDrawColor(150, 160, 150, 200)
+        surface.DrawRect(cx - 80, cy - 80, cornerLen, 2)
+        surface.DrawRect(cx - 80, cy - 80, 2, cornerLen)
+        surface.DrawRect(cx + 80 - cornerLen, cy - 80, cornerLen, 2)
+        surface.DrawRect(cx + 78, cy - 80, 2, cornerLen)
+        surface.DrawRect(cx - 80, cy + 78, cornerLen, 2)
+        surface.DrawRect(cx - 80, cy + 80 - cornerLen, 2, cornerLen)
+        surface.DrawRect(cx + 80 - cornerLen, cy + 78, cornerLen, 2)
+        surface.DrawRect(cx + 78, cy + 80 - cornerLen, 2, cornerLen)
     end
     
     function SWEP:CalcViewModelView(vm, oldPos, oldAng, pos, ang)
@@ -283,4 +489,5 @@ if CLIENT then
         end
     end
 end
+
 SWEP.Category = "Bloodshed - Police"

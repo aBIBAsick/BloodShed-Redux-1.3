@@ -1,4 +1,4 @@
-
+﻿
 local cache = {}
 local _GetChildBonesRecursive
 local mdl = ""
@@ -129,12 +129,12 @@ hook.Add("LocalPlayer_Validated", "mur_gmod_legs", function(ply)
 		if not IsFirstTimePredicted() then
 			return
 		end
-	
+
 		if bit.band(move:GetButtons(), IN_JUMP) ~= 0
 			and bit.band(move:GetOldButtons(), IN_JUMP) == 0
 			and ply:OnGround() then
 			JUMPING, onGround = true, false
-	
+
 			if IsFirstTimePredicted() then
 				JUMPING_ = not JUMPING_
 			end
@@ -145,14 +145,14 @@ hook.Add("LocalPlayer_Validated", "mur_gmod_legs", function(ply)
 		if not IsFirstTimePredicted() then
 			return
 		end
-	
+
 		JUMPING = nil
-	
+
 		local isOnGround = ply:OnGround()
-	
+
 		if onGround ~= isOnGround then
 			onGround = isOnGround
-	
+
 			if onGround then
 				limitJump = CurTime() + FrameTime()
 			end
@@ -215,7 +215,7 @@ hook.Add("LocalPlayer_Validated", "mur_gmod_legs", function(ply)
 						end
 					end
 				end
-	
+
 				SetBoneMatrix(ent, i, mat)
 			end
 		end
@@ -482,7 +482,7 @@ hook.Add("LocalPlayer_Validated", "mur_gmod_legs", function(ply)
 		SetAngles(ply.Body, eyeAngles)
 		SetPlaybackRate(ply.Body, GetPlaybackRate(ply))
 		SetCycle(ply.Body, cycle)
-	
+
 		local currentView = ply:GetCurrentViewOffset()
 		local forward = eyeAngles:Forward() * forwardDistance
 

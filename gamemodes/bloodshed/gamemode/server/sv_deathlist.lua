@@ -41,7 +41,7 @@ end
 function MuR:GetLogTable()
 	local hitab = {}
 	local itab = {}
-	for _, ply in ipairs(player.GetAll()) do
+	for _, ply in player.Iterator() do
 		if ply:Alive() then
 			if ply:Health() < 30 then
 				table.insert(hitab, {

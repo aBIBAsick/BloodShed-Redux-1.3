@@ -1,5 +1,5 @@
-hook.Add("ContextMenuOpen", "MuR.BlockContext", function()
-    return false
+﻿hook.Add("ContextMenuOpen", "MuR.BlockContext", function()
+    return MuR.EnableDebug
 end)
 
 hook.Add("OnSpawnMenuClose", "SpawnMenuWhitelist", function()
@@ -7,7 +7,7 @@ hook.Add("OnSpawnMenuClose", "SpawnMenuWhitelist", function()
 end)
 
 hook.Add("SpawnMenuOpen", "SpawnMenuWhitelist", function()
-	return (LocalPlayer():IsSuperAdmin() or MuR.EnableDebug) and LocalPlayer().CanOpenSpawnmenu == true
+	return LocalPlayer().CanOpenSpawnmenu == true
 end)
 
 hook.Add("PlayerNoClip", "BlockNoclip", function(ply, desiredState)
@@ -22,8 +22,6 @@ net.Receive("MuR.NoNodes", function()
         draw.SimpleText(MuR.Language["gui_nonodes2"], "MuR_Font2", ScrW()/2, ScrH()/2+He(10), Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end)
 end)
-
------------------------------------------------------------------------------
 
 local ICON_SIZE    = 60
 local HOLD_TIME    = 0.3

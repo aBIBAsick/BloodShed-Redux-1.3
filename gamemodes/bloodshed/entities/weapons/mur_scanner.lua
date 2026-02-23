@@ -74,13 +74,13 @@ function SWEP:DrawHUD()
 				arrow = "[-]"
 			end		  
 		end
-		if isnumber(mm) and mm >= 75 then
-			mm = "???"
+		if isnumber(mm) and try < 750 then
+			mm = "<30"
 		end
 	
 		draw.SimpleText("Human Detector", "Trebuchet18", pos.x+We(xx), pos.y+He(yy-20), Color(255,255,155), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		draw.SimpleText(mm.." m "..arrow, "Trebuchet24", pos.x+We(xx), pos.y+He(yy), color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		if isnumber(mm) then
+		if mm != "???" then
 			draw.SimpleText("DETECTED", "DefaultFixed", pos.x+We(xx), pos.y+He(yy+30), Color(155,255,155), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		else
 			draw.SimpleText("NOT DETECTED", "DefaultFixed", pos.x+We(xx), pos.y+He(yy+30), Color(255,155,155), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
@@ -92,9 +92,15 @@ function SWEP:DrawHUD()
 			self.BeepTime = CurTime()+1
 		end
 
-		if isnumber(mm) and self.BeepTime < CurTime() then
+		if mm != "???" and self.BeepTime < CurTime() then
 			surface.PlaySound("HL1/fvox/beep.wav")
-			self.BeepTime = CurTime()+math.max(mm/40, 0.2)
+			local beepInterval = 0.2
+			if isnumber(mm) then
+				beepInterval = math.max(mm/40, 0.2)
+			elseif mm == "<30m" then
+				beepInterval = 0.75
+			end
+			self.BeepTime = CurTime() + beepInterval
 		end
 	end
 end

@@ -1,4 +1,24 @@
-if !SERVER then return end
+﻿if !SERVER then return end
+
+util.AddNetworkString("ZGM3_SyncBoneScale")
+
+local nanVec = Vector(0, 0, 0)
+
+local function ZGM3_SetBoneScaleSync(ent, bone, scale)
+	if not IsValid(ent) then return end
+	ent:ManipulateBoneScale(bone, scale)
+
+	local net_scale = scale
+	if scale.x ~= scale.x then
+		net_scale = Vector(0, 0, 0)
+	end
+
+	net.Start("ZGM3_SyncBoneScale")
+	net.WriteEntity(ent)
+	net.WriteUInt(bone, 16)
+	net.WriteVector(net_scale)
+	net.SendPVS(ent:GetPos())
+end
 
 local ENT = FindMetaTable("Entity")
 local blood_particles = {
@@ -54,7 +74,6 @@ function ENT:ZippyGoreMod3_BleedEffect( phys_bone )
         particleName = self:GetNW2String("DynamicBloodSplatter_CustomBlood_Particle", false) or particleName
         if !particleName then timer.Remove(timer_name_real) return end
 
-
         ParticleEffect(particleName, effect_pos, AngleRand())
         local effectdata = EffectData()
 		effectdata:SetOrigin( effect_pos )
@@ -63,7 +82,6 @@ function ENT:ZippyGoreMod3_BleedEffect( phys_bone )
 		effectdata:SetRadius(20)
 		effectdata:SetEntity( self )
 		util.Effect("mur_blood_splatter_effect", effectdata, true, true )
-
 
         local decal = self:GetNW2String("DynamicBloodSplatter_CustomBlood_Decal", false) or blood_decals[self.ZippyGoreMod3_BloodColor]
         if decal && timer.RepsLeft(timer_name_real) == 0 then
@@ -78,17 +96,15 @@ function ENT:ZippyGoreMod3_BleedEffect( phys_bone )
     end)
 end
 
-
 function ENT:ZippyGoreMod3_ForcePhysBonePos()
     for phys_bone, parent_physbone in pairs(self.ZippyGoreMod3_GibbedPhysBoneParents) do
         local gibbed_physobj = self:GetPhysicsObjectNum(phys_bone)
         local parent_physobj = self:GetPhysicsObjectNum(parent_physbone)
         gibbed_physobj:SetPos( parent_physobj:GetPos() )
         gibbed_physobj:SetAngles( parent_physobj:GetAngles() )
-        
+
     end
 end
-
 
 hook.Add("Think", "ZippyGore3_ForcePhysbonePositions_Think", function()
     for _,rag in ipairs( ZGM3_RAGDOLLS ) do
@@ -96,16 +112,15 @@ hook.Add("Think", "ZippyGore3_ForcePhysbonePositions_Think", function()
     end
 end)
 
-
 function ENT:ZippyGoreMod3_CreateLimbRagdoll( SeveredPhysBone, damageData )
-    
+
     local limb_ragdoll = ents.Create("prop_ragdoll")
     limb_ragdoll:SetPos(self:GetPos())
     limb_ragdoll:SetAngles(self:GetAngles())
     limb_ragdoll:SetModel(self:GetModel())
     limb_ragdoll:TransferModelData(self)
     limb_ragdoll:DrawShadow(false)
-    limb_ragdoll:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
+    limb_ragdoll:SetCollisionGroup(COLLISION_GROUP_DEBRIS_TRIGGER)
     limb_ragdoll:Spawn()
     limb_ragdoll:CopyWoundsFrom(self)
     if isvector(self.PlyColor) then
@@ -115,20 +130,18 @@ function ENT:ZippyGoreMod3_CreateLimbRagdoll( SeveredPhysBone, damageData )
     limb_ragdoll:ZippyGoreMod3_BecomeGibbableRagdoll( self.ZippyGoreMod3_BloodColor )
     limb_ragdoll:ZippyGoreMod3_BleedEffect( SeveredPhysBone )
     limb_ragdoll.ZippyGoreMod3_GibbedPhysBones = {}
-    
+
     limb_ragdoll.ZippyGoreMod3_Ragdoll = false
     if ZGM3_INSANE_BLOOD_EFFECTS && self.ZippyGoreMod3_BloodColor==BLOOD_COLOR_RED then limb_ragdoll:RealisticBlood_Setup() end
 
     local severedBone = limb_ragdoll:TranslatePhysBoneToBone(SeveredPhysBone)
 
-    
     for i = 0, limb_ragdoll:GetPhysicsObjectCount()-1 do
         local phys_obj = limb_ragdoll:GetPhysicsObjectNum(i)
         phys_obj:SetPos( self:GetPhysicsObjectNum(i):GetPos() )
         phys_obj:SetAngles( self:GetPhysicsObjectNum(i):GetAngles() )
     end
 
-    
     local child_bones = {}
     local function get_all_child_bones_recursive( bone )
         for _, v in ipairs(limb_ragdoll:GetChildBones(bone)) do
@@ -140,7 +153,6 @@ function ENT:ZippyGoreMod3_CreateLimbRagdoll( SeveredPhysBone, damageData )
     end
     get_all_child_bones_recursive( severedBone )
 
-    
     local parent_bones = {}
     local function get_all_parent_bones_recursive( bone )
         local parent_bone = limb_ragdoll:GetBoneParent(bone)
@@ -151,21 +163,20 @@ function ENT:ZippyGoreMod3_CreateLimbRagdoll( SeveredPhysBone, damageData )
     end
     get_all_parent_bones_recursive( severedBone )
 
-    
     local function remove_bone( bone )
-        limb_ragdoll:ManipulateBoneScale(bone, Vector(0, 0, 0))
-        limb_ragdoll:ManipulateBonePosition(bone, Vector(0, 0, 0)/0) -- Thanks Rama (only works on certain graphics cards!)
+        ZGM3_SetBoneScaleSync(limb_ragdoll, bone, nanVec)
+        limb_ragdoll:ManipulateBonePosition(bone, Vector(0, 0, 0)/0) 
 
         local phys_bone = limb_ragdoll:TranslateBoneToPhysBone( bone )
 
         if !limb_ragdoll.ZippyGoreMod3_GibbedPhysBones[ phys_bone ] then
             local phys_bone_bone_translated = limb_ragdoll:TranslatePhysBoneToBone(phys_bone)
             if !child_bones[phys_bone_bone_translated] && phys_bone_bone_translated != severedBone then
-                
+
                 local phys_obj = limb_ragdoll:GetPhysicsObjectNum( phys_bone )
                 phys_obj:EnableCollisions(false)
                 phys_obj:SetMass(0.1)
-                
+
                 if !limb_ragdoll.ZippyGoreMod3_GibbedPhysBoneParents then limb_ragdoll.ZippyGoreMod3_GibbedPhysBoneParents = {} end
                 if !parent_bones[phys_bone_bone_translated] then
                     limb_ragdoll.ZippyGoreMod3_GibbedPhysBoneParents[ phys_bone ] = 0
@@ -179,21 +190,18 @@ function ENT:ZippyGoreMod3_CreateLimbRagdoll( SeveredPhysBone, damageData )
         if i != severedBone && !child_bones[i] then remove_bone( i ) end
     end
 
-    
     for parent_bone in pairs(parent_bones) do
         local parent_physbone = limb_ragdoll:TranslateBoneToPhysBone(parent_bone)
         limb_ragdoll.ZippyGoreMod3_GibbedPhysBoneParents[ parent_physbone ] = SeveredPhysBone
     end
-    
+
     limb_ragdoll:RemoveInternalConstraint(SeveredPhysBone)
 
-    
     gibbed_physobj = limb_ragdoll:GetPhysicsObjectNum(SeveredPhysBone)
     gibbed_physobj:SetVelocity( damageData.ForceVec:GetNormalized()*damageData.Damage )
     self.ZGM3_LastCreatedLimbRagdoll = limb_ragdoll
     return limb_ragdoll
 end
-
 
 local stumpTbl = {
     ["ValveBiped.Bip01_Head1"] = { mdl = "models/mosi/fnv/props/character/headcap.mdl", ang_offset=Angle(0, 84, 442), pos_offset=Vector(6, 0, 0) },
@@ -223,7 +231,6 @@ function ENT:ZippyGoreMod3_GetStumpModel( gibbed_bone )
     return tbl.mdl, tbl.ang_offset, tbl.pos_offset, tbl.scale or 1
 end
 
-
 local stump_adjust = CreateConVar("zgm3_stump_adjust", 0, FCVAR_NONE, "Do not enable this.")
 local dev = GetConVar("developer")
 local up_world = Vector(0, 0, 1)
@@ -231,14 +238,11 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
     local gibbed_bone = self:TranslatePhysBoneToBone(phys_bone_idx)
     local EnhancedSplatter = DynSplatterFullyInitialized and false
 
-
     self:DrawShadow(false)
 
-
     local function gib_bone_recursive( bone, dismember, MakeLimbRag )
-        self:ManipulateBoneScale(bone, Vector(0,0,0))
+        ZGM3_SetBoneScaleSync(self, bone, nanVec)
 
-    
         local timer_name_real = bleed_timer_name..self:EntIndex().."_Bone: "..phys_bone_idx
         if timer.Exists(timer_name_real) then
             timer.Remove(timer_name_real)
@@ -250,18 +254,16 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
             if !self.ZippyGoreMod3_GibbedPhysBones[ phys_bone ] then
                 local phys_obj = self:GetPhysicsObjectNum( phys_bone )
                 if phys_obj then
-                    
+
                     phys_obj:EnableCollisions(false)
 
-                    
                     if !self.ZippyGoreMod3_GibbedPhysBoneParents then self.ZippyGoreMod3_GibbedPhysBoneParents = {} end
-                    
+
                     if phys_bone != 0 then
                         self.ZippyGoreMod3_GibbedPhysBoneParents[ phys_bone ] = self:TranslateBoneToPhysBone(self:GetBoneParent( bone ))
                         self:RemoveInternalConstraint(phys_bone)
                     end
 
-                    
                     local damageData = {
                         Damage = data.damage,
                         ForceVec = data.forceVec,
@@ -277,6 +279,16 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
                     end
 
                     MuR:CreateBloodPool(self, self:TranslatePhysBoneToBone(phys_bone), 3, 0)
+
+                    if self.ZippyGoreMod3_StartDragTrail then
+                        self:ZippyGoreMod3_StartDragTrail()
+                    end
+
+                    local boneName = self:GetBoneName(bone)
+                    if self.ZGM3_SetDismemberExpression then
+                        self:ZGM3_SetDismemberExpression(boneName)
+                    end
+
 					timer.Remove("RagdollStruggle"..self:EntIndex())
 					if IsValid(self.Owner) and self.isRDRag and self.Owner:IsPlayer() then
 						self.Owner:TimeGetUpChange(99999, true)
@@ -289,9 +301,7 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
 							self.Owner:Kill()
 						end
 					end
-                    
 
-                    
                     local physObjPos = phys_obj:GetPos()
                     local aabb_min, aabb_max = phys_obj:GetAABB()
 
@@ -302,21 +312,17 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
                     effectdata:SetStart( effect_pos_data.pos_max )
                     effectdata:SetEntity(effect_pos_data.ent)
                     util.Effect("zippygore3_ongib", effectdata, true, true)
-                    
 
-                    
                     if bone == 0 then
                         self:EmitSound("ZippyGore3OnRootBoneGib")
                     else
                         self:EmitSound("ZippyGore3OnGib")
                     end
-                    
 
                     self.ZippyGoreMod3_GibbedPhysBones[ phys_bone ] = true
                 end
             end
 
-            
             if self.ZGM3_OnBreakRemoveStumpTbl && self.ZGM3_OnBreakRemoveStumpTbl[bone] then
                 self.ZGM3_OnBreakRemoveStumpTbl[bone]()
             end
@@ -327,18 +333,13 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
         end
     end
 
-
-
-    
     gib_bone_recursive( gibbed_bone, data.dismember, true )
 
-
     if phys_bone_idx == 0 then
-        
+
         self:Remove()
     elseif blood_particles[self.ZippyGoreMod3_BloodColor] then
 
-        
         self:ZippyGoreMod3_BleedEffect( phys_bone_idx )
 
         local boneName = self:GetBoneName(gibbed_bone)
@@ -425,7 +426,6 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
             end
         end
 
-        
         local mdl, ang_offset, pos_offset, scale = self:ZippyGoreMod3_GetStumpModel(gibbed_bone)
         if mdl then
             local phys = self:GetPhysicsObjectNum(phys_bone_idx)
@@ -433,22 +433,16 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
             local parent_phys = self:GetPhysicsObjectNum( self:TranslateBoneToPhysBone(parent_bone) )
             local phys_pos = phys:GetPos()
             local parent_phys_pos = parent_phys:GetPos()
-            
-            
+
             local forward = (parent_phys_pos - phys_pos):GetNormalized()
-            
-            
 
             local right = forward:Cross(up_world):GetNormalized()
-            
-            
+
             local up = right:Cross(forward):GetNormalized()
-            
-            
-            debugoverlay.Line(phys_pos, phys_pos + forward * 100, 2, Color(0, 255, 0)) -- Forward is green
-            debugoverlay.Line(phys_pos, phys_pos + up * 100, 2, Color(0, 0, 255))     -- Up is blue
-            debugoverlay.Line(phys_pos, phys_pos + right * 100, 2, Color(255, 0, 0))  -- Right is red
-            
+
+            debugoverlay.Line(phys_pos, phys_pos + forward * 100, 2, Color(0, 255, 0)) 
+            debugoverlay.Line(phys_pos, phys_pos + up * 100, 2, Color(0, 0, 255))     
+            debugoverlay.Line(phys_pos, phys_pos + right * 100, 2, Color(255, 0, 0))  
 
             local stump = ents.Create("base_gmodentity")
             stump:SetParent(self)
@@ -459,14 +453,11 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
             if scale != 1 then stump:SetModelScale(scale, 0) end
             stump:Spawn()
 
-
             self.ZGM3_OnBreakRemoveStumpTbl = self.ZGM3_OnBreakRemoveStumpTbl or {}
             self.ZGM3_OnBreakRemoveStumpTbl[parent_bone] = function()
                 SafeRemoveEntity(stump)
             end
 
-
-            
             if stump_adjust:GetBool() && dev:GetBool() then
 
                 stump.ZGM3_DevAngOffset = Angle()
@@ -516,7 +507,6 @@ function ENT:ZippyGoreMod3_BreakPhysBone( phys_bone_idx, data )
 
     end
 
-    
     if ZGM3_CVARS["zippygore3_print_gibbed_bone"] then
         PrintMessage(HUD_PRINTCENTER, self:GetBoneName( gibbed_bone ) )
         PrintMessage(HUD_PRINTTALK, self:GetBoneName( gibbed_bone ) )

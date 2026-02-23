@@ -92,9 +92,9 @@ function ENT:Think()
 		-- so this closure only gets called once - even if it fails
 		self.EnvSun = false
 
-		local list = ents.FindByClass( "env_sun" )
-		if ( #list > 0 ) then
-			self.EnvSun = list[1]
+		local sun = ents.FindByClass("env_sun")[1]
+		if ( IsValid(sun) ) then
+			self.EnvSun = sun
 		end
 
 	end

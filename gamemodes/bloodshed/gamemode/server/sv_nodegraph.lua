@@ -1,4 +1,4 @@
-MuR.AI_Nodes = MuR.AI_Nodes or {}
+﻿MuR.AI_Nodes = MuR.AI_Nodes or {}
 util.AddNetworkString("MuR.NoNodes")
 local found_ai_nodes = false
 local M = {}
@@ -29,81 +29,32 @@ local function ReadUShort(f)
 	return toUShort(f:Read(SIZEOF_SHORT))
 end
 
-hook.Add("InitPostEntity", "TryFindAINodes", function()
-	timer.Simple(5, function()
-		if #MuR.AI_Nodes > 0 then return end
-		MuR.EnableDebug = true 
-		hook.Add("PlayerInitialSpawn", "BlockGameMuRNodes", function(ply)
-			net.Start("MuR.NoNodes")
-			net.Send(ply)
-		end)
-		net.Start("MuR.NoNodes")
-		net.Broadcast()
-	end)
+timer.Create("TryFindAINodes", 3, 0, function()
+	if player.GetCount() == 0 then return end
 
-	if found_ai_nodes then return end
-	f = file.Open("maps/graphs/" .. game.GetMap() .. ".ain", "rb", "GAME")
-	if not f then return end
-	found_ai_nodes = true
-	local ainet_ver = ReadInt(f)
-	local map_ver = ReadInt(f)
-
-	if ainet_ver ~= AINET_VERSION_NUMBER then
-		MsgN("Unknown graph file")
-
-		return
-	end
-
-	local numNodes = ReadInt(f)
-
-	if numNodes < 0 then
-		MsgN("Graph file has an unexpected amount of nodes")
-
-		return
-	end
-
-	for i = 1, numNodes do
-		local v = Vector(f:ReadFloat(), f:ReadFloat(), f:ReadFloat())
-		local yaw = f:ReadFloat()
-		local flOffsets = {}
-
-		for i = 1, NUM_HULLS do
-			flOffsets[i] = f:ReadFloat()
+	if istable(VJ_Nodegraph.Data) and #VJ_Nodegraph.Data.Nodes > 0 then 
+		local tab = VJ_Nodegraph.Data.Nodes
+		local filtered = {}
+		for i = 1, #tab do
+			if tab[i].type == 2 then
+				table.insert(filtered, tab[i])
+			end
 		end
+		MuR.AI_Nodes = filtered
+		timer.Remove("TryFindAINodes")
+		return
+	end 
 
-		local nodetype = f:ReadByte()
-		local nodeinfo = ReadUShort(f)
-		local zone = f:ReadShort()
-
-		if nodetype == 4 or nodetype == 3 then
-			goto cont
-		end
-
-		local node = {
-			pos = v,
-			yaw = yaw,
-			offset = flOffsets,
-			type = nodetype,
-			info = nodeinfo,
-			zone = zone,
-			neighbor = {},
-			numneighbors = 0,
-			link = {},
-			numlinks = 0
-		}
-
-		table.insert(MuR.AI_Nodes, node.pos)
-		::cont::
-	end
 end)
 
 function MuR:GetRandomPos(underroof, frompos, mindist, maxdist, withoutply)
-	local newtab = {}
+	local hidden_nodes = {}
+	local visible_nodes = {}
 	local tab = MuR.AI_Nodes
 
 	if #tab > 0 then
 		for i = 1, #tab do
-			local pos = tab[i]
+			local pos = tab[i].pos
 
 			local tr = util.TraceLine({
 				start = pos,
@@ -128,27 +79,33 @@ function MuR:GetRandomPos(underroof, frompos, mindist, maxdist, withoutply)
 				if dist < mindist ^ 2 or dist > maxdist ^ 2 then continue end
 			end
 
+			local is_visible = false
 			if not withoutply then
-				local visible = false
-				local tab = player.GetAll()
+				local players = player.GetAll()
 
-				for i = 1, #tab do
-					local ply = tab[i]
+				for j = 1, #players do
+					local ply = players[j]
 
-					if ply:Alive() and (ply:GetPos():DistToSqr(pos) < 50000 or ply:VisibleVec(pos)) then
-						visible = true
+					local pos2 = pos + Vector(0, 0, 64)
+					if ply:Alive() and (ply:GetPos():DistToSqr(pos) < 100000 or ply:VisibleVec(pos) or ply:VisibleVec(pos2)) then
+						is_visible = true
 						break
 					end
 				end
 			end
 
-			if visible then continue end
-			table.insert(newtab, pos)
+			if is_visible then
+				table.insert(visible_nodes, pos)
+			else
+				table.insert(hidden_nodes, pos)
+			end
 		end
 	end
 
-	if #newtab > 0 then
-		return newtab[math.random(1, #newtab)]
+	if #hidden_nodes > 0 then
+		return hidden_nodes[math.random(1, #hidden_nodes)]
+	elseif #visible_nodes > 0 then
+		return visible_nodes[math.random(1, #visible_nodes)]
 	else
 		return nil
 	end
@@ -157,21 +114,21 @@ end
 function MuR:FindTwoDistantSpawnLocations(minDistance, maxAttempts)
     minDistance = minDistance or 1500
     maxAttempts = maxAttempts or 100
-    
+
     if #MuR.AI_Nodes == 0 then
         return nil, nil
     end
-    
+
     local validNodes = {}
-    
+
     for i = 1, #MuR.AI_Nodes do
-        local pos = MuR.AI_Nodes[i]
-        
+        local pos = MuR.AI_Nodes[i].pos
+
         local tr = util.TraceLine({
             start = pos,
             endpos = pos + Vector(0, 0, 9999),
         })
-        
+
         local tr2 = util.TraceHull({
             start = pos + Vector(0, 0, 2),
             endpos = pos + Vector(0, 0, 2),
@@ -180,7 +137,7 @@ function MuR:FindTwoDistantSpawnLocations(minDistance, maxAttempts)
             maxs = Vector(16, 16, 72),
             mask = MASK_SHOT_HULL,
         })
-        
+
         local visibleToPlayer = false
         local players = player.GetAll()
         for j = 1, #players do
@@ -190,51 +147,51 @@ function MuR:FindTwoDistantSpawnLocations(minDistance, maxAttempts)
                 break
             end
         end
-        
+
         if not tr2.Hit and not visibleToPlayer then
             table.insert(validNodes, pos)
         end
     end
-    
+
     if #validNodes < 2 then
         return nil, nil
     end
-    
+
     local attempts = 0
     local firstPos, secondPos
-    
+
     while attempts < maxAttempts do
         attempts = attempts + 1
-        
+
         local firstIndex = math.random(1, #validNodes)
         firstPos = validNodes[firstIndex]
-        
+
         local candidateNodes = {}
         for i = 1, #validNodes do
             if i ~= firstIndex then
                 local pos = validNodes[i]
                 local distSqr = firstPos:DistToSqr(pos)
-                
+
                 if distSqr >= minDistance * minDistance then
                     local tr = util.TraceLine({
                         start = firstPos + Vector(0, 0, 50),
                         endpos = pos + Vector(0, 0, 50),
                         mask = MASK_SOLID_BRUSHONLY
                     })
-                    
+
                     if tr.Hit then
                         table.insert(candidateNodes, pos)
                     end
                 end
             end
         end
-        
+
         if #candidateNodes > 0 then
             secondPos = candidateNodes[math.random(1, #candidateNodes)]
             return firstPos, secondPos
         end
     end
-    
+
     return nil, nil
 end
 
@@ -285,4 +242,109 @@ function MuR:FindPositionInRadius(pos, dist)
 	end
 
 	return table.Random(spawnPositions)
+end
+
+function MuR:FindNearbySpawnPosition(basePos, maxDistance)
+	maxDistance = maxDistance or 500
+
+	if not isvector(basePos) or #MuR.AI_Nodes == 0 then
+		return basePos
+	end
+
+	local nearbyNodes = {}
+
+	for i = 1, #MuR.AI_Nodes do
+		local pos = MuR.AI_Nodes[i].pos
+		local distSqr = basePos:DistToSqr(pos)
+
+		if distSqr <= maxDistance * maxDistance then
+			local tr2 = util.TraceHull({
+				start = pos + Vector(0, 0, 2),
+				endpos = pos + Vector(0, 0, 2),
+				filter = function(ent) return true end,
+				mins = Vector(-16, -16, 0),
+				maxs = Vector(16, 16, 72),
+				mask = MASK_SHOT_HULL,
+			})
+
+			if not tr2.Hit then
+				local visibleToPlayer = false
+				local players = player.GetAll()
+				for j = 1, #players do
+					local ply = players[j]
+					if ply:Alive() and ply:GetPos():DistToSqr(pos) < 40000 then
+						visibleToPlayer = true
+						break
+					end
+				end
+
+				if not visibleToPlayer then
+					table.insert(nearbyNodes, {pos = pos, dist = distSqr})
+				end
+			end
+		end
+	end
+
+	if #nearbyNodes > 0 then
+		table.SortByMember(nearbyNodes, "dist", true)
+		local selectedIndex = math.random(1, math.min(5, #nearbyNodes))
+		return nearbyNodes[selectedIndex].pos
+	end
+
+	return basePos
+end
+
+function MuR:FindFarthestSpawnFromPlayers()
+	if #MuR.AI_Nodes == 0 then
+		return nil
+	end
+
+	local alivePlayers = {}
+	for _, ply in player.Iterator() do
+		if ply:Alive() then
+			table.insert(alivePlayers, ply)
+		end
+	end
+
+	if #alivePlayers == 0 then
+		return MuR:GetRandomPos()
+	end
+
+	local bestPos = nil
+	local bestMinDist = 0
+
+	for i = 1, #MuR.AI_Nodes do
+		local pos = MuR.AI_Nodes[i].pos
+
+		local tr2 = util.TraceHull({
+			start = pos + Vector(0, 0, 2),
+			endpos = pos + Vector(0, 0, 2),
+			filter = function(ent) return true end,
+			mins = Vector(-16, -16, 0),
+			maxs = Vector(16, 16, 72),
+			mask = MASK_SHOT_HULL,
+		})
+
+		if tr2.Hit then continue end
+
+		local minDistToPlayer = math.huge
+		local isVisible = false
+
+		for _, ply in ipairs(alivePlayers) do
+			local distSqr = ply:GetPos():DistToSqr(pos)
+			if distSqr < minDistToPlayer then
+				minDistToPlayer = distSqr
+			end
+			if ply:VisibleVec(pos) or ply:VisibleVec(pos + Vector(0, 0, 64)) then
+				isVisible = true
+			end
+		end
+
+		if not isVisible and minDistToPlayer > bestMinDist then
+			bestMinDist = minDistToPlayer
+			bestPos = pos
+		end
+	end
+
+	return bestPos or MuR:GetRandomPos()
 end

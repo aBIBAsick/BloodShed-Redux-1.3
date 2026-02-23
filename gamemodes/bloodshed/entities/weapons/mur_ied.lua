@@ -15,6 +15,7 @@ SWEP.ViewModelAng = Angle(0, 0, -5)
 SWEP.ViewModelFOV = 90
 SWEP.HoldType = "slam"
 SWEP.DrawWeaponInfoBox = false
+SWEP.TPIKForce = true
 
 function SWEP:Deploy(wep)
 	if self.DetonateDrawed then
@@ -31,7 +32,7 @@ function SWEP:CustomPrimaryAttack()
 	local vm = self:GetOwner():GetViewModel()
 	if self.DetonateDrawed == true then return false end
 	self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
-	self:SetNextSecondaryFire(CurTime() + self.Primary.Delay)
+	self:SetNextSecondaryFire(CurTime() + 1)
 	self.DetonateDrawed = true
 
 	if SERVER then

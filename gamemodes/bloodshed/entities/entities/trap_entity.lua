@@ -57,8 +57,8 @@ end
 
 function ENT:Think()
     if SERVER and self:GetIsOpen() then
-        for _, ply in pairs(ents.FindInSphere(self:WorldSpaceCenter(), 24)) do
-            if ply:IsPlayer() and (ply:Team() ~= 1 or ply:IsRolePolice()) and ply:Alive() then
+        for _, ply in pairs(ents.FindInSphere(self:WorldSpaceCenter(), 20)) do
+            if ply:IsPlayer() and ply:Alive() then
                 local bid, pos = self:GetClosestLegBone(ply)
                 if self:CheckVis(pos, ply) then
                     self:TriggerTrap(ply)

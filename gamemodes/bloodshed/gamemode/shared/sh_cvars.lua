@@ -18,6 +18,9 @@ function meta2:IsProp()
 end
 
 function meta2:IsRolePolice()
+    local class = self:GetNW2String('Class')
+    local roleData = MuR:GetRole(class)
+    if roleData and roleData.group == "police" then return true end
 	if self:IsPlayer() then
 		return self:GetNW2String('Class') == "Riot" or self:GetNW2String('Class') == "Officer" or self:GetNW2String('Class') == "ArmoredOfficer" or self:GetNW2String('Class') == "FBI"
 	else
@@ -26,7 +29,8 @@ function meta2:IsRolePolice()
 end
 
 function meta:IsRoleWithoutOrgans()
-	return self:GetNW2String('Class') == "Zombie" or self:GetNW2String('Class') == "Maniac"
+	if !IsValid(self) then return false end
+	return self:GetNW2String('Class') == "Zombie" or self:GetNW2String('Class') == "Maniac" or self:GetNW2String('Class') == "Entity"
 end
 
 function meta2:HaveStability()
@@ -38,11 +42,13 @@ function meta2:HaveStability()
 end
 
 function meta2:IsKiller()
-	return self:GetNW2String('Class') == "Shooter" or self:GetNW2String('Class') == "Terrorist" or self:GetNW2String('Class') == "Maniac" or self:GetNW2String('Class') == "Killer" or self:GetNW2String('Class') == "Traitor"
+    local class = self:GetNW2String('Class')
+    local roleData = MuR:GetRole(class)
+	return roleData and roleData.killer or false
 end
 
 function meta2:IsActiveKiller()
-	return self:GetNW2String('Class') == "Shooter" or self:GetNW2String('Class') == "Terrorist" or self:GetNW2String('Class') == "Maniac"
+	return roleData and roleData.killer == "active"
 end
 
 function MuR:CheckCollision(pos, ply)
@@ -75,11 +81,7 @@ function MuR:GetAlivePlayers()
 end
 
 function MuR:VisibleByNPCs(pos)
-	local tab = ents.FindByClass("npc_combine_s")
-
-	for i = 1, #tab do
-		local ent = tab[i]
-
+	for _, ent in ipairs(ents.FindByClass("npc_combine_s")) do
 		local tr = util.TraceLine({
 			start = ent:EyePos(),
 			endpos = pos,
@@ -126,15 +128,15 @@ function MuR:VisibleByPlayers(ply, ent1)
 end
 
 function MuR:DisablesGamemode()
-	local def = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
+	local def = MuR.Mode(MuR.Gamemode)
 	if def.disables ~= nil then return def.disables end
-	return MuR.Gamemode == 5 or MuR.Gamemode == 6 or MuR.Gamemode == 11 or MuR.Gamemode == 12 or MuR.Gamemode == 13 or MuR.Gamemode == 14 or MuR.Gamemode == 17
+	return false
 end
 
 function MuR:DisableWeaponLoot()
-	local def = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
+	local def = MuR.Mode(MuR.Gamemode)
 	if def.disable_loot ~= nil then return def.disable_loot end
-	return MuR.Gamemode == 2 or MuR.Gamemode == 3 or MuR.Gamemode == 10
+	return false
 end
 
 function MuR:CountNPCPolice(alive)
@@ -206,3 +208,16 @@ for _, mdl in ipairs(allModels) do
     precachedModels = precachedModels + 1
 end
 print("[Bloodshed: Redux] Precached " .. precachedModels .. " models.")
+
+game.AddParticles("particles/blood_impact.pcf")
+PrecacheParticleSystem("blood_advisor_pierce_spray")
+PrecacheParticleSystem("blood_impact_red_01_droplets")
+PrecacheParticleSystem("vomit_barnacle")
+
+MuR.CreateParticleSystemOld = MuR.CreateParticleSystemOld or nil
+if not MuR.CreateParticleSystemOld then
+	MuR.CreateParticleSystemOld = CreateParticleSystem
+	function CreateParticleSystem(ent, eff, attachtype, attachment, offset)
+		MuR.CreateParticleSystemOld(ent, eff, attachtype, attachment)
+	end
+end

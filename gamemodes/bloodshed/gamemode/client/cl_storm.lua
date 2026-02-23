@@ -1,4 +1,4 @@
-local StormActive = false
+﻿local StormActive = false
 local WindDirection = Vector(0, 0, 0)
 local RainActiveAt = 0
 local ThunderFlashUntil = 0
@@ -25,6 +25,9 @@ net.Receive("MuR.Storm.WindDirection", function()
 	WindDirection = net.ReadVector()
 end)
 
+local PowerOutageUntil = 0
+local NextPowerOnSound = 0
+
 net.Receive("MuR.Storm.Thunder", function()
 	if not StormActive then return end
 	local p = LocalPlayer()
@@ -36,26 +39,75 @@ net.Receive("MuR.Storm.Thunder", function()
 		LastStrikePos = net.ReadVector()
 		LastStrikeRadius = net.ReadUInt(12)
 		LastStrikeAt = CurTime()
+		local lightsOut = net.ReadBool()
+		if lightsOut then
+			local dur = net.ReadUInt(8)
+			PowerOutageUntil = CurTime() + dur
+			NextPowerOnSound = PowerOutageUntil
+			surface.PlaySound("ambient/energy/power_off" .. math.random(1,2) .. ".wav")
+		end
 	end
 end)
 
 hook.Add("SetupWorldFog", "StormFog", function()
 	if not StormActive then return end
+	local ply = LocalPlayer()
+	local dist = 1400
+	if game.GetWorld():GetNW2Bool("MuR_TornadoActive", false) then
+		local c = game.GetWorld():GetNW2Vector("MuR_TornadoCenter", Vector(0,0,0))
+		local d = ply:GetPos():Distance(c)
+		dist = math.Clamp(d * 0.5, 250, 1400)
+	end
+
+	local density = 0.99
+	local r, g, b = 30, 30, 40
+
+	if PowerOutageUntil > CurTime() then
+		dist = 250
+		density = 1.0
+		r, g, b = 0, 0, 0
+	elseif CurTime() - PowerOutageUntil < 1.0 then
+		local delta = CurTime() - PowerOutageUntil
+		dist = Lerp(delta, 250, dist)
+		density = Lerp(delta, 1.0, 0.99)
+		r = Lerp(delta, 0, 30)
+		g = Lerp(delta, 0, 30)
+		b = Lerp(delta, 0, 40)
+	end
+
 	render.FogMode(MATERIAL_FOG_LINEAR)
 	render.FogStart(0)
-	render.FogEnd(260)
-	render.FogMaxDensity(0.98)
-	render.FogColor(5, 5, 10)
+	render.FogEnd(dist)
+	render.FogMaxDensity(density)
+	render.FogColor(r, g, b)
 	return true
 end)
 
 hook.Add("SetupSkyboxFog", "StormSkyboxFog", function()
 	if not StormActive then return end
+
+	local dist = 1400
+	local density = 0.99
+	local r, g, b = 30, 30, 40
+
+	if PowerOutageUntil > CurTime() then
+		dist = 250
+		density = 1.0
+		r, g, b = 0, 0, 0
+	elseif CurTime() - PowerOutageUntil < 1.0 then
+		local delta = CurTime() - PowerOutageUntil
+		dist = Lerp(delta, 250, dist)
+		density = Lerp(delta, 1.0, 0.99)
+		r = Lerp(delta, 0, 30)
+		g = Lerp(delta, 0, 30)
+		b = Lerp(delta, 0, 40)
+	end
+
 	render.FogMode(MATERIAL_FOG_LINEAR)
 	render.FogStart(0)
-	render.FogEnd(260)
-	render.FogMaxDensity(0.98)
-	render.FogColor(5, 5, 10)
+	render.FogEnd(dist)
+	render.FogMaxDensity(density)
+	render.FogColor(r, g, b)
 	return true
 end)
 
@@ -69,6 +121,39 @@ hook.Add("PostDrawSkyBox", "StormDarkSky", function()
 	render.OverrideColorWriteEnable(false)
 end)
 
+local storm_colormod = {
+	[ "$pp_colour_addr" ] = 0,
+	[ "$pp_colour_addg" ] = 0,
+	[ "$pp_colour_addb" ] = 0.03,
+	[ "$pp_colour_brightness" ] = 0,
+	[ "$pp_colour_contrast" ] = 1,
+	[ "$pp_colour_colour" ] = 0.92,
+	[ "$pp_colour_mulr" ] = 0,
+	[ "$pp_colour_mulg" ] = 0,
+	[ "$pp_colour_mulb" ] = 0
+}
+
+local storm_powerout = {
+	[ "$pp_colour_addr" ] = 0,
+	[ "$pp_colour_addg" ] = 0,
+	[ "$pp_colour_addb" ] = 0.02,
+	[ "$pp_colour_brightness" ] = -0.05,
+	[ "$pp_colour_contrast" ] = 0.9,
+	[ "$pp_colour_colour" ] = 0.5,
+	[ "$pp_colour_mulr" ] = 0,
+	[ "$pp_colour_mulg" ] = 0,
+	[ "$pp_colour_mulb" ] = 0
+}
+
+hook.Add("RenderScreenspaceEffects", "StormColorMod", function()
+	if not StormActive then return end
+	if PowerOutageUntil > CurTime() then
+		DrawColorModify(storm_powerout)
+	else
+		DrawColorModify(storm_colormod)
+	end
+end)
+
 local rainMat = Material("effects/tool_tracer")
 local dustMat = Material("sprites/glow04_noz")
 local smokeMat = Material("particle/particle_smokegrenade")
@@ -78,42 +163,52 @@ hook.Add("PostDrawTranslucentRenderables", "StormEffects", function()
 	local ply = LocalPlayer()
 	if not IsValid(ply) then return end
 	if CurTime() < RainActiveAt then return end
-	local pos = ply:GetPos()
 	local eye = ply:EyePos()
-	local sky = util.TraceLine({start = pos, endpos = pos + Vector(0, 0, 2000), filter = ply, mask = MASK_SOLID_BRUSHONLY})
-	local outside = sky.HitSky or sky.Fraction > 0.6
-	if not outside then return end
+
 	local wind = WindDirection:GetNormalized()
 	local t = CurTime()
-	for i = 1, 60 do
-		local off = Vector(math.sin(t * 2 + i) * 220, math.cos(t * 1.6 + i) * 220, math.random(80, 420))
+
+	render.SetMaterial(rainMat)
+	for i = 1, 120 do
+		local off = Vector(math.sin(t * 2 + i) * 350, math.cos(t * 1.6 + i) * 350, math.random(100, 500))
 		local s = eye + off
-		local e = s + wind * 120 + Vector(0, 0, -260)
-		render.SetMaterial(rainMat)
-		render.DrawBeam(s, e, 1.5, 0, 1, Color(170, 170, 220, 120))
+		local tr = util.TraceLine({start = s, endpos = s + Vector(0,0,2048), mask = MASK_SOLID_BRUSHONLY})
+		if not tr.Hit or tr.HitSky then
+			local e = s + wind * 180 + Vector(0, 0, -350)
+			local tr2 = util.TraceLine({start = s, endpos = e, mask = MASK_SOLID_BRUSHONLY})
+			if tr2.Hit then e = tr2.HitPos end
+			render.DrawBeam(s, e, 2, 0, 1, Color(180, 190, 220, 80))
+		end
 	end
-	for i = 1, 24 do
-		local p = eye + Vector(math.sin(t + i * 0.5) * 320, math.cos(t * 0.9 + i * 0.3) * 320, math.random(0, 220))
-		local e = p + wind * 90 + Vector(math.sin(t * 3 + i) * 18, math.cos(t * 2.5 + i) * 18, -math.random(10, 44))
-		render.SetMaterial(dustMat)
-		render.DrawSprite(e, 5, 5, Color(90, 70, 50, 160))
+
+	render.SetMaterial(dustMat)
+	for i = 1, 40 do
+		local p = eye + Vector(math.sin(t + i * 0.5) * 400, math.cos(t * 0.9 + i * 0.3) * 400, math.random(0, 300))
+		local tr = util.TraceLine({start = p, endpos = p + Vector(0,0,2048), mask = MASK_SOLID_BRUSHONLY})
+		if not tr.Hit or tr.HitSky then
+			local e = p + wind * 120 + Vector(math.sin(t * 3 + i) * 20, math.cos(t * 2.5 + i) * 20, -math.random(10, 60))
+			local tr2 = util.TraceLine({start = p, endpos = e, mask = MASK_SOLID_BRUSHONLY})
+			if tr2.Hit then e = tr2.HitPos end
+			render.DrawSprite(e, math.random(8,16), math.random(8,16), Color(100, 90, 80, 100))
+		end
 	end
 
 	local tornado = game.GetWorld():GetNW2Bool("MuR_TornadoActive", false)
 	if tornado then
 		local c = game.GetWorld():GetNW2Vector("MuR_TornadoCenter", Vector(0,0,0))
 		local d2 = ply:GetPos():DistToSqr(c)
-		if d2 < (1200*1200) then
-			for i = 1, 14 do
-				local ang = (t * 40 + i * (360/14)) % 360
-				local r = 300 + math.sin(t + i) * 40
-				local pos2 = c + Vector(math.cos(math.rad(ang)) * r, math.sin(math.rad(ang)) * r, 40 + math.random(0,80))
-				local dir2 = (WindDirection:GetNormalized() * 0.3 + VectorRand() * 0.7):GetNormalized()
-				local len = 60 + math.random(0,30)
+		if d2 < (2000*2000) then
+			render.SetMaterial(smokeMat)
+			for i = 1, 30 do
+				local ang = (t * 90 + i * (360/30)) % 360
+				local r = 200 + i * 10 + math.sin(t * 5 + i) * 50
+				local h = i * 40
+				local pos2 = c + Vector(math.cos(math.rad(ang)) * r, math.sin(math.rad(ang)) * r, h)
+				local dir2 = (WindDirection:GetNormalized() * 0.5 + VectorRand() * 0.5):GetNormalized()
+				local len = 100 + math.random(0,50)
 				local a1 = pos2
 				local a2 = pos2 + dir2 * len + Vector(0,0,math.random(20,60))
-				render.SetMaterial(smokeMat)
-				render.DrawBeam(a1, a2, 18, 0, 1, Color(120, 110, 100, 80))
+				render.DrawBeam(a1, a2, 40, 0, 1, Color(80, 75, 70, 120))
 			end
 		end
 	end
@@ -135,8 +230,14 @@ hook.Add("PostDrawTranslucentRenderables", "StormEffects", function()
 	end
 end)
 
-local function UpdateAmbient()
+local function StormThink()
 	if not StormActive then return end
+
+	if NextPowerOnSound > 0 and CurTime() >= NextPowerOnSound then
+		surface.PlaySound("ambient/machines/thumper_startup1.wav")
+		NextPowerOnSound = 0
+	end
+
 	if CurTime() < RainActiveAt then return end
 	if CurTime() < NextAmbientUpdate then return end
 	NextAmbientUpdate = CurTime() + 0.4
@@ -165,4 +266,4 @@ local function UpdateAmbient()
 	if WindLoop then WindLoop:PlayEx(windVol + moanVol, 95) end
 end
 
-hook.Add("Think", "StormAmbientThink", UpdateAmbient)
+hook.Add("Think", "StormAmbientThink", StormThink)

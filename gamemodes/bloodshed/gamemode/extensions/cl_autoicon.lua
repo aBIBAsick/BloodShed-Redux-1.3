@@ -1,11 +1,7 @@
-﻿-- AutoIcons: Automatically generates/renders weapon select icons and killicons for SWEPs not containing them.
--- Made by Joker Gaming (STEAM_0:0:38422842)
--- https://steamcommunity.com/sharedfiles/filedetails/?id=2495300496
-
+﻿
 module("autoicon", package.seeall)
 ReplaceAllConvar = true
 
--- API to override the convar
 function OverrideReplaceAll(state)
     ReplaceAllOverrideState = state
     UpdateReplaceAll()
@@ -35,7 +31,6 @@ local killiconcolor = Vector(1, 80 / 255, 0)
 MODE_HL2WEAPONSELECT = 1
 MODE_HL2KILLICON = 2
 
--- cache[mode][cachekey] = Material
 local cache = {{}, {}}
 
 local name_prefix = "autoicon" .. tostring(ReloadIndex or "") .. "_"
@@ -117,9 +112,7 @@ local function render_context(params, callback)
 end
 
 local read_pixel = render.ReadPixel
--- The game likes to black out our textures sometimes (eg. when changing screen res).
--- Make a little 1x1 square that is white when the textures still exist, so if the game blacks it out we'll know, without having to capture an entire large texture.
--- Still takes about 0.5ms to check it though.
+
 INDICATOR_TEXTURE = GetRenderTargetEx(unique_name(), 1, 1, 0, 2, 1, 0, IMAGE_FORMAT_RGB888)
 
 INDICATOR_MATERIAL = CreateMaterial(unique_name(), "VertexLitGeneric", {
@@ -165,7 +158,7 @@ local function get_bitmap()
         bitmask[x] = {}
 
         for y = 0, ys - 1 do
-            -- Only checks red
+
             if read_pixel(x, y) > 0 then
                 bitcount = bitcount + 1
                 bitmask[x][y] = true
@@ -176,7 +169,6 @@ local function get_bitmap()
     return bitmask, bitcount
 end
 
--- Find the bounds of nonzero pixels
 local function get_bbox(bitmask)
     local xs, ys = ScrW(), ScrH()
     local px1, py1, px2, py2 = 0, 0, 1, 1
@@ -230,7 +222,7 @@ end
 
 local function estimate_bitmask_angle(bitmask, x1, x2)
     local px1, py1, px2, py2 = get_bbox(bitmask)
-    -- Taller than long, probably a knife
+
     if py2 - py1 > px2 - px1 then return 0 end
     local xs, ys = ScrW(), ScrH()
     local linesused = {}
@@ -314,8 +306,6 @@ local function translate_model(mdl)
     return (mdl or "") == "" and placeholder_model or (util.IsValidModel(mdl) and mdl or "models/error.mdl")
 end
 
--- This won't work for entities outside of PVS, but it's the best we can do without server code
--- This won't override models for non-SENTs (prop_physics etc)
 local classname_default_model = {}
 
 hook.Add("NetworkEntityCreated", "AutoIconsNetworkEntityCreated", function(ent)
@@ -328,7 +318,6 @@ local function class_default_model(data)
     return (data.IronSightStruct and data.ViewModel or data.WorldModel) or data.Model or classname_default_model[data.ClassName]
 end
 
--- IronSightStruct indicates ARCCW. data.Model is an attempt to get something from an ENT table
 local function autoicon_params(data)
     local p = {}
 
@@ -338,7 +327,7 @@ local function autoicon_params(data)
 
     if isentity(data) then
         local mdl = translate_model(data:GetModel())
-        -- If the current model is not the default model, or it isn't a SWEP/SENT, draw that instead
+
         data = (mdl == class_default_model(data)) and get_stored(data:GetClass()) or mdl
     end
 
@@ -350,7 +339,6 @@ local function autoicon_params(data)
         p.mainmodel = translate_model(class_default_model(data))
         p.cachekey = data.ClassName
 
-        -- TFA
         if data.Offset and data.Offset.Ang then
             local a = data.Offset.Ang
             p.force_angle = Angle(8, 0, 180)
@@ -360,12 +348,10 @@ local function autoicon_params(data)
             p.force_sense_angle = true
         end
 
-        -- SCK, scifi sweps
         if data.ShowWorldModel == false or data.SciFiWorld == "dev/hide" or data.SciFiWorld == "vgui/white" then
             p.hide_mainmodel = true
         end
 
-        -- SCK
         p.welements = data.WElements
         p.force_angle = data.AutoIconAngle or model_angle_override[p.mainmodel] or p.force_angle
     else
@@ -407,12 +393,11 @@ function GetIcon(p, mode)
         if (v.material or "") ~= "" then
             mat = Material(v.material)
             if mat:GetShader() ~= "VertexLitGeneric" and mat:GetShader() ~= "UnlitGeneric" then continue end
-            -- nodraw, vertexalpha, additive, -- translucent 2097152
+
             if bit.band(mat:GetInt("$flags"), 4 + 32 + 128) ~= 0 then continue end
         end
 
-        -- Compute position relative to mainent position
-        local lpos, lang = Vector(0, 0, 0), Angle(0, 0, 0) -- sck_local_to_world(Vector(0,0,0), Angle(0,0,0), v.pos or Vector(0,0,0), v.angle or Angle(0,0,0))
+        local lpos, lang = Vector(0, 0, 0), Angle(0, 0, 0) 
         local bn = v.bone
         local parent = v
 
@@ -424,7 +409,6 @@ function GetIcon(p, mode)
             bn = parent.bone
         end
 
-        --"ValveBiped.Bip01_R_Hand"?
         if bn == "Base" then
             bn = nil
         end
@@ -433,7 +417,7 @@ function GetIcon(p, mode)
             bn = mainent:LookupBone(bn)
             if not bn then continue end
             local p, a = mainent:GetBonePosition(bn)
-            -- a.r = -a.r
+
             lpos, lang = sck_local_to_world(lpos, lang, p, a)
         end
 
@@ -452,7 +436,6 @@ function GetIcon(p, mode)
         table.insert(extraents, e)
     end
 
-    -- If we have an error, we'll still delete the entities
     local ok, ret = pcall(function()
         local function drawmodel()
             if not p.hide_mainmodel then
@@ -490,18 +473,14 @@ function GetIcon(p, mode)
 
                 local v = muzzleatt > 0 and mainent:GetAttachment(muzzleatt).Ang:Forward() or ({mainent:GetBonePosition(b)})[2]:Forward()
 
-                -- Despite various attachments and bones existing, this is the best I could do.
-                -- Pretty pathetic huh? Half the SWEPs on workshop have totally wrong attachment/bone angles and anything more than this completely messes them up.
-                -- There is a second pass below where it tries to fix the angle by looking at the drawn mask itself
                 ang = Angle(0, -math.deg(math.atan2(v.y, v.x)), 0)
             else
-                -- One of these is usually correct
+
                 ang = Angle(0, (max.x - min.x >= max.y - min.y) and 0 or 90, 0)
                 ang:RotateAroundAxis(Vector(1, 0, 0), -11)
             end
         end
 
-        -- Flip weaponselect icons the other way
         if mode == MODE_HL2WEAPONSELECT then
             ang:RotateAroundAxis(Vector(0, 0, 1), 180)
         end
@@ -523,9 +502,7 @@ function GetIcon(p, mode)
         local fov = 30
 
         local function ortho_cam()
-            -- local function unclampedlerp(t, x, y)
-            --     return (1 - t) * x + t * y
-            -- end
+
             return {
                 x = 0,
                 y = 0,
@@ -536,7 +513,7 @@ function GetIcon(p, mode)
                 angles = Vector(0, 90, 0),
                 aspect = 1,
                 fov = fov,
-                -- znear = znear, -- zfar = zfar, -- ortho = {left=unclampedlerp(cx-hw,-rad,rad),bottom=unclampedlerp(cy-hh,rad,-rad),right=unclampedlerp(cx+hw,-rad,rad),top=unclampedlerp(cy+hh,rad,-rad)},
+
                 offcenter = {
                     left = (cx - hw) * ScrW(),
                     top = ((1 - cy) - hh) * ScrH(),
@@ -599,12 +576,10 @@ function GetIcon(p, mode)
             render.OverrideBlend(true, BLEND_DST_COLOR, BLEND_ZERO, BLENDFUNC_ADD, BLEND_ZERO, BLEND_ONE, BLENDFUNC_ADD)
         end
 
-        -- Figure out the model bounds then make a mask (white on black, no grays)
         local cmaskrt = make_rt(reusable_name, crtx, crty)
         local cbmaskrt = make_rt(reusable_name, crtx, crty)
         local canglert = make_rt(reusable_name, crtx, crty)
 
-        -- DRAW THE MODEL (WHITE MASK)
         render_context({
             rt = cmaskrt
         }, function()
@@ -614,9 +589,8 @@ function GetIcon(p, mode)
                 material = MAT_MODELCOLOR
             }, drawmodel)
 
-            -- If it's bonemerged to the player (and no angle override), assume it's a gun, and try to fix the angle by looking at the mask
             if b or p.force_sense_angle then
-                -- Make a version of the mask essentially blurred horizontally to remove noise from attachment rails
+
                 render_context({
                     rt = cbmaskrt,
                     clear = {0, 0, 0, 0},
@@ -627,7 +601,6 @@ function GetIcon(p, mode)
                     end
                 end)
 
-                -- A mask of just the top edge of the gun
                 local fixang
 
                 render_context({
@@ -651,7 +624,6 @@ function GetIcon(p, mode)
                     fixang = estimate_bitmask_angle(bitmask, x0, x1)
                 end)
 
-                -- Render again with the angle visually corrected
                 if fixang ~= 0 then
                     ang = mainent:GetAngles()
                     ang:RotateAroundAxis(Vector(0, -1, 0), fixang)
@@ -669,7 +641,6 @@ function GetIcon(p, mode)
             local bitmask, bitcount = get_bitmap()
             local px1, py1, px2, py2 = get_bbox(bitmask)
 
-            -- Zoom out until the whole actual model is in view (needed by some SCK weapons)
             while px1 == 0 or py1 == 0 or px2 == 1 or py2 == 1 do
                 fov = fov + 10
                 if fov > 150 then break end
@@ -684,7 +655,6 @@ function GetIcon(p, mode)
                 px1, py1, px2, py2 = get_bbox(bitmask)
             end
 
-            -- Adjust the ortho bounds to match the model (GetRenderBounds ARE RARELY TIGHT)
             local area = bitcount / (rtx * rty)
             local pad = 0.01
             local icon_max_height = 0.5
@@ -713,9 +683,6 @@ function GetIcon(p, mode)
             hw, hh = scale * hw, scale * hh
         end)
 
-        -- code to supersample the mask, doesn't make much difference as image is already 4x
-        -- local mask2 = make_rt(reusable_name,rtx*2,rty*2,false,false)
-        -- Render the mask
         local maskrt = make_rt(reusable_name, rtx, rty)
 
         render_context({
@@ -725,7 +692,6 @@ function GetIcon(p, mode)
             material = MAT_MODELCOLOR
         }, drawmodel)
 
-        -- Render the model fullbright
         local colorrt = make_rt(reusable_name, rtx, rty, true)
 
         render_context({
@@ -736,10 +702,9 @@ function GetIcon(p, mode)
                 cam = ortho_cam()
             }, drawmodel)
 
-            render.BlurRenderTarget(colorrt, 1 / rtx, 1 / rty, 1) --make it less noisy
+            render.BlurRenderTarget(colorrt, 1 / rtx, 1 / rty, 1) 
         end)
 
-        -- Render the model normals
         local normalrt = make_rt(reusable_name, rtx, rty, true)
 
         render_context({
@@ -760,10 +725,9 @@ function GetIcon(p, mode)
             end)
 
             render.ResetModelLighting(1, 1, 1)
-            render.BlurRenderTarget(normalrt, 1 / rtx, 1 / rty, 1) --this was colorrt, i think that was a mistake
+            render.BlurRenderTarget(normalrt, 1 / rtx, 1 / rty, 1) 
         end)
 
-        -- Do edge detection convolution
         local coloredgert = make_rt(reusable_name, rtx, rty)
 
         render_context({
@@ -771,16 +735,11 @@ function GetIcon(p, mode)
             clear = {0, 0, 0, 0},
             cam = "2D"
         }, function()
-            -- Dialation (makes edges thicker)
+
             local d = mode == MODE_HL2WEAPONSELECT and 3 or 1
-            -- g_sharpen seems to be a convolution of [[-a 0] [0 a+1]]
-            -- sobel seems to run a proper sobel/laplacian but then thresholds the result and adds it back
-            -- Note: We can't just increase mul 8* and add the unshifted image one time
-            -- Nor can we use mul/8 for the shifted images and then mul the result
-            -- (the bytes don't accumulate correctly)
+
             local mul = Vector(1, 1, 1) * 0.7
 
-            -- edge detection from normals
             for x = -1, 1 do
                 for y = -1, 1 do
                     if x ~= 0 or y ~= 0 then
@@ -793,7 +752,6 @@ function GetIcon(p, mode)
             if mode == MODE_HL2WEAPONSELECT then
                 mul = Vector(1, 1, 1) * 0.7
 
-                -- edge detection from color
                 for x = -1, 1 do
                     for y = -1, 1 do
                         if x ~= 0 or y ~= 0 then
@@ -806,8 +764,6 @@ function GetIcon(p, mode)
                 d = 3
                 mul = Vector(1, 1, 1) * 0.5
 
-                -- edge detection from mask
-                -- maybe replace the mask with the depth buffer version? render.FogMode(MATERIAL_FOG_LINEAR) (NOTE: fog seems to only work with non-orthographic 3D that also doesn't have custom near/far z planes)
                 for x = -1, 1 do
                     for y = -1, 1 do
                         if x ~= 0 or y ~= 0 then
@@ -819,7 +775,6 @@ function GetIcon(p, mode)
             end
         end)
 
-        -- Desaturate the edge detect image and adjust the min/max a little
         local edgert = make_rt(reusable_name, rtx, rty)
         local bluredgert
 
@@ -836,7 +791,7 @@ function GetIcon(p, mode)
             end)
 
             if mode == MODE_HL2WEAPONSELECT then
-                -- Blurred version of edges
+
                 bluredgert = make_rt(reusable_name, rtx, rty)
                 render.CopyRenderTargetToTexture(bluredgert)
                 render.BlurRenderTarget(bluredgert, 14, 14, 8)
@@ -846,7 +801,7 @@ function GetIcon(p, mode)
         local finalrt = make_rt(unique_name, rtx, rty)
 
         if mode == MODE_HL2WEAPONSELECT then
-            -- Blurred version of mask
+
             local blurmaskrt = make_rt(reusable_name, rtx, rty)
 
             render_context({
@@ -858,19 +813,18 @@ function GetIcon(p, mode)
                 render.BlurRenderTarget(blurmaskrt, 8, 8, 3)
             end)
 
-            -- Final composition
             render_context({
                 rt = finalrt,
                 clear = {0, 0, 0, 0},
                 cam = "2D"
             }, function()
-                -- Create "glow"
+
                 drawtexture(maskrt, Vector(1, 1, 1) * 0.2)
                 render.BlurRenderTarget(finalrt, 20, 20, 2)
                 drawtexture(bluredgert, Vector(1, 1, 1) * 16, bf_add)
-                -- Multiply = masks the glow
+
                 drawtexture(blurmaskrt, Vector(1, 1, 1) * 128, bf_mul)
-                -- Mask out lines
+
                 local stp = 10
 
                 for y = 0, rty, stp do
@@ -878,7 +832,6 @@ function GetIcon(p, mode)
                     surface.DrawRect(0, y, rtx, stp - 1)
                 end
 
-                -- Add edges
                 drawtexture(edgert, bf_add)
             end)
         else
@@ -893,12 +846,10 @@ function GetIcon(p, mode)
                     end
                 end
 
-                -- Subtract edges * 10 to make the image more thresholded looking
                 drawtexture(edgert, Vector(1, 1, 1) * 10, bf_sub)
             end)
         end
 
-        -- color2 gets overridden by killicons
         local m = CreateMaterial(unique_name(), "UnlitGeneric", {
             ["$basetexture"] = finalrt:GetName(),
         })
@@ -924,7 +875,7 @@ function GetIcon(p, mode)
 end
 
 function DrawWeaponSelection(self, x, y, wide, tall, alpha)
-    -- This might not work totally right with subclassing
+
     if not replace_all and (self.BasedDrawWeaponSelection or self.WepSelectIcon ~= BASED_WEPSELECTICON or self.WorldModel == "") then return (self.BasedDrawWeaponSelection or BASED_DRAWWEAPONSELECTION)(self, x, y, wide, tall, alpha) end
     local shift = math.floor(tall / 4)
     local y2 = y + shift
@@ -932,8 +883,7 @@ function DrawWeaponSelection(self, x, y, wide, tall, alpha)
     local weaponselect = GetIcon(autoicon_params(self), MODE_HL2WEAPONSELECT)
     render.SetMaterial(weaponselect)
     weaponselect:SetVector("$color2", weaponselectcolor * alpha / 255)
-    -- Looks best at 256 (2:1 sampling) - at lower sizes (when below 1680x1050 game res) an interference pattern is visible on the lines
-    -- I could draw the icons themselves smaller, but they might have some kind of custom weapon selector that changes the wide/tall dynamically which would make the icons redraw every frame
+
     local sz = wide < 245 and wide or 256
     cam.Start2D()
     render.OverrideBlend(true, BLEND_ONE_MINUS_DST_COLOR, BLEND_ONE, BLENDFUNC_ADD, BLEND_ZERO, BLEND_ONE, BLENDFUNC_ADD)
@@ -941,7 +891,6 @@ function DrawWeaponSelection(self, x, y, wide, tall, alpha)
     render.OverrideBlend(false)
     cam.End2D()
 
-    -- Draw weapon info box
     if self.PrintWeaponInfo then
         self:PrintWeaponInfo(x + wide + 20, y + tall * 0.95, alpha)
     end
@@ -961,8 +910,6 @@ hook.Add("PreRegisterSWEP", "AutoIconsOverrideDrawWeaponSelection", function(swe
     end
 end)
 
--- Killicons
--- Search for the "Icons" table declared locally in killicons.lua. Check all functions to maximize compatibility.
 if not KilliconTable then
     for k, v in pairs(killicon) do
         if isfunction(v) then
@@ -970,7 +917,7 @@ if not KilliconTable then
 
             if info.short_src == "lua/includes/modules/killicon.lua" then
                 for i = 1, info.nups do
-                    local name, value = debug.getupvalue(v, i) -- Should be name == "Icons", but don't check in case of minification
+                    local name, value = debug.getupvalue(v, i) 
 
                     if istable(value) and istable(value.default) then
                         KilliconTable = value
@@ -1014,13 +961,12 @@ local function override_killicon_functions()
 
     function killicon.GetSize(name)
         local params = killicon_params(name)
-        local w, h = BasedKilliconGetSize(name) -- This will make sure the size is set on the stored killicon to address a weird bug people are reporting
+        local w, h = BasedKilliconGetSize(name) 
         if params then return killiconsize, killiconsize / 2 end
 
         return w, h
     end
 
-    -- It might be cool to override GM:PlayerDeath and have it actually send the inflictor entity as well as classname...
     function killicon.Draw(x, y, name, alpha)
         local params = killicon_params(name)
 
@@ -1045,4 +991,4 @@ local function override_killicon_functions()
 end
 
 override_killicon_functions()
-timer.Simple(1, override_killicon_functions) -- addon conflict?
+timer.Simple(1, override_killicon_functions) 

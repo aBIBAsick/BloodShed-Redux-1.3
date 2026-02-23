@@ -1,4 +1,4 @@
-local scoreboard = nil
+﻿local scoreboard = nil
 
 local THEME = {
     background = Color(15, 15, 20, 250),
@@ -12,7 +12,7 @@ local THEME = {
 
 local function CreateScoreboard()
     if IsValid(scoreboard) then return end
-    
+
     scoreboard = vgui.Create("DPanel")
     scoreboard:SetSize(We(580), He(700))
     scoreboard:Center()
@@ -60,7 +60,7 @@ local function CreateScoreboard()
     local scrollPanel = vgui.Create("DScrollPanel", scoreboard)
     scrollPanel:SetPos(We(10), He(90))
     scrollPanel:SetSize(We(580), He(600))
-    
+
     local sbar = scrollPanel:GetVBar()
     sbar:SetWide(We(8))
     function sbar:Paint(w, h)
@@ -90,7 +90,7 @@ local function CreateScoreboard()
 
                 surface.SetDrawColor(THEME.accent.r, THEME.accent.g, THEME.accent.b, 100)
                 surface.DrawOutlinedRect(0, 0, w, h, 2)
-                
+
                 surface.SetDrawColor(THEME.accent)
                 surface.DrawRect(0, 0, We(3), h)
 			else
@@ -102,7 +102,7 @@ local function CreateScoreboard()
         avatarImage:SetPos(We(10), He(10))
         avatarImage:SetSize(We(50), He(50))
         avatarImage:SetPlayer(ply, 64)
-        
+
         local avatarButton = vgui.Create("DButton", avatarImage)
         avatarButton:SetPos(0, 0)
         avatarButton:SetSize(We(50), He(50))
@@ -155,11 +155,11 @@ local function CreateScoreboard()
                 if IsValid(ply) then
                     local isMuted = ply:IsMuted()
                     local iconColor = isMuted and THEME.danger or THEME.textDark
-                    
+
                     if self:IsHovered() then
                         draw.RoundedBox(4, 0, 0, w, h, Color(THEME.accent.r, THEME.accent.g, THEME.accent.b, 50))
                     end
-                    
+
                     local muteIcon = isMuted and "icon16/sound_mute.png" or "icon16/sound.png"
                     surface.SetDrawColor(iconColor)
                     surface.SetMaterial(Material(muteIcon))

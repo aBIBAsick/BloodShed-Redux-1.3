@@ -3,6 +3,7 @@ MuR.RegisterMode(8, {
 	chance = 40,
 	need_players = 4,
 	is_swat = true,
+	multi_traitor = true,
 	kteam = "Traitor",
 	dteam = "Officer",
 	roles = {

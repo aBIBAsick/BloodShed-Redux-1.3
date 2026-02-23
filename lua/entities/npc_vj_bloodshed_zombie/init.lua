@@ -38,6 +38,7 @@ function ENT:CustomOnInitialize()
     local skinCount = self:SkinCount()
 	local randomSkin = math.random(0, skinCount - 1)
 	self:SetSkin(randomSkin)
+	self:CapabilitiesAdd(CAP_MOVE_CLIMB)
 
 	for i = 0, self:GetNumBodyGroups() - 1 do
 		local bodyGroupCount = self:GetBodygroupCount(i)
@@ -48,4 +49,9 @@ end
 
 function ENT:OnLeapAttack(status, enemy)
 	return math.abs(enemy:GetPos().z-self:GetPos().z) < 72
+end
+
+function ENT:CustomOnThink()
+	self.AnimationTranslations[ACT_CLIMB_UP] = ACT_JUMP
+	self.AnimationTranslations[ACT_CLIMB_DOWN] = ACT_JUMP
 end

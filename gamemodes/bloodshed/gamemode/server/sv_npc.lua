@@ -1,4 +1,4 @@
-local meta = FindMetaTable("Player")
+﻿local meta = FindMetaTable("Player")
 
 function meta:Surrender(force, moment, id, dur)
 	if timer.Exists("MindControl_" .. self:EntIndex()) or self:GetNW2Bool("GeroinUsed") or self:IsRolePolice() or string.match(self:GetSVAnim(), "sequence_ron_arrest_start_npc_") or self:IsExecuting() then return end
@@ -25,6 +25,7 @@ function meta:Surrender(force, moment, id, dur)
 			if not IsValid(self) or !self:Alive() then return end
 			local ent = ents.Create("bloodshed_anim_model")
 			ent:TransferModelData(self)
+            ent:SetNW2String("RoN_Type", self.IsHostage and "hostage" or self.IsCivilian and "civilian" or "suspect")
 			ent:SetPos(self:GetPos() + self:GetForward() * 16)
 			ent:SetAngles(Angle(0, self:EyeAngles().y, 0))
 			ent:Spawn()
@@ -75,7 +76,7 @@ function MuR:SpawnNPC(type, pos)
 		ent:SetPos(pos)
 		ent:Spawn()
 		ent:Give(wclass)
- 
+
 		timer.Simple(2, function()
 			if not IsValid(ent) then return end
 			local pos = MuR:GetRandomPos(tobool(math.random(0,7)))
@@ -133,13 +134,14 @@ end
 function MuR:CheckPoliceReinforcment()
 	local pa = MuR:CountPlayerPolice()
 	pa = pa + MuR:CountNPCPolice()
-	if (MuR.PoliceState == 2 or MuR.PoliceState == 4) and pa <= 2 or MuR.PoliceState < 5 and MuR.Gamemode == 13 then
+	local mode = MuR.Mode(MuR.Gamemode)
+	if (MuR.PoliceState == 2 or MuR.PoliceState == 4) and pa <= 2 or (MuR.PoliceState < 5 and mode.armored_officer_heist_logic) then
 		MuR:SetPoliceTime(75)
 		MuR.PoliceState = 5
 		MuR:PlayDispatch("raidstart")
 		MuR:CheckOtherForces()
 	end
-	if MuR.PoliceState == 6 and pa <= 2 and MuR.Gamemode != 13 then
+	if MuR.PoliceState == 6 and pa <= 2 and not mode.armored_officer_heist_logic then
 		timer.Simple(3, function()
 			if MuR.PoliceState ~= 6 then return end
 			MuR:SpawnPlayerPolice(true)
@@ -163,16 +165,6 @@ local function PushApart(npc1, npc2)
 		npc2:SetVelocity(-dir * pushForce)
 	end
 end
-
-hook.Add("ShouldCollide", "MuR_NoCollisionNPCs", function(ent1, ent2)
-	if ent1 == ent2 then return false end
-	local allow1 = ent1:IsNPC() and ent1.IsPolice and not ent1.DoingPlayAnim or ent1:IsPlayer() and ent1:IsRolePolice()
-	local allow2 = ent2:IsNPC() and ent2.IsPolice and not ent1.DoingPlayAnim or ent2:IsPlayer() and ent2:IsRolePolice()
-	if allow1 and allow2 then
-		PushApart(ent1, ent2)
-		return false
-	end
-end)
 
 hook.Add("EntityTakeDamage", "MuR_NoCollisionNPCs", function(ent, dmg)
 	local att = dmg:GetAttacker()

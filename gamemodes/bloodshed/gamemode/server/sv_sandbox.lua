@@ -15,6 +15,12 @@ for _, eventName in ipairs(spawnEvents) do
     end)
 end
 
+hook.Add("CanProperty", "MuR.BlockPropertiesExploit", function(ply, property, ent)
+    if not MuR.EnableDebug then
+        return false
+    end
+end)
+
 hook.Add("PlayerGiveSWEP", "BlockSpawn_FixSWEP", function(ply, ent)
     ply:GiveWeapon(ent)
     return false
@@ -29,7 +35,7 @@ hook.Add("PlayerNoClip", "MuR.NoclipDebugOnly", function(ply, desiredState)
 end)
 
 hook.Add("ShouldCollide", "MuR_FixStucks", function(ent1, ent2)
-    if ent1:IsPlayer() and ent2:IsPlayer() and ent1:IsSolid() and ent2:IsSolid() then
+    if ent1:IsPlayer() and ent2:IsPlayer() and ent1:IsSolid() and ent2:IsSolid() and !(ent1:IsInHostage(true) or ent2:IsInHostage(true)) then
         local b1, t1 = ent1:OBBMins(), ent1:OBBMaxs()
         local b2, t2 = ent2:OBBMins(), ent2:OBBMaxs()
         local p1 = ent1:GetPos()
@@ -53,8 +59,8 @@ end)
 CreateConVar("mur_disableguilt", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "", 0, 1)
 cvars.AddChangeCallback("mur_disableguilt", function(name, ov, nv)
     if nv == "1" then
-        for _, ply in pairs(player.GetAll()) do
-            ply:SetNW2Float("Guilt", 0)
+        for _, ply in player.Iterator() do
+            ply:ChangeGuilt("Guilt", -10)
         end
     end
 end)

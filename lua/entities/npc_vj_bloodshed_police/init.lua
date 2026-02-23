@@ -41,6 +41,7 @@ function ENT:CustomOnInitialize()
 		self:SetBodygroup(i, randomBodyGroup)
 	end
 
+	self:CapabilitiesAdd(CAP_MOVE_CLIMB)
 	self.IsPolice = true
 	self:SetupVoice()
 end
@@ -63,6 +64,9 @@ function ENT:OnThink()
 	self:DoorLogicBust()
 	self:VoiceLogic()
 	self:TaserLogic()
+	
+	self.AnimationTranslations[ACT_CLIMB_UP] = ACT_JUMP
+	self.AnimationTranslations[ACT_CLIMB_DOWN] = ACT_JUMP
 	
 	local en = self:GetEnemy()
     if IsValid(en) and en:IsPlayer() and en:IsFlagSet(FL_NOTARGET) then

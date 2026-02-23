@@ -1,4 +1,4 @@
-if SERVER then return end
+﻿if SERVER then return end
 
 LiteWounds = LiteWounds or {}
 
@@ -78,7 +78,7 @@ local function RenderWounds(ent)
 	render.SetStencilZFailOperation(STENCIL_KEEP)
 	render.SetBlend(0)
 	render.OverrideDepthEnable(true, false)
-	
+
 	for _, v in ipairs(ent.LiteGibWounds) do
 		if IsValid(v.model) and v.bone and v.pos and v.ang then
 			local mat = ent:GetBoneMatrix(v.bone)
@@ -149,10 +149,10 @@ if entMeta then
 	function entMeta:AddWoundModel(model, scale, localPos, localAng, bone)
 		if not WOUNDS_ENABLED then return end
 
-		if ((self.Alive and self:Alive()) or self:IsNPC()) and not WOUNDS_LIVE then return end
+		if (self.Alive and self:Alive()) and not WOUNDS_LIVE or self:IsNPC() then return end
 		if self.gibbedBones and self.gibbedBones[bone] then return end
 		if not IsValid(self) then return end
-		
+
 		self.LiteGibWounds = self.LiteGibWounds or {}
 		local woundModel = ClientsideModel(model)
 		woundModel:SetOwner(self)
@@ -160,10 +160,10 @@ if entMeta then
 		woundModel:DrawShadow(false)
 		woundModel:SetModelScale(scale, 0)
 		woundModel:SetRenderBounds(Vector(-32, -32, -32), Vector(32, 32, 32))
-		
+
 		local t = {self, woundModel}
 		LiteWounds.MaxWounds = WOUNDS_LIMIT
-		
+
 		if #LiteWounds.Wounds >= LiteWounds.MaxWounds then
 			local tMax = LiteWounds.Wounds[LiteWounds.MaxWounds]
 			if tMax and IsValid(tMax[2]) then 
@@ -199,7 +199,7 @@ if entMeta then
 			return self.WoundProxy:Wound(ogPos, ogAng, bone, woundModel, woundModelScale, goreModel) 
 		end
 		if not WOUNDS_ENABLED then return end
-		
+
 		self:SetupBones()
 		if not IsValid(self.goreModel) then
 			self.goreModel = ClientsideModel(goreModel or LiteWounds.DefaultGoreUndermodel)
@@ -207,7 +207,7 @@ if entMeta then
 			self.goreModel:AddEffects(EF_BONEMERGE)
 			self.goreModel:SetNoDraw(true)
 			self.goreModel:DrawShadow(false)
-			
+
 			local findTable
 			for i = #LiteWounds.RagdollGibs, 1, -1 do
 				if LiteWounds.RagdollGibs[i][1] == self then
@@ -232,7 +232,7 @@ if entMeta then
 		if not ogPos then return end
 		if not p then return end
 		if not a then return end
-		
+
 		local woundTable = LiteWounds.WoundRadius[self:GetModel()]
 		local radius = woundTable[string.lower(self:GetBoneName(bone))] or woundTable["default"]
 		local boneCenter = self:GetBoneCenter(bone)
@@ -240,11 +240,11 @@ if entMeta then
 		local nrm = (boneCenter - p):GetNormalized()
 		local dist = ogPos:Distance(boneCenter)
 		newPos = util.IntersectRayWithPlane(p, nrm, ogPos, nrm)
-		
+
 		woundModel = woundModel or "models/Combine_Helicopter/helicopter_bomb01.mdl"
 		local woundrad = LiteWounds.WoundModelRadius[string.lower(woundModel)] or 8
 		woundrad = woundrad * woundModelScale
-		
+
 		if newPos then
 			if dist > radius then
 				newPos = newPos + (ogPos - newPos):GetNormalized() * math.max(0, radius - woundrad)
@@ -268,12 +268,12 @@ local function WoundEnt(ent, dmg, hg, vec)
 	local bloodColor = ent:GetBloodColorLG()
 	if bloodColor == DONT_BLEED then return end
 	if dmg < 15 then return end
-	
+
 	local finalBone = ent:GetClosestBoneInList(vec, LiteWounds.Bones.HitGroupSearch[hg])
 	local bn = ent:GetBoneName(finalBone)
 	bn = string.Replace(string.lower(bn), "valvebiped.", "")
 	bn = string.Replace(string.lower(bn), "bip01_", "")
-	
+
 	local goreModelTable = LiteWounds.GoreModels[ent:GetModel()]
 	local woundModelTable = LiteWounds.WoundModels[ent:GetModel()]
 	local wound_def = woundModelTable["default"] or LiteWounds.WoundModels["default"].default
@@ -297,9 +297,9 @@ local function AddToDamageTable(ent, hitgroup, damage, damageType, vec)
 	local function IsDamageType(dmg, typev)
 		return bit.band(dmg, typev) == typev
 	end
-	
+
 	local ValidHitGroups = {HITGROUP_HEAD, HITGROUP_CHEST, HITGROUP_STOMACH, HITGROUP_LEFTARM, HITGROUP_RIGHTARM, HITGROUP_LEFTLEG, HITGROUP_RIGHTLEG}
-	
+
 	if IsDamageType(damageType, DMG_BLAST) then
 		for _, hgruppe in pairs(ValidHitGroups) do
 			ent.LGDamageTable[hgruppe] = ent.LGDamageTable[hgruppe] or {}
@@ -342,21 +342,21 @@ local dmgs = {
 
 net.Receive("LITEGIBDMG", function()
 	if not ENABLED then return end
-	
+
 	local ent = net.ReadEntity()
 	local hitgroup = net.ReadUInt(4)
 	local damage = net.ReadInt(12)
 	local damageType = net.ReadUInt(31)
 	local vec = net.ReadVector()
 	local inf = net.ReadEntity()
-	
+
 	if not IsValid(ent) then return end
 	if not hitgroup then return end
 	if not damage then return end
 	if not damageType then return end
 
 	damage = damage * DAMAGE_MULT
-	
+
 	if IsValid(inf) and inf:IsNPC() then
 		local wep = inf:GetActiveWeapon()
 		if IsValid(wep) and not wep:IsScripted() then
@@ -367,7 +367,7 @@ net.Receive("LITEGIBDMG", function()
 	if not keepcorpses:GetBool() then 
 		AddToDamageTable(ent, hitgroup, damage, damageType, vec) 
 	end
-	
+
 	if damage > 1 and dmgs[damageType] then
 		WoundEnt(ent, damage, hitgroup, vec)
 		ent.LGLastDamage = damage
@@ -415,7 +415,7 @@ hook.Add("CreateClientsideRagdoll", "LiteWoundsCCR", function(ent, rag)
 	if keepcorpses:GetBool() then return end
 	if not IsValid(ent) then return end
 	if not ent.LGDamageTable then return end
-	
+
 	ent.Dead = true
 	if IsValid(rag) then
 		ent.LGDeathRagdoll = rag
@@ -433,7 +433,7 @@ hook.Add("CreateClientsideRagdoll", "LiteWoundsCCR", function(ent, rag)
 		LiteWounds.Ragdolls[index] = rag
 		rag.id = index
 		rag:CopyWounds(ent)
-		
+
 		if not WOUNDS_LIVE then 
 			WoundEnt(rag, ent.LGLastDamage or 0.1, ent.LGLastHG or HITGROUP_GENERIC, ent.LGLastVec or vector_origin) 
 		end

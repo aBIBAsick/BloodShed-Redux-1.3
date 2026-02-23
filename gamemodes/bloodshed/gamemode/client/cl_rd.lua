@@ -1,4 +1,4 @@
-local ragent = nil
+﻿local ragent = nil
 local TFAAimFrac = 0
 local TP_Shoulder = 1 
 local TP_ShoulderFrac = 1
@@ -39,10 +39,14 @@ net.Receive("MuR.CalcView", function()
 	LocalPlayer():SetNW2Entity('RD_EntCam', ent)
 end)
 
-local LerpEyeRagdoll = Angle(0,0,0)
-local oldexecang = Angle(0,0,0)
+local ragStateFrac = 0
 local aimfrac = 0
-hook.Add("CalcView", "zRD_CamWork", function(ply, pos, angles, fov)
+local oldexecang = Angle(0,0,0)
+local LerpEyeRagdoll = Angle(0,0,0)
+
+hook.Add("CalcView", "MuR.zRD_CamWork", function(ply, pos, angles, fov)
+	if MuR.CutsceneActive or ply:InVehicle() then return end
+
 	ragent = ply:GetNW2Entity('RD_EntCam')
 	local ent = ragent
 	local anim = ply:GetSVAnimation()
@@ -65,18 +69,32 @@ hook.Add("CalcView", "zRD_CamWork", function(ply, pos, angles, fov)
 		if istable(t) then
 			local oldang = t.Ang
 			if ply:Alive() then
-				LerpEyeRagdoll = t.Ang
+				local isUnconscious = ply:GetNW2Bool("IsUnconscious", false)
+				local isStanding = ply:GetNW2Bool("IsRagStanding", false)
+
+				local targetFrac = (isUnconscious or !isStanding) and 1 or 0
+				ragStateFrac = math.Approach(ragStateFrac, targetFrac, FrameTime() * 4)
+
+				local mouseAng = Angle(angles.x, angles.y, oldang.z / 2)
+				local lockAng = oldang
+
+				if isUnconscious then
+					local time = CurTime() * 0.5
+					lockAng.z = lockAng.z + math.sin(time) * 15
+					lockAng.p = lockAng.p + math.cos(time * 1.5) * 5
+				end
+
+				LerpEyeRagdoll = LerpAngle(ragStateFrac, mouseAng, lockAng)
 			else
 				LerpEyeRagdoll = oldang
+				ragStateFrac = 1
 			end
 
-			t.Pos = LocalToWorld(Vector(0, 0, 0), t.Ang, t.Pos, t.Ang)
-
 			local view = {
-				origin = t.Pos + Vector(0, 0, 2),
+				origin = t.Pos,
 				angles = LerpEyeRagdoll,
 				fov = fov,
-				drawviewer = false,
+				drawviewer = true,
 				znear = 1
 			}
 
@@ -125,8 +143,9 @@ hook.Add("CalcView", "zRD_CamWork", function(ply, pos, angles, fov)
 		ply:SetEyeAngles(Angle(na.x, na.y, 0))
 		ply.LastFPAng = nil
 	end
-	
-	if MuR:GetClient("blsd_viewperson") == 1 and ply:Alive() then
+
+	local hostage = ply:Alive() and (ply:IsInHostage(true) or ply:IsInHostage(false))
+	if !hostage and MuR:GetClient("blsd_viewperson") == 1 and ply:Alive() then
 		local hm = ply:GetAttachment(ply:LookupAttachment("eyes"))
 
 		local wep = ply:GetActiveWeapon()
@@ -143,8 +162,14 @@ hook.Add("CalcView", "zRD_CamWork", function(ply, pos, angles, fov)
 		if TFAAimFrac > 0.2 then
 			return 
 		end
-
-		HideHead()
+		
+		if ply:IsRolePolice() then
+			lpos = lpos + hm.Ang:Right()*6 - hm.Ang:Forward()*8
+			fov = 70
+		else
+			HideHead()
+		end
+		
 		local view = {
 			origin = lpos,
 			angles = lang,
@@ -154,7 +179,7 @@ hook.Add("CalcView", "zRD_CamWork", function(ply, pos, angles, fov)
 		}
 
 		return view
-	elseif MuR:GetClient("blsd_viewperson") == 2 and ply:Alive() then
+	elseif (hostage or MuR:GetClient("blsd_viewperson") == 2) and ply:Alive() then
 		local tar = IsValid(ply:GetRD()) and ply:GetRD() or ply
 		local plyeye = tar:GetAttachment(tar:LookupAttachment("eyes"))
 		if not istable(plyeye) then return end
@@ -193,7 +218,7 @@ hook.Add("CalcView", "zRD_CamWork", function(ply, pos, angles, fov)
 			hull = Vector(8,8,8),
 			mask = MASK_PLAYERSOLID,
 			filter = function(ent)
-				if ent:IsRagdoll() or ent == ply then return false end
+				if ent:IsRagdoll() or ent:IsPlayer() then return false end
 				return true
 			end
 		})
@@ -228,7 +253,7 @@ hook.Add("CalcView", "zRD_CamWork", function(ply, pos, angles, fov)
 	elseif ply:Alive() then
 		local hm = ply:GetAttachment(ply:LookupAttachment("eyes"))
 		local nang = LerpAngle(aimfrac, angles, hm.Ang)
-		if ply:TPIK_IsAiming() then
+		if ply:TPIK_IsAiming() or !MuR:GetClient("blsd_viewbob") then
 			aimfrac = math.Clamp(aimfrac-FrameTime(), 0, 0.2)
 		else
 			aimfrac = math.Clamp(aimfrac+FrameTime(), 0, 0.2)
@@ -238,6 +263,8 @@ hook.Add("CalcView", "zRD_CamWork", function(ply, pos, angles, fov)
 		if IsValid(wep) and wep.IsTFAWeapon and wep.CalcView then
 			local _, aa = ply:GetActiveWeapon():CalcView(ply, pos, nang, fov)
 			nang = aa
+		elseif IsValid(wep) and wep:GetClass() == "mur_doorlooker" then
+			return
 		end
 
 		local view = {
@@ -252,7 +279,7 @@ hook.Add("CalcView", "zRD_CamWork", function(ply, pos, angles, fov)
 	end
 end)
 
-hook.Add("HUDPaint", "RD_CamWork", function()
+hook.Add("HUDPaint", "MuR.RD_CamWork", function()
 	local ply = LocalPlayer()
 	local ent = ply:GetNW2Entity('RD_EntCam')
 	local time = ply:TimeGetUp() - CurTime() + 1
@@ -261,52 +288,30 @@ hook.Add("HUDPaint", "RD_CamWork", function()
 		return
 	end
 
-	if IsValid(ent) and ply:Alive() and !MuR:GetClient("blsd_ragdoll_nohud") and !ply:GetNW2Bool("IsUnconscious", false) then
+	if IsValid(ent) and ply:Alive() and !MuR:GetClient("blsd_nohud") and !ply:GetNW2Bool("IsUnconscious", false) then
 		if time > 999 then
-			local parsed = markup.Parse("<font=MuR_Font3><colour=200,20,20>"..MuR.Language["ragdoll_heavy"])
+			local parsed = markup.Parse("<font=MuR_Font2><colour=200,20,20>"..MuR.Language["ragdoll_heavy"])
 			parsed:Draw(ScrW() / 2, He(880) + He(32), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		elseif time > 1 then
-			local parsed = markup.Parse("<font=MuR_Font3><colour=255,255,255>"..MuR.Language["ragdoll_getup"].."<colour=200,200,0>" .. math.floor(time) .. "<colour=255,255,255>"..MuR.Language["second"])
+			local parsed = markup.Parse("<font=MuR_Font2><colour=255,255,255>"..MuR.Language["ragdoll_getup"].."<colour=200,200,0>" .. math.floor(time) .. "<colour=255,255,255>"..MuR.Language["second"])
 			parsed:Draw(ScrW() / 2, He(880) + He(32), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		else
 			if ply:CanGetUp() then
-				local parsed = markup.Parse("<font=MuR_Font3><colour=255,255,255>"..MuR.Language["ragdoll_press"].."<colour=200,200,0>C<colour=255,255,255>"..MuR.Language["ragdoll_getup2"])
+				local keyName = input.GetKeyName(MuR:GetBind("mur_ragdoll")) or "KEY"
+				local parsed = markup.Parse("<font=MuR_Font2><colour=255,255,255>"..MuR.Language["ragdoll_press"].."<colour=200,200,0>"..string.upper(keyName).."<colour=255,255,255>"..MuR.Language["ragdoll_getup2"])
 				parsed:Draw(ScrW() / 2, He(880) + He(32), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 			else
-				local parsed = markup.Parse("<font=MuR_Font3><colour=255,200,200>"..MuR.Language["ragdoll_cant"])
+				local parsed = markup.Parse("<font=MuR_Font2><colour=255,200,200>"..MuR.Language["ragdoll_cant"])
 				parsed:Draw(ScrW() / 2, He(880) + He(32), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 			end
 		end
 
-		local parsed = markup.Parse("<font=MuR_Font1><colour=255,255,255>"..MuR.Language["ragdoll_hold"].."<colour=200,200,0>LMB or RMB<colour=255,255,255>"..MuR.Language["ragdoll_pull"])
-		parsed:Draw(ScrW() / 2, He(880) + He(60), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		local parsed = markup.Parse("<font=MuR_Font1><colour=255,255,255>"..MuR.Language["ragdoll_press"].."<colour=200,200,0>Shift or Alt<colour=255,255,255>"..MuR.Language["ragdoll_grab"])
-		parsed:Draw(ScrW() / 2, He(880) + He(75), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		local parsed = markup.Parse("<font=MuR_Font1><colour=255,255,255>"..MuR.Language["ragdoll_press"].."<colour=200,200,0>Space<colour=255,255,255>"..MuR.Language["ragdoll_jump"])
-		parsed:Draw(ScrW() / 2, He(880) + He(90), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		local parsed = markup.Parse("<font=MuR_Font1><colour=255,255,255>"..MuR.Language["ragdoll_press"].."<colour=200,200,0>F<colour=255,255,255>"..MuR.Language["ragdoll_stand"])
-		parsed:Draw(ScrW() / 2, He(880) + He(105), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		local parsed = markup.Parse("<font=MuR_Font1><colour=255,255,255>"..MuR.Language["ragdoll_press"].."<colour=200,200,0>V<colour=255,255,255>"..MuR.Language["ragdoll_getup3"])
-		parsed:Draw(ScrW() / 2, He(880) + He(120), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	
-		local wep = ply:GetNW2Entity('RD_Weapon')
-		if IsValid(wep) then
-			if wep:GetNW2Bool('IsItem') then
-				local parsed = markup.Parse("<font=MuR_Font1><colour=255,255,255>"..MuR.Language["ragdoll_press"].."<colour=200,200,0>LMB<colour=255,255,255>"..MuR.Language["ragdoll_wep3"])
-				parsed:Draw(ScrW() / 2, He(880) + He(135), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-			elseif LookupMuzzle(wep) > 0 then
-				local parsed = markup.Parse("<font=MuR_Font1><colour=255,255,255>"..MuR.Language["ragdoll_press"].."<colour=200,200,0>LMB<colour=255,255,255>"..MuR.Language["ragdoll_wep1"])
-				parsed:Draw(ScrW() / 2, He(880) + He(135), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-				local parsed = markup.Parse("<font=MuR_Font1><colour=255,255,255>"..MuR.Language["ragdoll_press"].."<colour=200,200,0>R<colour=255,255,255>"..MuR.Language["ragdoll_wep2"])
-				parsed:Draw(ScrW() / 2, He(880) + He(150), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-			end
-		end
 	end
 end)
 
 hook.Add("HUDPaint", "MuR.CrossHairRDTP", function()
 	local ply = LocalPlayer()
-	if MuR:GetClient("blsd_viewperson") == 2 then
+	if MuR:GetClient("blsd_viewperson") == 2 or ply:IsInHostage(true) then
 		local tr = ply:GetEyeTrace()
 		local aw = ply:GetActiveWeapon()
 		local isAiming = (IsValid(aw) and aw.IsTFAWeapon and ply.TPIK_IsAiming and ply:TPIK_IsAiming())
@@ -319,24 +324,34 @@ hook.Add("HUDPaint", "MuR.CrossHairRDTP", function()
 			end
 		end
 	end
-	if MuR:GetClient("blsd_crosshair_ragdoll") then
+	if MuR:GetClient("blsd_crosshair_ragdoll") and ply:TPIK_IsAiming() then
 		local tr = ply:GetEyeTrace()
-		local wep = ply:GetNW2Entity('RD_Weapon')
+		local wep = ply:GetActiveWeapon()
 		local ent = ply:GetNW2Entity('RD_Ent')
-		if IsValid(ent) and IsValid(wep) and LookupMuzzle(wep) > 0 then
-			local att = wep:GetAttachment(LookupMuzzle(wep))
-			local tr = util.TraceLine({
-				start = att.Pos+att.Ang:Forward(),
-				endpos = att.Pos+att.Ang:Forward()*1000,
-				mask = MASK_SHOT,
-				filter = wep,
-			})
-			local pos = tr.HitPos:ToScreen()
-			if IsValid(tr.Entity) and (tr.Entity:IsPlayer() or tr.Entity:IsNPC() or tr.Entity:GetClass() == "prop_ragdoll") then
-				surface.DrawCircle(pos.x, pos.y, 2, 220, 40, 40, 200)
-			else
-				surface.DrawCircle(pos.x, pos.y, 2, 200, 200, 200, 200)
+		local fwm = ply.RagFakeWorldModel
+		if IsValid(ent) and IsValid(fwm) and IsValid(wep) and LookupMuzzle(fwm) > 0 then
+			local att = fwm:GetAttachment(LookupMuzzle(fwm))
+			if att then
+				local tr = util.TraceLine({
+					start = att.Pos+att.Ang:Forward(),
+					endpos = att.Pos+att.Ang:Forward()*1000,
+					mask = MASK_SHOT,
+					filter = {fwm, ent, ply},
+				})
+				local pos = tr.HitPos:ToScreen()
+				if IsValid(tr.Entity) and (tr.Entity:IsPlayer() or tr.Entity:IsNPC() or tr.Entity:GetClass() == "prop_ragdoll") then
+					surface.DrawCircle(pos.x, pos.y, 2, 220, 40, 40, 200)
+				else
+					surface.DrawCircle(pos.x, pos.y, 2, 200, 200, 200, 200)
+				end
 			end
 		end
+	end
+end)
+
+hook.Add("GetMotionBlurValues", "MuR.UnconsciousBlur", function(h, v, f, r)
+	local ply = LocalPlayer()
+	if ply:GetNW2Bool("IsUnconscious", false) then
+		return 0.1, 0.95, 0.05, 0.5
 	end
 end)

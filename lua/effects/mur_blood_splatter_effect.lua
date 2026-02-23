@@ -207,6 +207,40 @@ function EFFECT:Init( data )
 							math.Rand(decal_randscale.min, decal_randscale.max)*decal_scale
 						)
 
+						local splashCount = math.random(2, 5)
+						for s = 1, splashCount do
+							if not emitter or not emitter:IsValid() then break end
+							local splashMat = table.Random(blood_mats)
+							local splashParticle = emitter:Add(splashMat, collidepos + normal * 0.5)
+							if splashParticle then
+								local splashVel = (normal + VectorRand(-0.5, 0.5)):GetNormalized() * math.Rand(20, 60)
+								splashParticle:SetDieTime(math.Rand(0.8, 1.5))
+								splashParticle:SetStartSize(math.Rand(0.8, 2.0))
+								splashParticle:SetEndSize(0)
+								splashParticle:SetStartLength(math.Rand(3, 8))
+								splashParticle:SetEndLength(math.Rand(8, 15))
+								splashParticle:SetGravity(Vector(0, 0, -400))
+								splashParticle:SetVelocity(splashVel)
+								splashParticle:SetCollide(true)
+								splashParticle:SetBounce(0.1)
+								
+								if s == 1 then
+									splashParticle:SetCollideCallback(function(_, spos, snorm)
+										if math.random(1, 2) == 1 then
+											util.DecalEx(
+												splashMat,
+												Entity(0),
+												spos,
+												snorm,
+												Color(255, 255, 255),
+												math.Rand(0.2, 0.5),
+												math.Rand(0.2, 0.5)
+											)
+										end
+									end)
+								end
+							end
+						end
 
 						if IMPACT_PARTICLE && blood_particle then
 							ParticleEffect(blood_particle, collidepos, normal:Angle())
@@ -217,7 +251,6 @@ function EFFECT:Init( data )
 						end
 
 
-						-- print(effIndex.. " done")
 						hasDoneCollide[effIndex] = true
 					end
 

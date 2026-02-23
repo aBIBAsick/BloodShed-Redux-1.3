@@ -1,4 +1,4 @@
-ZippyGoreMod3_BasicGib_Models = { "models/gore/Debris_GoreDebris02.mdl", "models/gore/Debris_GoreDebris03.mdl", "models/gore/Debris_GoreDebris04.mdl" }
+﻿ZippyGoreMod3_BasicGib_Models = { "models/gore/Debris_GoreDebris02.mdl", "models/gore/Debris_GoreDebris03.mdl", "models/gore/Debris_GoreDebris04.mdl" }
 ZippyGoreMod3_BasicGib_Scale = {1, 2}
 ZippyGoreMod3_BasicGib_UseFleshMaterial = false
 
@@ -69,7 +69,7 @@ ZippyGoreMod3_CustomGibs = {
 		scale = 1,
 		random_angle = false,
 		random_pos = false,
---		is_ragdoll = true,
+
             },
 	},
         basic_gib_mult = 2,

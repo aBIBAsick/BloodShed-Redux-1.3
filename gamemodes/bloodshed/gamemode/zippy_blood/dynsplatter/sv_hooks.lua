@@ -1,4 +1,4 @@
-local DMGNoBleed = {	 
+﻿local DMGNoBleed = {	 
 	DMG_BURN,
 	DMG_DROWN,
 	DMG_DROWNRECOVER,
@@ -9,13 +9,10 @@ local DMGNoBleed = {
 	DMG_SHOCK,
 }
 
-
---]]===========================================================================================]]
 local function EnhancedSplatter( ent, pos, dir, intensity, damage )
 
 	if ent:GetBloodColor() == BLOOD_COLOR_MECH then
 
-		-- Just a spark
 		local spark = ents.Create("env_spark")
 		spark:SetPos(pos)
 		spark:Spawn()
@@ -25,7 +22,6 @@ local function EnhancedSplatter( ent, pos, dir, intensity, damage )
 
 	else
 
-		-- Enhanced splatter lisgooo
 		local effectdata = EffectData()
 		effectdata:SetOrigin( pos )
 		effectdata:SetNormal( dir:GetNormalized() )
@@ -37,7 +33,7 @@ local function EnhancedSplatter( ent, pos, dir, intensity, damage )
 	end
 
 end
---]]===========================================================================================]]
+
 local function DMG_NoBleed( dmginfo )
 
 	for _, dmgType in ipairs(DMGNoBleed) do
@@ -45,17 +41,16 @@ local function DMG_NoBleed( dmginfo )
 	end
 
 end
---]]===========================================================================================]]
+
 local function IsBulletDamage( dmginfo )
 
 	return dmginfo:IsBulletDamage() or dmginfo:IsDamageType(DMG_BULLET) or dmginfo:IsDamageType(DMG_BUCKSHOT)
 
 end
---]]===========================================================================================]]
+
 local function NetworkCustomBlood( ent )
 	local CustomDecal
 	local CustomParticle
-
 
 	if ent.IsVJBaseSNPC or ent.IsVJBaseCorpse then
 
@@ -69,12 +64,10 @@ local function NetworkCustomBlood( ent )
 
 	end
 
-
 	if CustomDecal && ent.DynSplatter_LastCustomDecal != CustomDecal then
 		ent:SetNW2String( "DynamicBloodSplatter_CustomBlood_Decal", CustomDecal )
 		ent.DynSplatter_LastCustomDecal = CustomDecal
 	end
-
 
 	if CustomParticle && ent.DynSplatter_LastCustomParticle != CustomParticle then
 		ent:SetNW2String( "DynamicBloodSplatter_CustomBlood_Particle", CustomParticle )
@@ -83,30 +76,24 @@ local function NetworkCustomBlood( ent )
 end
 MuR.Gamemode = 4
 MuR.GameStarted = true
---]]===========================================================================================]]
+
 local function Damage( ent, dmginfo )
-	-- Don't bleed on burn damage for example:
+
 	if DMG_NoBleed(dmginfo) then return end
 
-	-- Don't bleed dissolving entities:
 	if bit.band( ent:GetFlags(), FL_DISSOLVING ) == FL_DISSOLVING then return end
-
 
 	local damage = dmginfo:GetDamage()
 	local force = dmginfo:GetDamageForce()
 	local infl = dmginfo:GetInflictor()
 
-
 	local bullet_damage_type = IsBulletDamage( dmginfo )
 	local phys_damage_type = dmginfo:IsDamageType(DMG_CRUSH)
-
 
 	local phys_damage = damage > 10 && phys_damage_type
 	local weapon_damage = (IsValid(infl) && infl:IsWeapon())
 	local crossbow_damage = (IsValid(infl) && infl:GetClass() == "crossbow_bolt")
 
-
-	-- Put blood effect on damage position if it was bullet damage or physics damage or if the inflictor was a weapon, otherwise put it in the center of the entity.
 	local blood_pos = ( (bullet_damage_type or weapon_damage or phys_damage or crossbow_damage) && dmginfo:GetDamagePosition() ) or ent:WorldSpaceCenter()
 	local magnitude = phys_damage&&0.5 or 1.2
 
@@ -114,14 +101,14 @@ local function Damage( ent, dmginfo )
 		EnhancedSplatter( ent, blood_pos, force, magnitude, phys_damage && 1 or damage )
 	end
 end
---]]===========================================================================================]]
+
 hook.Add("EntityTakeDamage", "EnhancedSplatter", function( ent, dmginfo )
 	if !ent:GetNW2Bool("DynSplatter") then return end
 
 	ent.DynSplatter_Hits = ent.DynSplatter_Hits or {}
 	table.insert(ent.DynSplatter_Hits, dmginfo:GetDamagePosition())
 end)
---]]===========================================================================================]]
+
 hook.Add("EntityTakeDamage", "!EnhancedSplatter", function( ent, dmginfo )
 	if !ent:GetNW2Bool("DynSplatter") then return end
 
@@ -161,17 +148,15 @@ hook.Add("EntityTakeDamage", "!EnhancedSplatter", function( ent, dmginfo )
 
 		end
 
-
 		ent.DynSplatter_Hits = nil
 	end)
 end)
---]]===========================================================================================]]
+
 hook.Add("OnEntityCreated", "OnEntityCreated_DynamicBloodSplatter", function( ent )
 	if !DynSplatterFullyInitialized then return end
 
 	timer.Simple(0, function()
 		if !IsValid(ent) then return end
-
 
 		if ent.IsVJBaseSNPC then
 
@@ -184,10 +169,8 @@ hook.Add("OnEntityCreated", "OnEntityCreated_DynamicBloodSplatter", function( en
 
 		end
 
-
 		DynSplatterReturnEngineBlood = true
 		local EngineBloodColor = ent:GetBloodColor()
-
 
 		if ent:IsNPC() or ent:IsPlayer() or ent:GetClass() == "prop_ragdoll" then
 			ent:SetBloodColor(EngineBloodColor)
@@ -195,11 +178,10 @@ hook.Add("OnEntityCreated", "OnEntityCreated_DynamicBloodSplatter", function( en
 			ent:SetNW2Bool("DynSplatter", true)
 		end
 
-
 		NetworkCustomBlood( ent )
 	end)
 end)
---]]===========================================================================================]]
+
 hook.Add("CreateEntityRagdoll", "CreateEntityRagdoll_DynamicBloodSplatter", function( own, ragdoll )
 	if own.IsVJBaseSNPC then
 
@@ -216,7 +198,7 @@ hook.Add("CreateEntityRagdoll", "CreateEntityRagdoll_DynamicBloodSplatter", func
 	ragdoll:SetBloodColor(own:GetBloodColor())
 	ragdoll:SetNW2Bool("DynSplatter", true)
 end)
---]]===========================================================================================]]
+
 hook.Add("PlayerSpawn", "RemoveEngineBlood", function( ply )
 	if true then
 
@@ -224,7 +206,7 @@ hook.Add("PlayerSpawn", "RemoveEngineBlood", function( ply )
 
 			DynSplatterReturnEngineBlood = true
 			local EngineBloodColor = ply:GetBloodColor()
-			
+
 			ply:DisableEngineBlood()
 			ply:SetBloodColor(EngineBloodColor)
 			ply:SetNW2Bool("DynSplatter", true)
@@ -237,4 +219,3 @@ hook.Add("PlayerSpawn", "RemoveEngineBlood", function( ply )
 
 	end
 end)
---]]===========================================================================================]]

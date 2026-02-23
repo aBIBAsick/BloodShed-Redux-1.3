@@ -1,6 +1,5 @@
-local ENT = FindMetaTable("Entity")
+﻿local ENT = FindMetaTable("Entity")
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function ENT:ZippyGoreMod3_CreateGib( pos, flesh_material, model, angles, scale, is_ragdoll, tangle_ragdoll )
     if ZGM3_CVARS["zippygore3_gib_limit"] <= 0 then return end
 
@@ -17,7 +16,7 @@ function ENT:ZippyGoreMod3_CreateGib( pos, flesh_material, model, angles, scale,
 
     return is_ragdoll && gib.Ragdoll or gib
 end
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 function ENT:ZippyGoreMod3_CreateGibs( phys_idx, damageData )
     if ZGM3_CVARS["zippygore3_gib_limit"] <= 0 then return end
 
@@ -35,17 +34,6 @@ function ENT:ZippyGoreMod3_CreateGibs( phys_idx, damageData )
         return tr.HitPos+tr.HitNormal*10
     end
 
-    -- if self.ZippyGoreMod3_BloodColor == BLOOD_COLOR_ZGM3SYNTH then
-    --     -- Don't spawn gibs for synths, do some effects instead
-    --     local amt = math.Clamp( phys_bone:GetSurfaceArea()*0.015, 0, 8 )
-    --     for i = 1, amt do
-    --         if math.random(1, 2) == 1 then
-    --             ParticleEffect( "blood_impact_synth_01", get_bone_randompos(), AngleRand() )
-    --         end
-    --     end
-    --     return
-    -- end 
-
     local function get_custom_gibs( bone_name )
         if !ZippyGoreMod3_CustomGibs[bone_name] then return {}, 1 end
         return ZippyGoreMod3_CustomGibs[bone_name].gibs, ZippyGoreMod3_CustomGibs[bone_name].basic_gib_mult or 1
@@ -56,7 +44,6 @@ function ENT:ZippyGoreMod3_CreateGibs( phys_idx, damageData )
         return damageData.ForceVec:GetNormalized()*forceMult + VectorRand()*forceMult
     end
 
-    -- Spawn the gibs:
     local custom_gibs, basic_gib_mult = get_custom_gibs( self:GetBoneName( self:TranslatePhysBoneToBone( phys_idx ) ) )
     for _,v in ipairs(custom_gibs) do
         for i = 1, ( v.count && ( istable(v.count) && math.random(v.count[1], v.count[2]) ) or v.count ) or 1 do
@@ -64,9 +51,8 @@ function ENT:ZippyGoreMod3_CreateGibs( phys_idx, damageData )
             local scale = v.scale && (istable(v.scale) && math.Rand(v.scale[1], v.scale[2])) or v.scale or 1
             local gib = self:ZippyGoreMod3_CreateGib( pos, v.use_flesh_material, v.model, !v.random_angle && phys_bone:GetAngles(), scale, v.is_ragdoll, true )
 
-            -- Gib ragdoll stuff:
             if gib:GetClass() == "prop_ragdoll" then
-                -- Position it so that it doesn't get stuck in the ground:
+
                 for i = 0, gib:GetPhysicsObjectCount()-1 do
                     local phys_obj_to_reposition = gib:GetPhysicsObjectNum(i)
 
@@ -82,7 +68,6 @@ function ENT:ZippyGoreMod3_CreateGibs( phys_idx, damageData )
                 end
             end
 
-
             gib:GetPhysicsObject():SetVelocity( get_gib_force() )
         end
     end
@@ -93,4 +78,3 @@ function ENT:ZippyGoreMod3_CreateGibs( phys_idx, damageData )
         end
     end
 end
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

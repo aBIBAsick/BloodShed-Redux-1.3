@@ -72,7 +72,7 @@ function ENT:Think()
 	end
 
 	local tply, dist = nil, math.huge
-	for _, ply in pairs(player.GetAll()) do
+	for _, ply in player.Iterator() do
 		local ndist = ply:GetPos():DistToSqr(self:GetPos())
 		if ply:Alive() and ply:GetNW2Float("ArrestState") > 0 and ndist < dist then
 			tply = ply
@@ -506,6 +506,7 @@ function ENT:Explode()
 	effect:SetScale(2)
 	util.Effect("Explosion", effect)
 	util.BlastDamage(self, self, self:GetPos(), 200, 150)
+	MakeExplosionReverb(self:GetPos())
 	self:Remove()
 end
 

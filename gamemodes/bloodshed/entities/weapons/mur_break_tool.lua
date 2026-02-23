@@ -22,11 +22,18 @@ function SWEP:CustomPrimaryAttack()
 		start = ply:GetShootPos(),
 		endpos = ply:GetShootPos() + ply:GetAimVector() * self.HitDistance,
 		filter = ply,
-		mask = MASK_SHOT_HULL
+		mask = MASK_ALL
 	})
+	local tpos = tr.HitPos
 	local ent = tr.Entity
-
-	if IsValid(ent) and ent:IsWeapon() and (ent:GetClass() == "mur_loot_phone" or string.match(ent:GetClass(), "tfa")) and !IsValid(ent.BrokenAtt) then
+	for k, v in pairs(ents.FindInSphere(tpos, 32)) do
+		if (v:GetClass() == "mur_loot_phone" or string.match(v:GetClass(), "tfa") or v:GetClass() == "func_button") and !IsValid(ent.BrokenAtt) then
+			ent = v
+			break
+		end
+	end
+	print(ent)
+	if IsValid(ent) and ent:IsWeapon() and (ent:GetClass() == "mur_loot_phone" or string.match(ent:GetClass(), "tfa")) and !IsValid(ent.BrokenAtt) and !IsValid(ent:GetOwner()) then
 		if SERVER then
 			ent.BrokenAtt = ply 
 			ply:EmitSound("physics/concrete/concrete_break2.wav", 50)
@@ -63,7 +70,8 @@ if SERVER then
 			timer.Simple(0.01, function()
 				if !IsValid(ent) or !IsValid(ent.BrokenAtt) or !IsValid(ent:GetOwner()) then return end
 				ParticleEffect("AC_grenade_explosion_air", ent:GetOwner():EyePos(), Angle(0,0,0))
-				util.BlastDamage(ent.BrokenAtt, ent.BrokenAtt, ent:GetOwner():EyePos(), 250, 125)
+				util.BlastDamage(ent.BrokenAtt, ent.BrokenAtt, ent:GetOwner():EyePos(), 250, 150)
+				MakeExplosionReverb(ent:GetPos())
 				sound.Play(")murdered/weapons/grenade/m67_explode.wav", ent:GetPos(), 90, math.random(80,120))
 				SafeRemoveEntity(ent, 0.01)
 			end)
@@ -74,7 +82,8 @@ if SERVER then
 		if IsValid(ent) and ent:GetClass() == "func_button" and IsValid(ent.BrokenAtt) and IsValid(activator) and activator:IsPlayer() then
 			local explosionPos = ent:GetPos()
 			ParticleEffect("AC_grenade_explosion_air", explosionPos, Angle(0,0,0))
-			util.BlastDamage(ent.BrokenAtt, ent.BrokenAtt, explosionPos, 250, 125)
+			util.BlastDamage(ent.BrokenAtt, ent.BrokenAtt, explosionPos, 200, 200)
+			MakeExplosionReverb(ent:GetPos())
 			sound.Play(")murdered/weapons/grenade/m67_explode.wav", explosionPos, 90, math.random(80,120))
 			SafeRemoveEntity(ent, 0.01)
 			return true

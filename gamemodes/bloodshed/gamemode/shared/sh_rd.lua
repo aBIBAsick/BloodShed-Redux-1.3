@@ -122,3 +122,17 @@ hook.Add("CalcMainActivity", "!TDMAnims", function(ply, vel)
 		return -1, ply:LookupSequence(str)
 	end
 end)
+
+hook.Add("EntityFireBullets", "MuR_RagdollSkipTPIK", function(ent, data)
+	if SERVER and ent:IsPlayer() then
+        net.Start("TPIK_MuzzleFlash")
+        net.WriteEntity(ent)
+        net.Broadcast()
+    end
+	if ent:IsPlayer() and IsValid(ent:GetRD()) then
+		local rag = ent:GetRD()
+		local pos = MuR:BoneData(rag, "ValveBiped.Bip01_Head1")
+		data.Src = pos + ent:EyeAngles():Forward() * 8
+		data.IgnoreEntity = rag
+	end
+end)

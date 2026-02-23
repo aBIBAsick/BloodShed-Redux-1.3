@@ -1,4 +1,4 @@
-MuR.Data["VoteLog"] = 0
+﻿MuR.Data["VoteLog"] = 0
 
 local dead_mat = Material("murdered/dead.png")
 
@@ -33,8 +33,6 @@ local function show_result_screen(maintab, time)
 	t:SetSize(We(1600), He(200))
 	t:SetPos(ScrW()/2-t:GetSize()/2, 0)
 	add_to_panel(panel, t, ScrH())
-
-	--dead players--
 
 	if #maintab.dead > 0 then
 
@@ -92,10 +90,6 @@ local function show_result_screen(maintab, time)
 
 	end
 
-	------------
-	
-	--dead cops players--
-
 	if #maintab.dead_cops > 0 then
 
 		local t = vgui.Create("DLabel", panel)
@@ -131,7 +125,9 @@ local function show_result_screen(maintab, time)
 			local icon = vgui.Create("DModelPanel", p)
 			icon:SetPos(We(50),He(50))
 			icon:SetSize(We(100), He(200))
-			icon:SetModel(table.Random(MuR.PlayerModels["Police"]))
+			local role = MuR:GetRole("Officer")
+			local models = role.models
+			icon:SetModel(table.Random(models))
 			function icon:LayoutEntity(ent) ent:SetSequence(0) return end
 			local eyepos = icon.Entity:GetBonePosition(icon.Entity:LookupBone("ValveBiped.Bip01_Head1"))
 			eyepos:Add(Vector(0, 0, 2))
@@ -145,10 +141,6 @@ local function show_result_screen(maintab, time)
 		end
 
 	end
-
-	------------
-
-	--heavy injured players--
 
 	if #maintab.heavy_injured > 0 then
 		local t = vgui.Create("DLabel", panel)
@@ -201,10 +193,6 @@ local function show_result_screen(maintab, time)
 			end
 		end
 	end
-
-	------------
-
-	--injured players--
 
 	if #maintab.injured > 0 then
 
@@ -259,8 +247,6 @@ local function show_result_screen(maintab, time)
 		end
 
 	end
-
-	------------
 
 	local t = vgui.Create("DLabel", panel)
 	t:SetText(lang["log_end_text"])

@@ -1,4 +1,4 @@
-hook.Add("InitPostEntity", "MuR.Run", function()
+﻿hook.Add("InitPostEntity", "MuR.Run", function()
 	RunConsoleCommand("zbase_ply_hurt_ally", 1)
 	RunConsoleCommand("sv_alltalk", 1)
 end)
@@ -53,6 +53,8 @@ net.Receive("MuR.VoiceLines", function(len, ply)
 		str = "police_dontmove"
 	elseif num == 106 then
 		str = "police_shotfired"
+	elseif num == 140 then
+		str = "ror_police_surrender"
 	end
 	ply:PlayVoiceLine(str)
 end)
@@ -117,7 +119,8 @@ function meta:PlayVoiceLine(str, force)
 		self.VoiceDelay = 0
 	end
 
-	if self.VoiceDelay > CurTime() or str == "" or self:GetNW2String("Class") == "Zombie" then return end
+	local cls = self:GetNW2String("Class")
+	if self.VoiceDelay > CurTime() or str == "" or cls == "Zombie" or cls == "CombineSoldier" or cls == "Maniac" or cls == "Entity" then return end
 	if isstring(self.LastVoiceLine) then
 		if IsValid(self:GetRD()) then
 			self:GetRD():StopSound(self.LastVoiceLine)
@@ -142,6 +145,26 @@ function meta:PlayVoiceLine(str, force)
 		if MuR.Gamemode != 14 then return end
 		snd = ")murdered/player/swat/arresting (" .. math.random(1,15) .. ").wav"
 		decibel = 65
+	elseif str == "ror_police_reportarrestedsuspect" then
+		if MuR.Gamemode != 14 then return end
+		snd = ")murdered/player/swat/reportarrestedsuspect (" .. math.random(1,16) .. ").wav"
+		decibel = 70
+	elseif str == "ror_police_reportcivilianarrested" then
+		if MuR.Gamemode != 14 then return end
+		snd = ")murdered/player/swat/reportcivilianarrested (" .. math.random(1,15) .. ").wav"
+		decibel = 70
+	elseif str == "ror_police_deadciv" then
+		if MuR.Gamemode != 14 then return end
+		snd = ")murdered/player/swat/deadciv (" .. math.random(1,11) .. ").wav"
+		decibel = 70
+	elseif str == "ror_police_deadsus" then
+		if MuR.Gamemode != 14 then return end
+		snd = ")murdered/player/swat/deadsus (" .. math.random(1,12) .. ").wav"
+		decibel = 70
+	elseif str == "ror_police_deadswat" then
+		if MuR.Gamemode != 14 then return end
+		snd = ")murdered/player/swat/deadswat (" .. math.random(1,12) .. ").wav"
+		decibel = 70
 	elseif str == "police_dropgun" then
 		snd = table.Random(police_voicelines["dropgun"])
 		decibel = 80
@@ -330,8 +353,22 @@ function meta:PlayVoiceLine(str, force)
 end
 
 concommand.Add("mur_ragdoll", function(ply)
-	if ply:Alive() then
-		ply:StartRagdolling()
+	if ply:Alive() and not ply:GetNW2Bool("IsUnconscious", false) then
+		local rag = ply:GetRD()
+		if IsValid(rag) then
+
+			local pos = MuR:BoneData(rag, "ValveBiped.Bip01_Pelvis")
+			if ply:TimeGetUp(true) and MuR:CheckHeight(rag, pos) < 72 and ply:CanGetUp() and not rag.Gibbed and not rag.IsNailed then
+				if MuR:CheckHeight(rag, pos) < 16 then
+					ply:StopRagdolling(false, true)
+				else
+					ply:StopRagdolling(false)
+				end
+			end
+		else
+
+			ply:StartRagdolling()
+		end
 	end
 end)
 
@@ -357,8 +394,6 @@ concommand.Add("mur_surrender", function(ply)
 	if not ply:Alive() then return end
 	ply:Surrender()
 end)
-
-----------ADMINS COMMANDS----------
 
 concommand.Add("mur_give", function(ply, cmd, args)
 	if ply:IsSuperAdmin() and args[1] then
@@ -476,7 +511,7 @@ end
 
 concommand.Add("mur_nexttraitor", function(ply, cmd, args)
 	if ply:IsSuperAdmin() and args[1] then
-		for _, ply in ipairs(player.GetAll()) do
+		for _, ply in player.Iterator() do
 			if args[1] and string.match(ply:Name(), args[1]) then
 				MuR.NextTraitor = ply
 			end
@@ -491,7 +526,7 @@ concommand.Add("mur_forcespawn", function(ply, cmd, args)
 	if ply:IsSuperAdmin() then
 		local plys = nil
 
-		for k, ply2 in pairs(player.GetAll()) do
+		for k, ply2 in player.Iterator() do
 			if string.match(ply2:Nick(), args[1]) then
 				plys = ply2
 				break
@@ -513,7 +548,7 @@ concommand.Add("mur_resetguilt_ply", function(ply, cmd, args)
 	if ply:IsSuperAdmin() then
 		local plys = nil
 
-		for k, ply2 in pairs(player.GetAll()) do
+		for k, ply2 in player.Iterator() do
 			if string.match(ply2:Nick(), args[1]) then
 				plys = ply2
 				break
@@ -528,7 +563,7 @@ concommand.Add("mur_explode", function(ply, cmd, args)
 	if ply:IsSuperAdmin() then
 		local plys = nil
 
-		for k, ply2 in pairs(player.GetAll()) do
+		for k, ply2 in player.Iterator() do
 			if string.match(ply2:Nick(), args[1]) then
 				plys = ply2
 				break
@@ -578,21 +613,21 @@ concommand.Add("mur_playersinfo", function(ply, cmd, args)
 		local output = "=== PLAYER LIST AND THEIR ROLES ===\n"
 		output = output .. string.format("PLAYER COUNT: %d\n", #players)
 		output = output .. string.format("MODE: %d\n", MuR.Gamemode or 0)
-		output = output .. "-----------------------------------\n"
-		
+		output = output .. "==============================\n"
+
 		for i, p in ipairs(players) do
 			local name = p:Nick()
 			local class = p:GetNW2String("Class", "Unknown")
 			local team = p:Team()
 			local alive = p:Alive() and "ALIVE" or "DEAD"
 			local guilt = p:GetNW2Float("Guilt", 0)
-			
+
 			output = output .. string.format("[%d] %s\n", i, name)
 			output = output .. string.format("    Role: %s | Team: %d | %s\n", class, team, alive)
 			output = output .. string.format("    Guilt: %.2f\n", guilt)
-			output = output .. "-----------------------------------\n"
+			output = output .. "------------------------------\n"
 		end
-		
+
 		print(output)
 	end
 end)
@@ -600,8 +635,36 @@ end)
 concommand.Add("mur_sandboxtoggle", function(ply)
 	if ply:IsSuperAdmin() then
 		if !MuR.EnableDebug then MuR.NextGamemode = 5 end
-		MuR:SendDataToClient("EnableDebug", !MuR.EnableDebug)
-		MuR:ChangeStateOfGame(false)
-		MuR.EnableDebug = !MuR.EnableDebug
+		local newvalue = !MuR.EnableDebug
+		MuR.EnableDebug = newvalue
+		MuR:SendDataToClient("EnableDebug", newvalue)
+		timer.Simple(1, function()
+			MuR:ChangeStateOfGame(false)
+		end)
+	end
+end)
+
+concommand.Add("mur_killnpcs", function(ply)
+	if ply:IsSuperAdmin() then
+		local count = 0
+		for _, npc in ents.Iterator() do
+			if npc:IsNPC() or npc:IsNextBot() then
+				npc:Remove()
+				count = count + 1
+			end
+		end
+		ply:ChatPrint("[MuR] Removed " .. count .. " NPCs")
+	end
+end)
+
+concommand.Add("mur_spawnbot", function(ply, cmd, args)
+	if ply:IsSuperAdmin() then
+		local bot = player.CreateNextBot("bot")
+		if IsValid(bot) then
+			bot.ForceSpawn = true
+			bot:Spawn()
+			bot:SetPos(ply:GetEyeTrace().HitPos + Vector(0,0,16))
+			bot.KickAfterDeath = true
+		end
 	end
 end)

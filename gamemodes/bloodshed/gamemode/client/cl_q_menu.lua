@@ -1,4 +1,4 @@
-local selectorRadius = 256
+﻿local selectorRadius = 256
 local selectorCenterX, selectorCenterY = ScrW() / 2, ScrH() / 2
 local iconSize = 128
 
@@ -46,22 +46,12 @@ local icons = {
 		description = MuR.Language["use_6"]
 	},
 	{
-		material = Material("murdered/icons/aeditor.png"),
+		material = Material("murdered/icons/armor.png"),
 		onClick = function()
-			LocalPlayer():ConCommand("mur_animation_creator")
+			LocalPlayer():ConCommand("mur_armor_panel")
 		end,
-		description = MuR.Language["use_7"]
+		description = MuR.Language["use_armor"] or "Управление бронёй"
 	},
-	{
-		material = Material("murdered/icons/playanim.png"),
-		onClick = function()
-			LocalPlayer():ConCommand("mur_animation_play")
-		end,
-		description = MuR.Language["use_8"]
-	},
-}
-
-local adminIcons = {
 	{
 		material = Material("murdered/icons/spawnmenu.png"),
 		onClick = function()
@@ -73,17 +63,8 @@ local adminIcons = {
 		end,
 		description = "Spawnmenu",
 		admin = true
-	}
+	},
 }
-
-timer.Create("SetTablesIconsQMENU", 1, 0, function()
-	if IsValid(LocalPlayer()) then
-		if LocalPlayer():IsSuperAdmin() or MuR.EnableDebug then
-			table.Add(icons, adminIcons)
-		end
-		timer.Remove("SetTablesIconsQMENU")
-	end
-end)
 
 local fadeDuration = 0.2
 local fadeState = 0
@@ -178,79 +159,24 @@ local stamicon = Material("murdered/run.png", "smooth")
 
 local function drawSelector()
 	local curTime = CurTime()
-	local iconCount = #icons
+	local ply = LocalPlayer()
+
+	local currentIcons = {}
+	for _, icon in ipairs(icons) do
+		if icon.admin and not (ply:IsSuperAdmin() or MuR.EnableDebug) then continue end
+		table.insert(currentIcons, icon)
+	end
+
+	local iconCount = #currentIcons
 	drawCircle(selectorCenterX, selectorCenterY, selectorRadius, 64)
 	local hoveredIcon = nil
 	local lastHoverSoundPlayed = 0
-	local ply = LocalPlayer()
 	local class = ply:GetNW2String('Class')
-	local classname = MuR.Language["civilian"]
-	local jcolor = Color(100, 150, 200, fadeState * 255)
+    local roleData = MuR:GetRole(class) or MuR:GetRole("Civilian")
 
-	if class == "Killer" then
-		classname = MuR.Language["murderer"]
-		jcolor = Color(200, 50, 50)
-	elseif class == "Traitor" then
-		classname = MuR.Language["traitor"]
-		jcolor = Color(200, 50, 50)
-	elseif class == "Attacker" then
-		classname = MuR.Language["rioter"]
-		jcolor = Color(200, 50, 50)
-	elseif class == "Terrorist" or class == "Terrorist2" then
-		classname = MuR.Language["terrorist"]
-		jcolor = Color(200, 50, 50)
-	elseif class == "Maniac" then
-		classname = MuR.Language["maniac"]
-		jcolor = Color(200, 50, 50)
-	elseif class == "Shooter" then
-		classname = MuR.Language["shooter"]
-		jcolor = Color(200, 50, 50)
-	elseif class == "Zombie" then
-		classname = MuR.Language["zombie"]
-		jcolor = Color(200, 50, 50)
-	elseif class == "Hunter" or class == "Defender" then
-		classname = MuR.Language["defender"]
-		jcolor = Color(50, 75, 175)
-	elseif class == "Medic" then
-		classname = MuR.Language["medic"]
-		jcolor = Color(50, 120, 50)
-	elseif class == "Builder" then
-		classname = MuR.Language["builder"]
-		jcolor = Color(50, 120, 50)
-	elseif class == "Soldier" then
-		classname = MuR.Language["soldier"]
-		jcolor = Color(250, 150, 0)
-	elseif class == "Officer" then
-		classname = MuR.Language["officer"]
-		jcolor = Color(75, 100, 200)
-	elseif class == "FBI" then
-		classname = MuR.Language["fbiagent"]
-		jcolor = Color(75, 100, 200)
-	elseif class == "Riot" then
-		classname = MuR.Language["riotpolice"]
-		jcolor = Color(75, 100, 200)
-	elseif class == "SWAT" or class == "ArmoredOfficer" then
-		classname = MuR.Language["swat"]
-		jcolor = Color(75, 100, 200)
-	elseif class == "Criminal" then
-		classname = MuR.Language["criminal"]
-		jcolor = Color(255, 120, 60)
-	elseif class == "HeadHunter" then
-		classname = MuR.Language["headhunter"]
-		jcolor = Color(255, 120, 60)
-	elseif class == "Witness" then
-		classname = MuR.Language["witness"]
-		jcolor = Color(50, 120, 50)
-	elseif class == "Security" then
-		classname = MuR.Language["security"]
-		jcolor = Color(25, 25, 255)
-	elseif class == "GangRed" then
-		classname = MuR.Language["gangred"]
-		jcolor = Color(200, 50, 50)
-	elseif class == "GangGreen" then
-		classname = MuR.Language["ganggreen"]
-		jcolor = Color(50, 200, 50)
-	end
+	local classname = MuR.Language[roleData.langName] or roleData.langName
+    local baseColor = roleData.color or Color(100, 150, 200)
+	local jcolor = Color(baseColor.r, baseColor.g, baseColor.b, fadeState * 255)
 
 	local money = ply:GetNW2Float('Money')
 
@@ -278,8 +204,7 @@ local function drawSelector()
 		end
 	end
 
-	for i, icon in ipairs(icons) do
-		if isbool(icon.admin) and !LocalPlayer():IsSuperAdmin() then continue end
+	for i, icon in ipairs(currentIcons) do
 		local angle = math.rad((i - 1) / iconCount * 360 + curTime * 0)
 		local x, y = selectorCenterX + math.cos(angle) * selectorRadius, selectorCenterY + math.sin(angle) * selectorRadius
 		local mouseX, mouseY = gui.MousePos()

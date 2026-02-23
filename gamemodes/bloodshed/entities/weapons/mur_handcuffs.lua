@@ -68,9 +68,16 @@ function SWEP:CustomPrimaryAttack()
                     ow:ChangeGuilt(3)
                     MuR:GiveAnnounce("officerguilt2", ow)
                 end
+                if MuR.Gamemode == 14 and MuR.Mode14Report then
+                    MuR:Mode14Report(ow, target)
+                else
+                    ow:PlayVoiceLine("ror_police_reportarrestedsuspect")
+                end
             end)
         elseif IsValid(tar) and (tar:IsNPC() and ow:IsAtBack(tar) and tar.Surrendering) then
             local target = tar
+            local isSuspect = tar.IsSuspect
+            if isSuspect == nil then isSuspect = IsValid(tar:GetActiveWeapon()) end
             local id = math.random(1,6)
             local anim = "sequence_ron_arrest_start_player_0" .. id
             local anim2 = "sequence_ron_arrest_start_npc_0" .. id
@@ -101,6 +108,19 @@ function SWEP:CustomPrimaryAttack()
                 ow:SetNotSolid(false)
                 if !IsValid(ent) then return end
                 ent:ResetSequence("sequence_ron_arrest_wiggleloop")
+                
+                if MuR.Gamemode == 14 and MuR.Mode14Report then
+                    local rType = "suspect"
+                    if tar.IsHostage then rType = "hostage" elseif tar.IsCivilian or not isSuspect then rType = "civilian" end
+                    ent:SetNW2String("RoN_Type", rType)
+                    MuR:Mode14Report(ow, ent)
+                else
+                    if isSuspect then
+                        ow:PlayVoiceLine("ror_police_reportarrestedsuspect")
+                    else
+                        ow:PlayVoiceLine("ror_police_reportcivilianarrested")
+                    end
+                end
             end)
         end
 

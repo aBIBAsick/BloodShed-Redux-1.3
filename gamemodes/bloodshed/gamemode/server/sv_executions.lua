@@ -1,4 +1,4 @@
-local meta = FindMetaTable("Player")
+﻿local meta = FindMetaTable("Player")
 
 local outlast_exec_anims = {
 	["long_choke"] = {
@@ -78,7 +78,7 @@ local hatred_anim_effects = {
     ["mur_hatred_rifle_front_attacker5"] = {[53/30] = "gunshot"},
     ["mur_hatred_rifle_front_attacker6"] = {[46/30] = "gunshot"},
     ["mur_hatred_rifle_front_attacker7"] = {[59/30] = "gunshot", [63/30] = "gunshot", [67/30] = "gunshot", [78/30] = "gunshot"},
-    
+
     ["mur_hatred_pistol_back_attacker1"] = {[50/30] = "gunshot"},
     ["mur_hatred_pistol_back_attacker2"] = {[23/30] = "gunshot"},
     ["mur_hatred_pistol_back_attacker3"] = {[29/30] = "lift", [60/30] = "gunshot"},
@@ -93,7 +93,7 @@ local hatred_anim_effects = {
     ["mur_hatred_pistol_front_attacker5"] = {[48/30] = "gunshot", [62/30] = "gunshot", [81/30] = "gunshot"},
     ["mur_hatred_pistol_front_attacker6"] = {[52/30] = "gunshot", [102/30] = "gunshot"},
     ["mur_hatred_pistol_front_attacker7"] = {[24/30] = "lift", [49/30] = "pistolpunch"},
-    
+
     ["mur_hatred_shotgun_back_attacker1"] = {[54/30] = "gunshot"},
     ["mur_hatred_shotgun_back_attacker2"] = {[47/30] = "gunshot"},
     ["mur_hatred_shotgun_back_attacker3"] = {[41/30] = "gunshot"},
@@ -154,15 +154,13 @@ local hatred_anim_deathtime = {
     ["mur_hatred_rifle_front_attacker5"] = 54/30,
     ["mur_hatred_rifle_front_attacker6"] = 47/30,
     ["mur_hatred_rifle_front_attacker7"] = 79/30,
-    
+
     ["mur_hatred_shotgun_back_attacker1"] = 56/30,
     ["mur_hatred_shotgun_back_attacker2"] = 49/30,
     ["mur_hatred_shotgun_back_attacker3"] = 43/30,
     ["mur_hatred_shotgun_front_attacker1"] = 79/30,
     ["mur_hatred_shotgun_front_attacker2"] = 33/30,
 }
-
------------------------
 
 local function PlayRandomSound(ent, min, max, str, format)
 	if not format then
@@ -260,8 +258,7 @@ end
 
 local function effects_takedown(ply, targetModel, animName)
     if animName == "executions_angrystrangler_killer_front" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -272,11 +269,9 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(3.0, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-	
-	    ---------------------------- Foley
+
 	    timer.Simple(0.8, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
@@ -297,9 +292,7 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 7, "trials/foley/FOL_BigGrunt_Torso_Long0") 
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
@@ -312,14 +305,11 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
+
 	end
-	
-	-----------------------------------------------------------
+
 	if animName == "executions_angrystrangler_killer_back" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.3, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -330,107 +320,92 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(3.0, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.9, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		
+
 		timer.Simple(2.4, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		
+
 		timer.Simple(3.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
-	end
-	
-    -----------------------------------------------------------
-	if animName == "executions_angrystrangler_killer_left" then
-	
-	    ---------------------------- Main
-		timer.Simple(0.1, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
-        end)
-		timer.Simple(2.9, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			sound.Play("trials/executions/SFX_Scripted_Murder_Grunt_AngryStrangler.mp3", ply:GetPos(), 55) 
-        end)
-		timer.Simple(3.0, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
-        end)
-		----------------------------
-		
-		---------------------------- Footsteps
-		timer.Simple(1.9, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
-        end)
-		
-		timer.Simple(2.4, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
-        end)
-		
-		timer.Simple(3.1, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
-        end)
-		----------------------------
-		
-	end
-	
-	-----------------------------------------------------------
-	if animName == "executions_angrystrangler_killer_right" then
-	
-	    ---------------------------- Main
-		timer.Simple(0.1, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
-        end)
-		timer.Simple(2.9, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			sound.Play("trials/executions/SFX_Scripted_Murder_Grunt_AngryStrangler.mp3", ply:GetPos(), 55) 
-        end)
-		timer.Simple(3.0, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
-        end)
-		----------------------------
-		
-		---------------------------- Footsteps
-		timer.Simple(1.9, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
-        end)
-		
-		timer.Simple(2.4, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
-        end)
-		
-		timer.Simple(3.1, function()
-		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
-        end)
-		----------------------------
-		
+
 	end
 
-	------------------------------------------------------------
+	if animName == "executions_angrystrangler_killer_left" then
+
+		timer.Simple(0.1, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
+        end)
+		timer.Simple(2.9, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			sound.Play("trials/executions/SFX_Scripted_Murder_Grunt_AngryStrangler.mp3", ply:GetPos(), 55) 
+        end)
+		timer.Simple(3.0, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+
+        end)
+
+		timer.Simple(1.9, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
+        end)
+
+		timer.Simple(2.4, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
+        end)
+
+		timer.Simple(3.1, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
+        end)
+
+	end
+
+	if animName == "executions_angrystrangler_killer_right" then
+
+		timer.Simple(0.1, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
+        end)
+		timer.Simple(2.9, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			sound.Play("trials/executions/SFX_Scripted_Murder_Grunt_AngryStrangler.mp3", ply:GetPos(), 55) 
+        end)
+		timer.Simple(3.0, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+
+        end)
+
+		timer.Simple(1.9, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
+        end)
+
+		timer.Simple(2.4, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
+        end)
+
+		timer.Simple(3.1, function()
+		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
+			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
+        end)
+
+	end
+
     if animName == "executions_footschoke_killer_front" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.4, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -441,11 +416,9 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-	
-	    ---------------------------- Foley
+
 	    timer.Simple(0.8, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
@@ -458,9 +431,7 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 6, "trials/foley/FOL_BigGrunt_Torso_Long0") 
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
@@ -473,14 +444,11 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
+
 	end
-	
-	------------------------------------------------------------
+
     if animName == "executions_footschoke_killer_back" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.2, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -491,11 +459,9 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-	
-	    ---------------------------- Foley
+
 	    timer.Simple(0.8, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
@@ -508,9 +474,7 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 6, "trials/foley/FOL_BigGrunt_Torso_Long0") 
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
@@ -523,14 +487,11 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
+
 	end
 
-    ------------------------------------------------------------
     if animName == "executions_footschoke_killer_right" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -541,11 +502,9 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-	
-	    ---------------------------- Foley
+
 	    timer.Simple(0.8, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
@@ -558,9 +517,7 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 6, "trials/foley/FOL_BigGrunt_Torso_Long0") 
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
@@ -569,14 +526,11 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
+
 	end
-    
-    ------------------------------------------------------------
+
     if animName == "executions_footschoke_killer_left" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -587,11 +541,9 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-	
-	    ---------------------------- Foley
+
 	    timer.Simple(0.8, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
@@ -604,9 +556,7 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 6, "trials/foley/FOL_BigGrunt_Torso_Long0") 
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
@@ -615,14 +565,11 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
+
 	end
-	
-	------------------------------------------------------------
+
     if animName == "executions_quietchoke_killer_back" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.2, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -633,11 +580,9 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-	
-	    ---------------------------- Foley
+
 	    timer.Simple(0.8, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
@@ -658,9 +603,7 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.9, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
@@ -673,14 +616,11 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
+
 	end
-    
-	------------------------------------------------------------
+
     if animName == "executions_quietchoke_killer_front" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.5, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -691,11 +631,9 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-	
-	    ---------------------------- Foley
+
 	    timer.Simple(0.8, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
@@ -716,9 +654,7 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.9, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
@@ -731,14 +667,11 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
+
 	end
-	
-	------------------------------------------------------------
+
     if animName == "executions_quietchoke_killer_left" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -749,11 +682,9 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-	
-	    ---------------------------- Foley
+
 	    timer.Simple(0.8, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
@@ -774,9 +705,7 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
@@ -785,14 +714,11 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
+
 	end
-	
-	------------------------------------------------------------
+
     if animName == "executions_quietchoke_killer_right" then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -803,11 +729,9 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		----------------------------
-	
-	    ---------------------------- Foley
+
 	    timer.Simple(0.8, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
@@ -828,9 +752,7 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
             PlayRandomSound(ply, 1, 4, "trials/foley/FOL_BigGrunt_Legs_Long0") 
         end)
-		----------------------------
-		
-		---------------------------- Footsteps
+
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
@@ -839,13 +761,11 @@ local function effects_takedown(ply, targetModel, animName)
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			PlayRandomSound(ply, 1, 4, "player/footsteps/concrete", ".wav") 
         end)
-		----------------------------
-		
+
 	end
 
 	if string.match(animName, "executions_knifeeat_killer_") then
-	
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -856,15 +776,13 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
-		
+
 	end
-	
-	------------------------------------------------------------
+
     if string.match(animName, "executions_gutting_killer_") then
 
-	    ---------------------------- Main
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -875,13 +793,12 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(1.7, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
 	end
 
 	if string.match(animName, "executions_stabcutthroat_killer_") then
 
-	    ---------------------------- Main
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -892,12 +809,12 @@ local function effects_takedown(ply, targetModel, animName)
         end)
 		timer.Simple(2, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
-			--sound.Play("trials/music/MU_Fatalities_Riser_10sec.mp3", ply:GetPos(), 55) 
+
         end)
 	end
 
 	if animName == "executions_stampy_killer_front" then
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -909,7 +826,7 @@ local function effects_takedown(ply, targetModel, animName)
 	end
 
 	if animName == "executions_stampy_killer_right" then
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -921,7 +838,7 @@ local function effects_takedown(ply, targetModel, animName)
 	end
 
 	if animName == "executions_stampy_killer_left" then
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -933,7 +850,7 @@ local function effects_takedown(ply, targetModel, animName)
 	end
 
 	if animName == "executions_stampy_killer_back" then
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -943,9 +860,9 @@ local function effects_takedown(ply, targetModel, animName)
 			sound.Play("trials/executions/SFX_Scripted_Murder_Grunt_Stampy.mp3", ply:GetPos(), 55) 
         end)
 	end
-	
+
 	if animName == "executions_facestab_killer_front" then
-	    ---------------------------- Main
+
 		timer.Simple(0.5, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -988,7 +905,7 @@ local function effects_takedown(ply, targetModel, animName)
 	end
 
 	if animName == "executions_facestab_killer_left" then
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -1031,7 +948,7 @@ local function effects_takedown(ply, targetModel, animName)
 	end
 
 	if animName == "executions_facestab_killer_left" then
-	    ---------------------------- Main
+
 		timer.Simple(0.1, function()
 		    if !IsValid(targetModel) or !IsValid(ply) or !ply:IsExecuting() then return end
 			sound.Play("trials/executions/SFX_Murder_IntroKick.mp3", ply:GetPos(), 55) 
@@ -1074,7 +991,7 @@ local function effects_takedown(ply, targetModel, animName)
 	end
 
 	if animName == "executions_facestab_killer_back" then
-	    ---------------------------- Main
+
 		if IsValid(ply.AnimEffects) then
 			ply.AnimEffects:SetBodygroup(1,1)
 		end
@@ -1135,7 +1052,7 @@ local function GetFinishingDirection(victim, attacker, hatred)
     if targetAngle < 0 then
         targetAngle = targetAngle + 360
     end
-    
+
     local angleAround = vec - targetAngle
     if angleAround > 360 then
         angleAround = angleAround - 360
@@ -1195,7 +1112,6 @@ local function add_wepmod(ply, anim)
 	ply.AnimPropWeapon = w
 end
 
-
 local function killtarget(tar, att)
     tar:SetNotSolid(false)
     tar:Freeze(false)
@@ -1233,8 +1149,8 @@ local function killtarget(tar, att)
 end
 
 function meta:Takedown()
-	if self:IsFlagSet(FL_FROZEN) or !self:OnGround() or !self:Alive() or self:GetNoDraw() or !self:IsKiller() or self:IsExecuting() or self:GetNW2Float('Stamina') < 50 then return end
-	
+	if self:IsFlagSet(FL_FROZEN) or !self:OnGround() or !self:Alive() or self:GetNoDraw() or !self:IsKiller() or self:IsExecuting() then return end
+
 	local tar = nil
 	local tr = util.TraceLine( {
 		start = self:EyePos(),
@@ -1324,7 +1240,7 @@ function meta:FullTakedown(forceent)
 		tar_anim, att_anim = rnd_anim..side.."_victim"..id, rnd_anim..side.."_attacker"..id
 		spawncam = false
 	end
-	
+
     local id, dur = self:LookupSequence(att_anim)
 	if dur < 1 then return end
 
@@ -1390,7 +1306,7 @@ hook.Add("PlayerPostThink", "MuR_Takedown", function(ply)
         	ply:SetActiveWeapon(nil)
 		end
 		ply:SetNW2Float("Stamina", 10)
-        
+
         local att = ply.Executor
         if IsValid(att) then
             ply:SetPos(att:GetPos())

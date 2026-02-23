@@ -79,5 +79,5 @@ function SWEP:DrawHUD()
 	local ply = self:GetOwner()
 	draw.SimpleText(MuR.Language["loot_cyanide"], "MuR_Font1", ScrW()/2, ScrH()-He(100), color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 end
-SWEP.Category = "Bloodshed - Illegal"
+SWEP.Category = "Bloodshed - Agents"
 SWEP.Spawnable = true

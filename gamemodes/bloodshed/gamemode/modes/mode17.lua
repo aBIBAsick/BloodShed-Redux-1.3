@@ -1,8 +1,11 @@
-MuR.RegisterMode(17, {
+﻿MuR.RegisterMode(17, {
     name = "Territory Control (Gang Wars)",
     chance = 20,
     need_players = 4,
     disables = true,
+    no_default_roles = true,
+    custom_spawning = true,
+    no_win_screen = true,
     no_guilt = true,
     timer = 600,
     countdown_on_start = true,
@@ -18,20 +21,20 @@ MuR.RegisterMode(17, {
                 PoliceArriveTime = CurTime() + 540,
                 RoundEnded = false
             }
-            
+
             local playerCount = player.GetCount()
             local pointCount = 2
             if playerCount > 7 then pointCount = 3 end
             if playerCount > 13 then pointCount = 4 end
-            
+
             local spawnedPoints = 0
             local attempts = 0
             local maxAttempts = 300
-            
+
             while spawnedPoints < pointCount and attempts < maxAttempts do
                 attempts = attempts + 1
                 local pos = MuR:GetRandomPos(nil, nil, nil, nil, true)
-                
+
                 if pos then
                     local tooClose = false
                     for _, point in pairs(MuR.Mode17.Points) do
@@ -40,7 +43,7 @@ MuR.RegisterMode(17, {
                             break
                         end
                     end
-                    
+
                     if not tooClose then
                         local isIndoor = false
                         local traceUp = util.TraceLine({
@@ -48,18 +51,18 @@ MuR.RegisterMode(17, {
                             endpos = pos + Vector(0, 0, 500),
                             mask = MASK_SOLID_BRUSHONLY
                         })
-                        
+
                         if traceUp.Hit and traceUp.HitPos.z - pos.z < 300 then
                             isIndoor = true
                         end
-                        
+
                         local shouldSpawn = false
                         if isIndoor then
                             shouldSpawn = math.random(1, 100) <= 75
                         else
                             shouldSpawn = math.random(1, 100) <= 25
                         end
-                        
+
                         if shouldSpawn then
                             local point = ents.Create("prop_physics")
                             point:SetModel("models/props/CS_militia/footlocker01_closed.mdl")
@@ -73,7 +76,7 @@ MuR.RegisterMode(17, {
                             point.ControlTeam = 0
                             point.CaptureProgress = 0
                             point.MaxCapture = 100
-                            
+
                             local light = ents.Create("light_dynamic")
                             light:SetPos(pos + Vector(0, 0, 48))
                             light:SetKeyValue("_light", "255 255 255 200")
@@ -81,9 +84,9 @@ MuR.RegisterMode(17, {
                             light:SetKeyValue("distance", "256")
                             light:Spawn()
                             light:Fire("TurnOn")
-                            
+
                             point.Light = light
-                            
+
                             MuR.Mode17.Points[spawnedPoints + 1] = {
                                 entity = point,
                                 pos = pos,
@@ -95,11 +98,31 @@ MuR.RegisterMode(17, {
                     end
                 end
             end
-            
+
             util.AddNetworkString("MuR.Mode17Score")
             util.AddNetworkString("MuR.Mode17Points")
-            
+
             MuR:SendMode17Data()
+
+            timer.Create("MuR_Mode17_CorpseCleanup", 30, 0, function()
+                if MuR.Gamemode == 17 then
+                    for _, ent in ipairs(ents.FindByClass("prop_ragdoll")) do
+                        if not IsValid(ent) then continue end
+                        local isLive = false
+                        for _, ply in player.Iterator() do
+                            if ply:Alive() and ply:GetNW2Entity("RD_EntCam") == ent then
+                                isLive = true
+                                break
+                            end
+                        end
+                        if not isLive then
+                            ent:Remove()
+                        end
+                    end
+                else
+                    timer.Remove("MuR_Mode17_CorpseCleanup")
+                end
+            end)
         end
     end,
     OnModeThink = function(mode)
@@ -110,13 +133,13 @@ MuR.RegisterMode(17, {
                 MuR.PoliceState = 1
                 MuR:PlayDispatch("gunfire")
             end
-            
+
             for i, pointData in pairs(MuR.Mode17.Points) do
                 local point = pointData.entity
                 if IsValid(point) then
                     local nearbyPlayers = {[1] = {}, [2] = {}}
-                    
-                    for _, ply in pairs(player.GetAll()) do
+
+                    for _, ply in player.Iterator() do
                         if ply:Alive() and ply:GetPos():DistToSqr(point:GetPos()) < 160000 then
                             local team = ply:Team()
                             if team == 1 or team == 2 then
@@ -124,10 +147,10 @@ MuR.RegisterMode(17, {
                             end
                         end
                     end
-                    
+
                     local team1Count = #nearbyPlayers[1]
                     local team2Count = #nearbyPlayers[2]
-                    
+
                     if team1Count > 0 and team2Count == 0 then
                         pointData.progress = math.min(pointData.progress + (team1Count * FrameTime() * 2), 100)
                         if pointData.progress >= 100 and pointData.team ~= 1 then
@@ -158,7 +181,7 @@ MuR.RegisterMode(17, {
                         elseif pointData.progress < 0 then
                             pointData.progress = math.min(pointData.progress + FrameTime() * 0.5, 0)
                         end
-                        
+
                         if pointData.progress == 0 and pointData.team ~= 0 then
                             pointData.team = 0
                             point:SetColor(Color(255, 255, 255))
@@ -169,11 +192,11 @@ MuR.RegisterMode(17, {
                     end
                 end
             end
-            
+
             local team1Points = 0
             local team2Points = 0
             local totalPoints = 0
-            
+
             for _, pointData in pairs(MuR.Mode17.Points) do
                 totalPoints = totalPoints + 1
                 if pointData.team == 1 then
@@ -182,10 +205,10 @@ MuR.RegisterMode(17, {
                     team2Points = team2Points + 1
                 end
             end
-            
+
             if totalPoints > 0 then
                 local scoreChangeRate = FrameTime() * (MuR.Mode17.MaxScore / 60)
-                
+
                 if team1Points == team2Points then
                 elseif team1Points > team2Points then
                     local advantage = (team1Points - team2Points) / totalPoints
@@ -196,26 +219,26 @@ MuR.RegisterMode(17, {
                     local team2Gain = scoreChangeRate * advantage
                     MuR.Mode17.TeamScores[2] = math.min(MuR.Mode17.TeamScores[2] + team2Gain, MuR.Mode17.MaxScore)
                 end
-                
+
                 local totalScore = MuR.Mode17.TeamScores[1] + MuR.Mode17.TeamScores[2]
                 if totalScore > MuR.Mode17.MaxScore then
                     local ratio1 = MuR.Mode17.TeamScores[1] / totalScore
                     local ratio2 = MuR.Mode17.TeamScores[2] / totalScore
-                    
+
                     MuR.Mode17.TeamScores[1] = ratio1 * MuR.Mode17.MaxScore
                     MuR.Mode17.TeamScores[2] = ratio2 * MuR.Mode17.MaxScore
                 end
             end
-            
+
             MuR:SendMode17Data()
-            
+
             if not MuR.Mode17.RoundEnded then
                 if !MuR.Mode17.PoliceDisabled then
                     MuR.Delay_Before_Lose = CurTime() + 8
                 end
                 if MuR.Mode17.TeamScores[1] >= MuR.Mode17.MaxScore then
                     MuR.Mode17.RoundEnded = true
-                    for _, ply in pairs(player.GetAll()) do
+                    for _, ply in player.Iterator() do
                         if ply:Team() == 1 then
                             ply:AddMoney(250)
                         elseif ply:Team() == 2 and ply:Alive() then
@@ -230,7 +253,7 @@ MuR.RegisterMode(17, {
                     return
                 elseif MuR.Mode17.TeamScores[2] >= MuR.Mode17.MaxScore then
                     MuR.Mode17.RoundEnded = true
-                    for _, ply in pairs(player.GetAll()) do
+                    for _, ply in player.Iterator() do
                         if ply:Team() == 2 then
                             ply:AddMoney(250)
                         elseif ply:Team() == 1 and ply:Alive() then
@@ -278,14 +301,14 @@ if SERVER then
             end)
         end
     end)
-    
+
     function MuR:SendMode17Data()
         if MuR.Mode17 then
             net.Start("MuR.Mode17Score")
             net.WriteTable(MuR.Mode17.TeamScores)
             net.WriteInt(MuR.Mode17.MaxScore, 16)
             net.Broadcast()
-            
+
             local pointsData = {}
             for i, pointData in pairs(MuR.Mode17.Points) do
                 pointsData[i] = {
@@ -294,7 +317,7 @@ if SERVER then
                     progress = pointData.progress
                 }
             end
-            
+
             net.Start("MuR.Mode17Points")
             net.WriteTable(pointsData)
             net.Broadcast()
@@ -312,19 +335,19 @@ if CLIENT then
     end
 
     MuR.Mode17Client = MuR.Mode17Client or {TeamScores = {[1] = 0, [2] = 0}, MaxScore = 100, Points = {}}
-    
+
     net.Receive("MuR.Mode17Score", function()
         local scores = net.ReadTable()
         local maxScore = net.ReadInt(16)
         MuR.Mode17Client.TeamScores = scores
         MuR.Mode17Client.MaxScore = maxScore
     end)
-    
+
     net.Receive("MuR.Mode17Points", function()
         local pointsData = net.ReadTable()
         MuR.Mode17Client.Points = pointsData
     end)
-    
+
     hook.Add("HUDPaint", "MuR.Mode17HUD", function()
         if MuR.GamemodeCount == 17 and MuR.DrawHUD and not MuR:GetClient("blsd_nohud") then
             local scrW, scrH = ScrW(), ScrH()
@@ -332,39 +355,39 @@ if CLIENT then
             local barHeight = He(20)
             local barX = (scrW - barWidth) / 2
             local barY = He(80)
-            
+
             local team1Score = MuR.Mode17Client.TeamScores[1] or 0
             local team2Score = MuR.Mode17Client.TeamScores[2] or 0
             local maxScore = MuR.Mode17Client.MaxScore or 100
-            
+
             local team1Progress = team1Score / maxScore
             local team2Progress = team2Score / maxScore
-            
+
             draw.SimpleText("Ballas", "MuR_Font2", barX, barY - He(20), Color(200, 50, 50), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
             draw.SimpleText("Grove", "MuR_Font2", barX + barWidth, barY - He(20), Color(50, 200, 50), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
-            
+
             draw.RoundedBox(4, barX - 2, barY - 2, barWidth + 4, barHeight + 4, Color(0, 0, 0, 150))
-            
+
             local team1Width = barWidth * team1Progress
             local team2Width = barWidth * team2Progress
-            
+
             if team1Width + team2Width > barWidth then
                 local totalProgress = team1Progress + team2Progress
                 team1Width = barWidth * (team1Progress / totalProgress)
                 team2Width = barWidth * (team2Progress / totalProgress)
             end
-            
+
             if team1Width > 0 then
                 draw.RoundedBox(2, barX, barY, team1Width, barHeight, Color(200, 50, 50, 200))
             end
-            
+
             if team2Width > 0 then
                 draw.RoundedBox(2, barX + barWidth - team2Width, barY, team2Width, barHeight, Color(50, 200, 50, 200))
             end
-            
+
             draw.SimpleText(string.format("%d", team1Score), "MuR_Font3", barX - We(10), barY + barHeight/2, Color(200, 50, 50), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
             draw.SimpleText(string.format("%d", team2Score), "MuR_Font3", barX + barWidth + We(10), barY + barHeight/2, Color(50, 200, 50), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-            
+
             for i, point in pairs(MuR.Mode17Client.Points) do
                 if point.pos then
                     local screenPos = point.pos:ToScreen()
@@ -375,7 +398,7 @@ if CLIENT then
                         elseif point.team == 2 then
                             color = Color(50, 200, 50)
                         end
-                        
+
                         draw.SimpleText("●", "DermaLarge", screenPos.x, screenPos.y, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
                         local progress = math.abs(point.progress or 0)
                         if progress > 0 and progress < 100 then
