@@ -332,6 +332,7 @@ MuR.RegisterMode(14, {
 				if IsValid(npc) then
 					MuR.Mode14.NPCSpawned = MuR.Mode14.NPCSpawned + 1
 					MuR.Mode14.SpawnDelay = CurTime() + MuR.Mode14.SpawnInterval
+					MuR:SendMode14Objectives()
 				end
 			end
 		end
@@ -384,8 +385,9 @@ if SERVER then
 			end
 		end
 
-		local suspectsComplete = suspectsAlive == 0 and MuR.Mode14.NPCSpawned >= MuR.Mode14.NPCToSpawn
-		local civiliansComplete = civiliansAlive == 0
+		local allNPCsSpawned = MuR.Mode14.NPCSpawned >= MuR.Mode14.NPCToSpawn
+		local suspectsComplete = suspectsAlive == 0 and allNPCsSpawned
+		local civiliansComplete = civiliansAlive == 0 and allNPCsSpawned
 
 		net.Start("MuR.Mode14Objectives")
 		net.WriteBool(suspectsComplete)
