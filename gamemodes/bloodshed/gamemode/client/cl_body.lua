@@ -37,6 +37,7 @@ end
 local bones = {}
 local bonesName = {}
 local forwardDistance = 16
+local eyePos
 local queue = {}
 local work = false
 local lowerbody = false
@@ -484,6 +485,10 @@ hook.Add("LocalPlayer_Validated", "mur_gmod_legs", function(ply)
 		SetCycle(ply.Body, cycle)
 
 		local currentView = ply:GetCurrentViewOffset()
+		local viewOffset = currentView
+		if isvector(eyePos) then
+			viewOffset = eyePos - getPos
+		end
 		local forward = eyeAngles:Forward() * forwardDistance
 
 		ply.TimeToFaggot = math.Clamp((ply.TimeToFaggot or 0) + FT * (ply:Crouching() and 4 or 10000) * (not onGround and 1 or -1), 0, 1)
@@ -495,7 +500,7 @@ hook.Add("LocalPlayer_Validated", "mur_gmod_legs", function(ply)
 		faggot = (not onGround or limitJump > CurTime()) and getView - currentView or vector_origin
 
 		finalPos = getPos
-			+ currentView
+			+ viewOffset
 			+ forward
 			+ (faggot * ply.TimeToFaggot)
 	end)
