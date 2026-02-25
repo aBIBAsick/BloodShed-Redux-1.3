@@ -1500,7 +1500,22 @@ hook.Add("AllowPlayerPickup", "MuR_DisableUseProp", function(ply, ent) return fa
 
 function meta:Suicide()
 	local wep = self:GetActiveWeapon()
-	if timer.Exists("MindControl_" .. self:EntIndex()) or self.Suiciding or not IsValid(wep) or wep:GetMaxClip1() <= 0 and not wep.Melee or wep.DisableSuicide or self:GetSVAnim() != "" then return false end
+	if timer.Exists("MindControl_" .. self:EntIndex()) or self.Suiciding or not IsValid(wep) or wep.DisableSuicide or self:GetSVAnim() != "" then return false end
+
+	-- причуда века
+	if not wep.Melee then
+		local maxclip = wep:GetMaxClip1() or 0
+		if maxclip > 0 then
+			if wep:Clip1() <= 0 then return false end
+		else
+			local ammoType = wep:GetPrimaryAmmoType()
+			if ammoType and ammoType > 0 then
+				if self:GetAmmoCount(ammoType) <= 0 then return false end
+			else
+				return false
+			end
+		end
+	end
 
 	local delay, delay2, anim = 0.8, 1, "mur_suicide"
 
