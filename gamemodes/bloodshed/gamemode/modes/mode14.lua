@@ -461,11 +461,11 @@ if CLIENT then
 	local compassDirs = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
 	local compassMat = Material("vgui/gradient-l")
 
-	surface.CreateFont("RoN_Font_Small", {font = "Roboto Condensed", size = He(14), weight = 500, antialias = true})
-	surface.CreateFont("RoN_Font_Medium", {font = "Roboto Condensed", size = He(18), weight = 500, antialias = true})
-	surface.CreateFont("RoN_Font_Large", {font = "Roboto Condensed", size = He(24), weight = 700, antialias = true})
-	surface.CreateFont("RoN_Font_Compass", {font = "Roboto Condensed", size = He(16), weight = 600, antialias = true})
-	surface.CreateFont("RoN_Font_Big", {font = "Roboto Condensed", size = He(32), weight = 700, antialias = true})
+	surface.CreateFont("RoN_Font_Small", {font = "VK Sans Display DemiBold", extended = true, size = He(14), weight = 500, antialias = true})
+	surface.CreateFont("RoN_Font_Medium", {font = "VK Sans Display DemiBold", extended = true, size = He(18), weight = 500, antialias = true})
+	surface.CreateFont("RoN_Font_Large", {font = "VK Sans Display DemiBold", extended = true, size = He(24), weight = 700, antialias = true})
+	surface.CreateFont("RoN_Font_Compass", {font = "VK Sans Display DemiBold", extended = true, size = He(16), weight = 600, antialias = true})
+	surface.CreateFont("RoN_Font_Big", {font = "VK Sans Display DemiBold", extended = true, size = He(32), weight = 700, antialias = true})
 
 	local function DrawCompass(x, y, width)
 		local ply = LocalPlayer()
