@@ -6,6 +6,32 @@ LeadBot.LerpAim = true
 
 --[[GAMEMODE CONFIGURATION END]]--
 
+MuR = MuR or {}
+MuR.LeadBotLootWeapons = MuR.LeadBotLootWeapons or {}
+
+hook.Add("OnEntityCreated", "MuR.LeadBotTrackWeapons", function(ent)
+	timer.Simple(0, function()
+		if IsValid(ent) and ent:IsWeapon() then
+			MuR.LeadBotLootWeapons[ent] = true
+		end
+	end)
+end)
+
+hook.Add("EntityRemoved", "MuR.LeadBotTrackWeapons", function(ent)
+	if MuR.LeadBotLootWeapons then
+		MuR.LeadBotLootWeapons[ent] = nil
+	end
+end)
+
+timer.Simple(0, function()
+	if not MuR.LeadBotLootWeapons then return end
+	for _, ent in ipairs(ents.GetAll()) do
+		if IsValid(ent) and ent:IsWeapon() then
+			MuR.LeadBotLootWeapons[ent] = true
+		end
+	end
+end)
+
 hook.Add("PlayerHurt", "LeadBotRecognize", function(ply, tar, hp, dmg)
 	if tar:IsPlayer() and ply:IsLBot() then
 		local controller = ply:GetController()
@@ -379,11 +405,29 @@ function LeadBot.FindTargets(bot)
 		if IsValid(bot.TakeThatEntity) then
 			bot.TakeThatEntity:Remove()
 		end
-		for _, ent in ipairs(ents.GetAll()) do
-			if (ent:IsWeapon() and (ent:GetMaxClip1() > 0 or ent.Melee) and !IsValid(ent:GetOwner())) and ent:GetPos():DistToSqr(bot:GetPos()) < 100000 and not ent:GetNoDraw() then
-				bot.LootTime = CurTime() + math.Rand(30,90)
-				bot.TakeThatEntity = ent
-				break
+		local loot = MuR.LeadBotLootWeapons
+		if loot then
+			for ent in pairs(loot) do
+				if not IsValid(ent) then
+					loot[ent] = nil
+					continue
+				end
+				if IsValid(ent:GetOwner()) then
+					continue
+				end
+				if (ent:GetMaxClip1() > 0 or ent.Melee) and ent:GetPos():DistToSqr(bot:GetPos()) < 100000 and not ent:GetNoDraw() then
+					bot.LootTime = CurTime() + math.Rand(30,90)
+					bot.TakeThatEntity = ent
+					break
+				end
+			end
+		else
+			for _, ent in ipairs(ents.GetAll()) do
+				if (ent:IsWeapon() and (ent:GetMaxClip1() > 0 or ent.Melee) and !IsValid(ent:GetOwner())) and ent:GetPos():DistToSqr(bot:GetPos()) < 100000 and not ent:GetNoDraw() then
+					bot.LootTime = CurTime() + math.Rand(30,90)
+					bot.TakeThatEntity = ent
+					break
+				end
 			end
 		end
 	end

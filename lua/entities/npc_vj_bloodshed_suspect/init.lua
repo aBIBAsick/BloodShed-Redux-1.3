@@ -4031,6 +4031,33 @@ function ENT:RescueHostage(rescuer)
 end
 
 if engine.ActiveGamemode() == "bloodshed" then
+    MuR.ActiveSuspects = MuR.ActiveSuspects or {}
+
+    local function TrackSuspect(ent)
+        if not IsValid(ent) then return end
+        if ent:GetClass() ~= "npc_vj_bloodshed_suspect" then return end
+        MuR.ActiveSuspects[ent] = true
+    end
+
+    hook.Add("OnEntityCreated", "MuR.TrackSuspects", function(ent)
+        timer.Simple(0, function()
+            TrackSuspect(ent)
+        end)
+    end)
+
+    hook.Add("EntityRemoved", "MuR.TrackSuspects", function(ent)
+        if MuR.ActiveSuspects then
+            MuR.ActiveSuspects[ent] = nil
+        end
+    end)
+
+    timer.Simple(0, function()
+        if not MuR.ActiveSuspects then return end
+        for _, ent in ipairs(ents.FindByClass("npc_vj_bloodshed_suspect")) do
+            MuR.ActiveSuspects[ent] = true
+        end
+    end)
+
     hook.Add("PlayerButtonDown", "MuR.GoSurrender", function(ply, key)
         if MuR.Gamemode ~= 14 then return end
         
@@ -4109,20 +4136,78 @@ if engine.ActiveGamemode() == "bloodshed" then
             local hearRadius = 600
             if isBreachSound then hearRadius = 1200 end
             if isFootstep then hearRadius = 300 end
+            local hearRadiusSq = hearRadius * hearRadius
             
-            for _, npc in pairs(ents.FindInSphere(pos, hearRadius)) do
-                if npc.SuspectNPC and IsValid(npc) and npc:Health() > 0 then
-                    if not npc.Surrendering then
+            local suspects = MuR.ActiveSuspects
+            if suspects then
+                for npc in pairs(suspects) do
+                    if not IsValid(npc) then
+                        suspects[npc] = nil
+                        continue
+                    end
+                    if not npc.SuspectNPC or npc:Health() <= 0 or npc.Surrendering then
+                        continue
+                    end
+                    if npc.NextSoundListen and npc.NextSoundListen > CurTime() then
+                        continue
+                    end
+                    if npc:GetPos():DistToSqr(pos) > hearRadiusSq then
+                        continue
+                    end
+
+                    npc.NextSoundListen = CurTime() + (isFootstep and 0.2 or 0.1)
+                    npc.LastHeardSoundPos = pos
+                    npc.LastHeardSoundTime = CurTime()
+                        
+                    npc.AwarenessState = npc.AwarenessState or AWARENESS_UNAWARE
+                    npc.AwarenessLevel = npc.AwarenessLevel or 0
+                        
+                    if isBreachSound then
+                        npc.AwarenessState = AWARENESS_COMBAT
+                        npc.AwarenessLevel = 100
+                            
+                        if npc.Personality == PERSONALITY_AGGRESSIVE then
+                            npc:SetMovementActivity(ACT_RUN)
+                            npc:SetLastPosition(pos)
+                            npc:SCHEDULE_GOTO_POSITION("TASK_RUN_PATH")
+                        elseif npc.Personality == PERSONALITY_COWARD then
+                            local fleeDir = (npc:GetPos() - pos):GetNormalized() * 500
+                            local fleePos = npc:GetPos() + fleeDir
+                            npc:SetLastPosition(fleePos)
+                            npc:SCHEDULE_GOTO_POSITION("TASK_RUN_PATH")
+                        else
+                            npc.IsHoldingAngle = true
+                            npc.HoldAnglePos = npc:GetPos()
+                            npc.HoldAngleTarget = pos
+                        end
+                    elseif isDoorSound then
+                        if npc.AwarenessState < AWARENESS_ALERTED then
+                            npc.AwarenessState = AWARENESS_SUSPICIOUS
+                            npc.AwarenessLevel = math.max(npc.AwarenessLevel, 50)
+                        end
+                            
+                        npc.DoorWatchPos = pos
+                        npc.DoorWatchTime = CurTime() + math.random(3, 8)
+                    elseif isFootstep then
+                        if npc.AwarenessState == AWARENESS_UNAWARE then
+                            npc.AwarenessState = AWARENESS_SUSPICIOUS
+                            npc.AwarenessLevel = math.max(npc.AwarenessLevel, 25)
+                        end
+                    end
+                end
+            else
+                for _, npc in pairs(ents.FindInSphere(pos, hearRadius)) do
+                    if npc.SuspectNPC and IsValid(npc) and npc:Health() > 0 and not npc.Surrendering then
                         npc.LastHeardSoundPos = pos
                         npc.LastHeardSoundTime = CurTime()
-                        
+
                         npc.AwarenessState = npc.AwarenessState or AWARENESS_UNAWARE
                         npc.AwarenessLevel = npc.AwarenessLevel or 0
-                        
+
                         if isBreachSound then
                             npc.AwarenessState = AWARENESS_COMBAT
                             npc.AwarenessLevel = 100
-                            
+
                             if npc.Personality == PERSONALITY_AGGRESSIVE then
                                 npc:SetMovementActivity(ACT_RUN)
                                 npc:SetLastPosition(pos)
@@ -4142,7 +4227,7 @@ if engine.ActiveGamemode() == "bloodshed" then
                                 npc.AwarenessState = AWARENESS_SUSPICIOUS
                                 npc.AwarenessLevel = math.max(npc.AwarenessLevel, 50)
                             end
-                            
+
                             npc.DoorWatchPos = pos
                             npc.DoorWatchTime = CurTime() + math.random(3, 8)
                         elseif isFootstep then
@@ -4256,13 +4341,6 @@ if engine.ActiveGamemode() == "bloodshed" then
         end
     end)
     
-    hook.Add("Think", "BloodshedNPCHostageThink", function()
-        for _, npc in pairs(ents.FindByClass("npc_vj_bloodshed_suspect")) do
-            if IsValid(npc) and npc.IsUsingHostageShield then
-                npc:HostageShieldThink()
-            end
-        end
-    end)
 end
 
 function ENT:ProcessWound(dmg, hitgroup)
