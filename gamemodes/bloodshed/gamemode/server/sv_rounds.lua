@@ -27,6 +27,12 @@ MuR.TimerActive = false
 MuR.ExperimentWeapon = nil
 MuR.DefaultSkyname = MuR.DefaultSkyname or ""
 MuR.WeaponsTable = MuR.WeaponsTable or MuR:GenerateWeaponsTable()
+MuR.LootMinDistance = MuR.LootMinDistance or 160
+MuR.MaxLootRetries = MuR.MaxLootRetries or 8
+MuR.LootSpawnPositions = MuR.LootSpawnPositions or {}
+MuR.LootSpawnInterval = MuR.LootSpawnInterval or 0.25
+MuR.LootSpawnBatch = MuR.LootSpawnBatch or 1
+MuR.LootSpawnInitialDelay = MuR.LootSpawnInitialDelay or 4
 MuR.LogTable = {
 	dead = {},
 	dead_cops = {},
@@ -121,6 +127,14 @@ local probabilities = {
     {chance = 1/16, value = function() return 2 end},
     {chance = 1/8, value = function() return 1 end},
 }
+
+function MuR:GetLootSpawnCount()
+	local maxLoot = MuR.MaxLootNumber or 100
+	local pcount = math.max(1, player.GetCount())
+	local scaled = math.floor(20 + (pcount * 4))
+	return math.Clamp(scaled, 20, maxLoot)
+end
+
 function MuR:MakeLootableProps()
 	for _, ent in ipairs(ents.FindByClass("prop_*")) do
 		if istable(ent.Inventory) then continue end
@@ -146,6 +160,9 @@ function MuR:ChangeStateOfGame(state)
 	game.CleanUpMap()
 
 	if state then
+		MuR.LootSpawnPositions = {}
+		MuR.LootToSpawn = 0
+		MuR.LootSpawnStartTime = 0
 		local prev = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
 		hook.Call("MuR.GameState", nil, true)
 		MuR.GameStarted = true
@@ -173,10 +190,27 @@ function MuR:ChangeStateOfGame(state)
 			mode.OnModeStarted(MuR.Gamemode)
 		end
 
+		-- мы сидим тута, вдвоем тута.. сидим..
 		if not MuR:DisablesGamemode() then
-			timer.Create("MuRSpawnLoot", 0.2, MuR.MaxLootNumber, function()
-				if not MuR.GameStarted then return end
-				MuR:SpawnLoot()
+			MuR.LootToSpawn = MuR:GetLootSpawnCount()
+			MuR.LootSpawnStartTime = CurTime() + (MuR.LootSpawnInitialDelay or 4)
+			timer.Create("MuRSpawnLoot", MuR.LootSpawnInterval or 0.25, 0, function()
+				if not MuR.GameStarted then
+					timer.Remove("MuRSpawnLoot")
+					return
+				end
+				if CurTime() < (MuR.LootSpawnStartTime or 0) then return end
+				if (MuR.LootToSpawn or 0) <= 0 then
+					timer.Remove("MuRSpawnLoot")
+					return
+				end
+
+				local batch = MuR.LootSpawnBatch or 1
+				for i = 1, batch do
+					if (MuR.LootToSpawn or 0) <= 0 then break end
+					MuR:SpawnLoot()
+					MuR.LootToSpawn = MuR.LootToSpawn - 1
+				end
 			end)
 		end
 
@@ -222,6 +256,7 @@ function MuR:ChangeStateOfGame(state)
 		local mode = MuR.Mode and MuR.Mode(MuR.Gamemode) or {}
 		timer.Remove("MuR_SpecialForcesHeli")
 		timer.Remove("MuR_SpecialForcesSniper")
+		timer.Remove("MuRSpawnLoot")
 		MuR.PoliceState = 0
 		MuR.SniperArrived = false
 		MuR.HeliArrived = false
@@ -318,12 +353,40 @@ function MuR:SpawnPlayerPolice(assault)
 end
 
 function MuR:SpawnLoot(pos)
-	local pos2 = pos
+	local pos2
+	local attempts = MuR.MaxLootRetries or 8
+	local basePos = pos
 
-	if not pos then
-		pos = MuR:GetRandomPos(true)
-		if not isvector(pos) then return end
-		pos2 = MuR:FindPositionInRadius(pos, 256)
+	local function IsLootPosBlocked(testPos)
+		local minDist = MuR.LootMinDistance or 160
+		local minDistSq = minDist * minDist
+		local list = MuR.LootSpawnPositions
+		if not istable(list) then return false end
+		for i = 1, #list do
+			local prev = list[i]
+			if prev and prev:DistToSqr(testPos) < minDistSq then
+				return true
+			end
+		end
+		return false
+	end
+
+	while attempts > 0 do
+		if not basePos then
+			basePos = MuR:GetRandomPos(true)
+			if not isvector(basePos) then return end
+			pos2 = MuR:FindPositionInRadius(basePos, 256)
+		else
+			pos2 = basePos
+		end
+
+		if isvector(pos2) and not IsLootPosBlocked(pos2) then
+			break
+		end
+
+		basePos = nil
+		pos2 = nil
+		attempts = attempts - 1
 	end
 
 	if isvector(pos2) then
@@ -335,6 +398,12 @@ function MuR:SpawnLoot(pos)
 		if string.StartWith(class, "mur_armor_") then
 			local armorId = string.sub(class, 11)
 			ent = MuR:SpawnArmorPickup(pos2, armorId)
+			if IsValid(ent) then
+				ent.MuR_IsLootSpawned = true
+				if istable(MuR.LootSpawnPositions) then
+					table.insert(MuR.LootSpawnPositions, pos2)
+				end
+			end
 		else
 			ent = ents.Create(class)
 
@@ -353,6 +422,14 @@ function MuR:SpawnLoot(pos)
 					end
 					if MuR:DisableWeaponLoot() then
 						ent:Remove()
+						return
+					end
+				end
+
+				if IsValid(ent) then
+					ent.MuR_IsLootSpawned = true
+					if istable(MuR.LootSpawnPositions) then
+						table.insert(MuR.LootSpawnPositions, pos2)
 					end
 				end
 			end
