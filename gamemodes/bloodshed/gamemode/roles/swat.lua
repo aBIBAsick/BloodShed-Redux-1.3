@@ -17,6 +17,7 @@ ROLE.onSpawn = function(ply)
     ply:GiveWeapon("mur_radio")
     timer.Simple(1, function()
         if !IsValid(ply) then return end
+        if MuR and MuR.Gamemode == 12 then return end
         ply:EquipArmor("classIII_armor")
         ply:EquipArmor("helmet_ulach")
     end)
