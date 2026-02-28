@@ -32,6 +32,7 @@ if SERVER then
                 phys:EnableMotion(false)
             end
             self:SetCollisionGroup(COLLISION_GROUP_DEBRIS_TRIGGER)
+            self:SetUseType(SIMPLE_USE)
             if self.StakeLimit then
                 self.Limited = true
             end
@@ -40,6 +41,15 @@ if SERVER then
 
     function ENT:Think()
         if self.Activated then return end
+
+        if self.DisarmInProgress then
+            if not IsValid(self.DisarmPlayer) or not self.DisarmPlayer:Alive() then
+                self.DisarmInProgress = false
+                self.DisarmPlayer = nil
+            end
+            self:NextThink(CurTime())
+            return true
+        end
         
         if not IsValid(self.StakeEnt) then
             return
@@ -92,6 +102,30 @@ if SERVER then
 
         self:NextThink(CurTime())
         return true
+    end
+
+    function ENT:Use(activator, caller)
+        local ply = IsValid(activator) and activator:IsPlayer() and activator or caller
+        if not IsValid(ply) or not ply:IsPlayer() then return end
+        if self.Activated or not IsValid(self.OwnerTrap) then return end
+        if self.DisarmInProgress then return end
+        if ply:GetPos():DistToSqr(self:GetPos()) > (120 * 120) then return end
+
+        self.DisarmInProgress = true
+        self.DisarmPlayer = ply
+        self.DisarmStart = CurTime()
+
+        net.Start("MuR.TripwireMinigame")
+        net.WriteEntity(self)
+        net.Send(ply)
+
+        timer.Create("MuR_TripwireDisarm_" .. self:EntIndex(), 6, 1, function()
+            if not IsValid(self) then return end
+            if self.DisarmInProgress then
+                self.DisarmInProgress = false
+                self.DisarmPlayer = nil
+            end
+        end)
     end
 
     function ENT:PhysicsCollide(data, phys)
@@ -185,5 +219,9 @@ if SERVER then
                 end
             end)
         end
+    end
+
+    function ENT:OnRemove()
+        timer.Remove("MuR_TripwireDisarm_" .. self:EntIndex())
     end
 end

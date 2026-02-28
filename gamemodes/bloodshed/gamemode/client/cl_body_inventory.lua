@@ -58,7 +58,9 @@ local function CreateTimingMinigame(callback, failCallback, frame)
     minigameFrame:SetKeyboardInputEnabled(true)
     minigameFrame:AlphaTo(0, 0)
     minigameFrame:AlphaTo(255, 0.2)
-    frame:AlphaTo(0, 0.2)
+    if IsValid(frame) then
+        frame:AlphaTo(0, 0.2)
+    end
 
     local barWidth = We(400)
     local barHeight = He(20)
@@ -408,4 +410,23 @@ net.Receive("MuR.RemoveItemFromSearch", function()
 
         FindAndRemove(frame)
     end
+end)
+
+net.Receive("MuR.TripwireMinigame", function()
+    local ent = net.ReadEntity()
+    if not IsValid(ent) then return end
+
+    CreateTimingMinigame(function()
+        if not IsValid(ent) then return end
+        net.Start("MuR.TripwireResult")
+        net.WriteEntity(ent)
+        net.WriteBool(true)
+        net.SendToServer()
+    end, function()
+        if not IsValid(ent) then return end
+        net.Start("MuR.TripwireResult")
+        net.WriteEntity(ent)
+        net.WriteBool(false)
+        net.SendToServer()
+    end)
 end)
