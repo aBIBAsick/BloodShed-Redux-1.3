@@ -110,6 +110,7 @@ MuR.Phrases.targetheroinuse = MuR.Phrases.geroin_use_target
 MuR.Phrases.weapon_break = { "phrase_weapon_break_1", "phrase_weapon_break_2", "phrase_weapon_break_3" }
 MuR.Phrases.corpse_alive = { "phrase_corpse_alive_1", "phrase_corpse_alive_2", "phrase_corpse_alive_3" }
 MuR.Phrases.corpse_dead = { "phrase_corpse_dead_1", "phrase_corpse_dead_2", "phrase_corpse_dead_3" }
+MuR.Phrases.tripwire_fail = { "phrase_tripwire_fail_1", "phrase_tripwire_fail_2", "phrase_tripwire_fail_3" }
 MuR.Phrases.corpse_unconscious = { "phrase_corpse_unconscious_1", "phrase_corpse_unconscious_2", "phrase_corpse_unconscious_3" }
 MuR.Phrases.mindcontroller_use = { "phrase_mindcontroller_use_1", "phrase_mindcontroller_use_2", "phrase_mindcontroller_use_3" }
 

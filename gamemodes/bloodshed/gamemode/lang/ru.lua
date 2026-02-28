@@ -1320,6 +1320,10 @@
 	["phrase_corpse_dead_2"] = "Блять... еще один мертвый за этот день.",
 	["phrase_corpse_dead_3"] = "Глаза пустые... ему конец.",
 
+	["phrase_tripwire_fail_1"] = "Упс...",
+	["phrase_tripwire_fail_2"] = "Черт... сорвалось.",
+	["phrase_tripwire_fail_3"] = "Нет-нет-нет...",
+
 	["phrase_mindcontroller_use_1"] = "Залезть ему в голову... подчинить...",
 	["phrase_mindcontroller_use_2"] = "Сигнал идет... теперь ты мой...",
 

@@ -1313,6 +1313,10 @@
 	["phrase_corpse_dead_2"] = "Nothing... just dead weight.",
 	["phrase_corpse_dead_3"] = "Eyes are empty... it's over.",
 
+	["phrase_tripwire_fail_1"] = "Oops...",
+	["phrase_tripwire_fail_2"] = "Damn... slipped.",
+	["phrase_tripwire_fail_3"] = "No, no, no...",
+
 	["phrase_mindcontroller_use_1"] = "Get in their head... control them...",
 	["phrase_mindcontroller_use_2"] = "Signal locking... you're mine now...",
 

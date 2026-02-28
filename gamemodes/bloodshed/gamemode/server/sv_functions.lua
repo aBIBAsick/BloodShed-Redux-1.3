@@ -27,6 +27,8 @@ util.AddNetworkString("MuR.CraftingMessage")
 util.AddNetworkString("MuR.ZombieDeathAnim")
 util.AddNetworkString("MuR.ExecuteString")
 util.AddNetworkString("MuR.ResetPain")
+util.AddNetworkString("MuR.TripwireMinigame")
+util.AddNetworkString("MuR.TripwireResult")
 
 MuR.guiltSession = {}
 file.CreateDir("bloodshed/guilt/")
@@ -206,6 +208,43 @@ end
 function meta:AddMoney(num)
 	self:SetNW2Float("Money", self:GetNW2Float("Money") + num)
 end
+
+net.Receive("MuR.TripwireResult", function(_, ply)
+	local ent = net.ReadEntity()
+	local success = net.ReadBool()
+	if not IsValid(ply) or not ply:IsPlayer() then return end
+	if not IsValid(ent) or ent:GetClass() ~= "murwep_grenade" then return end
+	if ent.Activated or not IsValid(ent.OwnerTrap) then return end
+	if not ent.DisarmInProgress or ent.DisarmPlayer ~= ply then return end
+	if ply:GetPos():DistToSqr(ent:GetPos()) > (140 * 140) then
+		ent.DisarmInProgress = false
+		ent.DisarmPlayer = nil
+		return
+	end
+
+	ent.DisarmInProgress = false
+	ent.DisarmPlayer = nil
+
+	if not success then
+		MuR:GiveMessage2("tripwire_fail", ply)
+		ent:ActivateGrenade()
+		return
+	end
+
+	if IsValid(ent.StakeConst) then
+		ent.StakeConst:Remove()
+	end
+	constraint.RemoveAll(ent)
+
+	if IsValid(ent.StakeEnt) then
+		ent.StakeEnt:Remove()
+	end
+
+	local grenadeClass = ent.F1 and "mur_f1" or "mur_m67"
+	ply:GiveWeapon(grenadeClass)
+
+	SafeRemoveEntity(ent)
+end)
 
 function meta:ChangeGuilt(mult)
 	if MuR.Ending or GetConVar("mur_disableguilt"):GetBool() or MuR.EnableDebug then return end
