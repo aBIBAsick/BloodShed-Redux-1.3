@@ -1264,7 +1264,7 @@ function ENT:CoordinateWithSquad()
     local nearby = self:GetCachedNearbyEnts("npc", 800)
     
     for _, ent in pairs(nearby) do
-        if ent ~= self and ent:GetClass() == self:GetClass() and ent.IsSuspect and not ent.Dead and not ent.Surrendering then
+        if IsValid(ent) and ent ~= self and ent:GetClass() == self:GetClass() and ent.IsSuspect and not ent.Dead and not ent.Surrendering then
             table.insert(squadMembers, ent)
         end
     end
