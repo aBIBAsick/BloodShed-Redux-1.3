@@ -18,7 +18,7 @@ SWEP.ViewModelFOV = 65
 SWEP.HoldType = "slam"
 
 SWEP.TPIKForce = true
-SWEP.TPIKPos = Vector(-2, 0, 0)
+SWEP.TPIKPos = Vector(18, -4, 3)
 
 SWEP.HealTimeSelf = 15
 SWEP.HealTimeTarget = 15
