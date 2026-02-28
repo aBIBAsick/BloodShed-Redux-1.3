@@ -10,14 +10,14 @@ SWEP.ViewModel = "models/murdered/medicine/v_meds_cat.mdl"
 SWEP.WorldModelPosition = Vector(0, -2, 4)
 SWEP.WorldModelAngle =  Angle(90, 0, 0)
 
-SWEP.ViewModelPos = Vector(-0.05, 0, -6)
-SWEP.ViewModelAng = Angle(-15, 0, 8)
+SWEP.ViewModelPos = Vector(6.5, 0, -3)
+SWEP.ViewModelAng = Angle(-8, 0, 4)
 SWEP.ViewModelFOV = 80
 
 SWEP.HoldType = "slam"
 
 SWEP.TPIKForce = true
-SWEP.TPIKPos = Vector(4, 0, 3)
+SWEP.TPIKPos = Vector(10, 0, 3)
 
 SWEP.HealTimeSelf = 3
 SWEP.HealTimeTarget = 3
