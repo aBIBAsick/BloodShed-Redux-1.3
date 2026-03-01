@@ -37,7 +37,8 @@
                 GuardSpawn = guardSpawn or Vector(0, 0, 0),
                 GuardsSpawned = false,
                 GuardSpawnTime = CurTime() + 80,
-                LootSpawned = false
+                LootSpawned = false,
+                CountdownIssuedBlyat = false
             }
 
             timer.Simple(0.5, function()
@@ -45,8 +46,11 @@
                 MuR:SpawnPrisonBreakLoot()
             end)
 
-            timer.Simple(70, function()
-                if not MuR.Mode23 then return end
+            timer.Remove("MuR_Mode23_GuardCountdown")
+            timer.Create("MuR_Mode23_GuardCountdown", 70, 1, function()
+                if not MuR.Mode23 or MuR.Gamemode ~= 23 then return end
+                if MuR.Mode23.CountdownIssuedBlyat then return end
+                MuR.Mode23.CountdownIssuedBlyat = true
                 MuR:GiveCountdown(10)
             end)
         end
@@ -63,6 +67,7 @@
 
     OnModeEnded = function(mode)
         if SERVER then
+            timer.Remove("MuR_Mode23_GuardCountdown")
             MuR.Mode23 = nil
         end
         if CLIENT then
@@ -95,11 +100,6 @@ if SERVER then
             ply:Spawn()
             ply:Freeze(true)
             ply:GodEnable()
-
-            local roleData = MuR:GetRole(roleClass)
-            if roleData and roleData.onSpawn then
-                roleData.onSpawn(ply)
-            end
 
             if roleClass == "Prisoner" then
                 ply:SetNW2Float("ArrestState", 0)
