@@ -135,6 +135,7 @@ hook.Add("PostDrawOpaqueRenderables", "MuR_ArmorRenderRagdolls", function(depth,
     if ragdolls then
         for _, ent in ipairs(ragdolls) do
             if not IsValid(ent) then continue end
+            if ent:GetNW2Bool("MuR.IsMode18ZombieRag", false) then continue end
             //if not ent.isRDRag then continue end
             DrawArmorOnEntity(ent)
         end
