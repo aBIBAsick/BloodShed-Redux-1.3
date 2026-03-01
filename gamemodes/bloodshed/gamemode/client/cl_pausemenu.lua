@@ -87,6 +87,20 @@ local function CreatePauseButton(parent, text, onClick, opts)
     return btn
 end
 
+local function RequestQuit()
+    if gui.IsGameUIVisible() then
+        RunConsoleCommand("gamemenucommand", "quit")
+        RunConsoleCommand("gamemenucommand", "quitnoconfirm")
+        return
+    end
+
+    gui.ActivateGameUI()
+    timer.Simple(0.05, function()
+        RunConsoleCommand("gamemenucommand", "quit")
+        RunConsoleCommand("gamemenucommand", "quitnoconfirm")
+    end)
+end
+
 local function OpenPauseMenu()
     if IsValid(MuR.PauseMenu) then
         MuR.PauseMenu:Remove()
@@ -161,7 +175,7 @@ local function OpenPauseMenu()
             text = MuR.Language["pause_menu_quit"] or "Quit Game",
             action = function()
                 ClosePauseMenu()
-                RunConsoleCommand("quit")
+                RequestQuit()
             end,
             danger = true,
         },
