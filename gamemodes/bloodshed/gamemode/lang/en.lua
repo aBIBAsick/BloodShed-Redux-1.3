@@ -1795,8 +1795,14 @@
     ["phrase_disloc_fixed_1"] = "Popped it back in... ugh...",
     ["phrase_disloc_fixed_2"] = "Fixed... hurts but it's in place.",
 
-    ["phrase_disloc_fail_1"] = "AAGH! It didn't go back!",
-    ["phrase_disloc_fail_2"] = "Failed... made it worse...",
+	["phrase_disloc_fail_1"] = "AAGH! It didn't go back!",
+	["phrase_disloc_fail_2"] = "Failed... made it worse...",
+
+	["pause_menu_resume"] = "Resume",
+	["pause_menu_settings"] = "Bloodshed Settings",
+	["pause_menu_disconnect"] = "Disconnect",
+	["pause_menu_quit"] = "Quit Game",
+	["pause_menu_original"] = "Original Menu",
 }
 
 for k, v in pairs(LANG) do

@@ -1804,6 +1804,12 @@
 
     ["phrase_disloc_fail_1"] = "АААГХ! Не встало обратно!",
     ["phrase_disloc_fail_2"] = "Не вышло... только хуже стало...",
+
+    ["pause_menu_resume"] = "Продолжить",
+    ["pause_menu_settings"] = "Настройки Bloodshed",
+    ["pause_menu_disconnect"] = "Отключиться",
+    ["pause_menu_quit"] = "Выйти из игры",
+    ["pause_menu_original"] = "Оригинальное меню",
 }
 
 for k, v in pairs(LANG) do
