@@ -716,7 +716,10 @@ function GM:PlayerSpawn(ply)
         end
 
         if roleData.onSpawn then
-            roleData.onSpawn(ply)
+            local skipOnSpawn = MuR.Gamemode == 23 and class == "PrisonGuard" and MuR.Mode23 and not MuR.Mode23.GuardsSpawned
+            if not skipOnSpawn then
+                roleData.onSpawn(ply)
+            end
         end
     end
 
