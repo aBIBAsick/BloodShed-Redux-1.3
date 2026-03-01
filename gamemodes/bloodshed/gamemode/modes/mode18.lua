@@ -90,6 +90,30 @@
             util.AddNetworkString("MuR.Mode18WallBuy")
             util.AddNetworkString("MuR.Mode18AshEffect")
 
+            hook.Add("CreateEntityRagdoll", "MuR.Mode18.TagZombieRagdoll", function(ent, rag)
+                if MuR.Gamemode ~= 18 then return end
+                if not IsValid(ent) or not IsValid(rag) then return end
+                if ent.IsMode18Zombie or ent:GetNWBool("IsMode18Zombie", false) then
+                    rag:SetNW2Bool("MuR.IsMode18ZombieRag", true)
+
+                    timer.Simple(0, function()
+                        if not IsValid(rag) then return end
+                        rag:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
+                        rag:SetVelocity(vector_origin)
+                        local physCount = rag:GetPhysicsObjectCount()
+                        for i = 0, physCount - 1 do
+                            local phys = rag:GetPhysicsObjectNum(i)
+                            if IsValid(phys) then
+                                phys:SetVelocity(vector_origin)
+                                phys:AddAngleVelocity(-phys:GetAngleVelocity())
+                                phys:SetDamping(0.8, 0.8)
+                                phys:Wake()
+                            end
+                        end
+                    end)
+                end
+            end)
+
             MuR.Mode18.DoublePointsEnd = 0
             MuR.Mode18.InstaKillEnd = 0
             MuR.Mode18.ActiveZombies = {}
@@ -429,6 +453,7 @@
 
     OnModeEnded = function(mode)
         if SERVER and MuR.Mode18 then
+            hook.Remove("CreateEntityRagdoll", "MuR.Mode18.TagZombieRagdoll")
             for _, ent in ents.Iterator() do
                 if ent.IsMode18Zombie then
                     ent:Remove()
