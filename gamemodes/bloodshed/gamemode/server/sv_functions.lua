@@ -1640,6 +1640,26 @@ hook.Add("PlayerUse", "MuR_UseThings", function(ply, ent)
 		ply.PoisonVoiceTime = CurTime() + math.random(15, 60)
 		ply:SetNW2Bool("Poison", true)
 	end
+
+	if ent:GetModel() == "models/props/cs_office/fire_extinguisher.mdl" then
+		if ply:HasWeapon("mur_extinguisher") then
+			return
+		end
+
+		ply:GiveWeapon("mur_extinguisher")
+		local tname = "MuR_ExtinguisherSelect_" .. ply:EntIndex()
+		timer.Create(tname, 0.05, 6, function()
+			if not IsValid(ply) then
+				timer.Remove(tname)
+				return
+			end
+			if ply:HasWeapon("mur_extinguisher") then
+				ply:SelectWeapon("mur_extinguisher")
+				timer.Remove(tname)
+			end
+		end)
+		ent:Remove()
+	end
 end)
 
 hook.Add("EntityEmitSound", "MuR_QuieterRagdollSounds", function(data)
