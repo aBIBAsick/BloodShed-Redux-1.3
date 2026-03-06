@@ -1540,6 +1540,28 @@ end)
 
 hook.Add("AllowPlayerPickup", "MuR_DisableUseProp", function(ply, ent) return false end)
 
+function meta:DropSuicideWeapon(wep)
+	if not IsValid(wep) or wep.CantDrop then return end
+	if hook.Run("CanDropWeapon", self, wep) == false then return end
+
+	local throwDir = self:GetAimVector()
+	if throwDir:LengthSqr() <= 0 then
+		throwDir = self:GetForward()
+	end
+
+	self:DropWeapon(wep)
+
+	if not IsValid(wep) then return end
+
+	local phys = wep:GetPhysicsObject()
+	if IsValid(phys) then
+		phys:SetVelocity(throwDir * 140 + self:GetVelocity() + VectorRand(-45, 45) + Vector(0, 0, 40))
+		phys:AddAngleVelocity(VectorRand(-120, 120))
+	else
+		wep:SetVelocity(throwDir * 140 + self:GetVelocity() + Vector(0, 0, 40))
+	end
+end
+
 function meta:Suicide()
 	local wep = self:GetActiveWeapon()
 	if timer.Exists("MindControl_" .. self:EntIndex()) or self.Suiciding or not IsValid(wep) or wep.DisableSuicide or self:GetSVAnim() != "" then return false end
@@ -1595,6 +1617,10 @@ function meta:Suicide()
 		self.Suiciding = false
 		self:Freeze(false)
 		self:SetHealth(1)
+		if IsValid(wep) and self:GetActiveWeapon() == wep then
+			self:DropSuicideWeapon(wep)
+		end
+
 		if IsValid(wep) and wep.ShootSound then
 			local att = game.GetWorld()
 			local dmginfo = DamageInfo()
