@@ -6,6 +6,10 @@ local TP_LastCaps = false
 local TP_CamDist = 80
 local TP_LastCamPos = Vector(0,0,0)
 local TP_LastCamAng = Angle(0,0,0)
+local fallfx = {
+	intensity = 0,
+	tunnel = 0
+}
 
 local function LerpAngleFT(lerp,source,set)
 	return LerpAngle(math.min(lerp * 0.5,1),source,set)
@@ -37,6 +41,66 @@ end
 net.Receive("MuR.CalcView", function()
 	local ent = net.ReadEntity()
 	LocalPlayer():SetNW2Entity('RD_EntCam', ent)
+end)
+
+local function ApplyFallFX(view)
+	if fallfx.intensity <= 0 then
+		return view
+	end
+
+	local damp = fallfx.intensity
+	local pulse = CurTime() * (10 + damp * 6)
+	local ang = view.angles
+
+	view.origin = view.origin
+		- ang:Forward() * (2 + 5 * damp)
+		+ ang:Right() * math.sin(pulse * 1.7) * 1.2 * damp
+		+ ang:Up() * math.cos(pulse * 2.1) * 0.8 * damp
+
+	view.angles = view.angles + Angle(
+		math.sin(pulse) * 2.5 * damp,
+		math.cos(pulse * 1.3) * 1.8 * damp,
+		math.sin(pulse * 0.9) * 1.2 * damp
+	)
+	view.fov = math.max((view.fov or 90) - 6 * fallfx.tunnel, 1)
+
+	return view
+end
+
+hook.Add("Think", "MuR.FallFX", function()
+	local ply = LocalPlayer()
+	local fallFrac = 0
+	local rag = IsValid(ply) and ply:GetNW2Entity("RD_EntCam") or nil
+
+	if IsValid(ply) and ply:Alive() and IsValid(rag) and not rag:IsPlayer() then
+		local speedZ = rag:GetVelocity().z
+		local groundTrace = util.TraceLine({
+			start = rag:WorldSpaceCenter(),
+			endpos = rag:WorldSpaceCenter() - Vector(0, 0, 512),
+			filter = rag,
+			mask = MASK_PLAYERSOLID
+		})
+		local groundDist = groundTrace.Hit and rag:WorldSpaceCenter():Distance(groundTrace.HitPos) or 512
+
+		if speedZ < -500 and groundDist > 180 then
+			fallFrac = math.Clamp(math.Remap(-speedZ, 500, 1800, 0, 1), 0, 1)
+			fallFrac = fallFrac * math.Clamp(math.Remap(groundDist, 180, 512, 0.35, 1), 0, 1)
+		end
+	end
+
+	local lerpRate = fallFrac > fallfx.intensity and 6 or 2
+	fallfx.intensity = Lerp(FrameTime() * lerpRate, fallfx.intensity, fallFrac)
+	if fallfx.intensity < 0.01 then
+		fallfx.intensity = 0
+	end
+
+	local tunnelTarget = math.Clamp((fallfx.intensity - 0.14) / 0.86, 0, 1)
+	tunnelTarget = math.ease.InOutSine(tunnelTarget) ^ 2
+	local tunnelRate = tunnelTarget > fallfx.tunnel and 1.35 or 1.8
+	fallfx.tunnel = Lerp(FrameTime() * tunnelRate, fallfx.tunnel, tunnelTarget)
+	if fallfx.tunnel < 0.01 then
+		fallfx.tunnel = 0
+	end
 end)
 
 local ragStateFrac = 0
@@ -98,7 +162,7 @@ hook.Add("CalcView", "MuR.zRD_CamWork", function(ply, pos, angles, fov)
 				znear = 1
 			}
 
-			return view
+			return ApplyFallFX(view)
 		end
 	end
 
@@ -249,6 +313,10 @@ hook.Add("CalcView", "MuR.zRD_CamWork", function(ply, pos, angles, fov)
 			view.angles = LerpAngle( math.min(FrameTime() * 12 * TFAAimFrac, 1), view.angles, aimAng )
 		end
 
+		if tar ~= ply then
+			return ApplyFallFX(view)
+		end
+
 		return view
 	elseif ply:Alive() then
 		local hm = ply:GetAttachment(ply:LookupAttachment("eyes"))
@@ -275,7 +343,7 @@ hook.Add("CalcView", "MuR.zRD_CamWork", function(ply, pos, angles, fov)
 			znear = 1
 		}
 
-		return view
+		return ApplyFallFX(view)
 	end
 end)
 
