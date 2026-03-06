@@ -350,6 +350,9 @@ function pl:UnconnectRagdoll(died)
 		local isbleeding = rag.Owner and (rag.Owner:GetNW2Float("BleedLevel", 0) > 1 or rag.Owner:GetNW2Bool("HardBleed", false)) or false
 		rag.IsDead = true
 		rag:SetNW2Bool("MuR.IsLivingRagdoll", false)
+		if died and rag.ZGM3_SetDeathExpression then
+			rag:ZGM3_SetDeathExpression(false)
+		end
 		rag.Owner = nil
 		self:StopRagdolling(true)
 		rag:GrabHand(false, false)

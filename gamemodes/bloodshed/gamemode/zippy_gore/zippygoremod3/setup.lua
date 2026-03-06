@@ -64,7 +64,7 @@ function ENT:ZippyGoreMod3_BecomeGibbableRagdoll( blood_color )
         end)
     end
 
-    if self.ZGM3_SetDeathExpression then
+    if self.ZGM3_SetDeathExpression and not self:GetNW2Bool("MuR.IsLivingRagdoll", false) then
         timer.Simple(0.05, function()
             if IsValid(self) and self.ZGM3_SetDeathExpression then
                 self:ZGM3_SetDeathExpression(false)
