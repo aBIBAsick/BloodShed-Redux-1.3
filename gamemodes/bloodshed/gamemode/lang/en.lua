@@ -393,6 +393,8 @@
 	["loot_tape_1"] = "LMB - Wrap with tape [You must look at the edge of the object]",
 	["loot_tape_2"] = "RMB - Tape wounds",
 	["loot_tape_3"] = "Uses left: ",
+	["mur_welder_name"] = "Welder",
+	["mur_welder_hint"] = "LMB: Weld/Damage | RMB: Weld Objects/Repair Door",
 	["loot_grenade_1"] = "LMB - Throw a grenade",
 	["loot_grenade_2"] = "RMB - Place a trap",
 	["loot_grenade_trap_stake"] = "TRIPWIRE MODE: Place Stake",
