@@ -5,7 +5,7 @@ SWEP.Category = "Bloodshed - Civilian"
 SWEP.Spawnable = true
 SWEP.DisableSuicide = true
 
-SWEP.PrintName = "Welder"
+SWEP.PrintName = MuR.Language["mur_welder_name"] or "Welder"
 SWEP.DrawWeaponInfoBox = false
 
 SWEP.Slot = 4
@@ -516,5 +516,5 @@ function SWEP:DrawHUD()
     draw.SimpleText(math.floor(ammo) .. "%", "MuR_Font1", barX + barW / 2, barY - 5, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
     
     -- Instructions
-    draw.SimpleText("LMB: Weld/Damage | RMB: Weld Objects/Repair Door", "MuR_Font1", w / 2, h - He(75), color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    draw.SimpleText(MuR.Language["mur_welder_hint"] or "LMB: Weld/Damage | RMB: Weld Objects/Repair Door", "MuR_Font1", w / 2, h - He(75), color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 end
