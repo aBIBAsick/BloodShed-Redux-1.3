@@ -88,7 +88,6 @@ function SWEP:CustomPrimaryAttack()
     self:SetNextPrimaryFire(CurTime() + 0.1)
     self:TakePrimaryAmmo(SPRAY_COST)
     
-    -- Start spray sound
     if SERVER then
         self.SprayLoop = self.SprayLoop or CreateSound(self, SpraySound)
         if not self.SprayLoop:IsPlaying() then
@@ -98,7 +97,6 @@ function SWEP:CustomPrimaryAttack()
         end
     end
     
-    -- Play spray animation if just started
     if not self.LastSprayState then
         self:PlayAnim("hosespray")
         self.LastSprayState = true
@@ -106,7 +104,6 @@ function SWEP:CustomPrimaryAttack()
     
     self.Spraying = true
     
-    -- Trace for target
     local owner = self:GetOwner()
     local tr = util.TraceLine({
         start = owner:GetShootPos(),
@@ -114,24 +111,20 @@ function SWEP:CustomPrimaryAttack()
         filter = owner
     })
     
-    -- Spray effect
     local effectData = EffectData()
     effectData:SetOrigin(tr.HitPos)
     effectData:SetNormal(tr.HitNormal)
     effectData:SetScale(1)
     util.Effect("WheelDust", effectData)
     
-    -- Leave foam decal on surfaces
     if tr.Hit then
         util.Decal("PaintSplatPink", tr.HitPos + tr.HitNormal, tr.HitPos - tr.HitNormal)
     end
     
     if CLIENT then return end
     
-    -- Extinguish fires in radius
     local hitPos = tr.HitPos
     
-    -- Find and extinguish VFire (with chance)
     for _, fire in ipairs(ents.FindByClass("vfire")) do
         if IsValid(fire) and fire:GetPos():DistToSqr(hitPos) < EXTINGUISH_RADIUS * EXTINGUISH_RADIUS then
             if math.random(1, 100) <= EXTINGUISH_CHANCE then
@@ -140,7 +133,6 @@ function SWEP:CustomPrimaryAttack()
         end
     end
     
-    -- Find and extinguish _vfire (with chance)
     for _, fire in ipairs(ents.FindByClass("_vfire")) do
         if IsValid(fire) and fire:GetPos():DistToSqr(hitPos) < EXTINGUISH_RADIUS * EXTINGUISH_RADIUS then
             if math.random(1, 100) <= EXTINGUISH_CHANCE then
@@ -149,7 +141,6 @@ function SWEP:CustomPrimaryAttack()
         end
     end
     
-    -- Find and extinguish env_fire (with chance)
     for _, fire in ipairs(ents.FindByClass("env_fire")) do
         if IsValid(fire) and fire:GetPos():DistToSqr(hitPos) < EXTINGUISH_RADIUS * EXTINGUISH_RADIUS then
             if math.random(1, 100) <= EXTINGUISH_CHANCE then
@@ -158,16 +149,6 @@ function SWEP:CustomPrimaryAttack()
         end
     end
     
-    -- Find and extinguish molotov fire zones (with chance)
-    for _, fire in ipairs(ents.FindByClass("bloodshed_molotov_fire")) do
-        if IsValid(fire) and fire:GetPos():DistToSqr(hitPos) < (EXTINGUISH_RADIUS * 2) * (EXTINGUISH_RADIUS * 2) then
-            if math.random(1, 100) <= EXTINGUISH_CHANCE then
-                SafeRemoveEntity(fire)
-            end
-        end
-    end
-    
-    -- Extinguish entities on fire (with chance)
     for _, ent in ipairs(ents.FindInSphere(hitPos, EXTINGUISH_RADIUS)) do
         if IsValid(ent) and ent:IsOnFire() then
             if math.random(1, 100) <= EXTINGUISH_CHANCE then
@@ -176,15 +157,12 @@ function SWEP:CustomPrimaryAttack()
         end
     end
     
-    -- Cool down hit entity
     if IsValid(tr.Entity) and tr.Entity:IsOnFire() then
         tr.Entity:Extinguish()
     end
     
-    -- Damage players and living ragdolls hit by spray
     local hitEnt = tr.Entity
     if IsValid(hitEnt) then
-        -- Direct hit on player
         if hitEnt:IsPlayer() and hitEnt:Alive() then
             if math.random(1,5) == 1 then
                 hitEnt.RandomPlayerSound = 0
@@ -192,7 +170,6 @@ function SWEP:CustomPrimaryAttack()
                 hitEnt:ViewPunch(AngleRand(-10,10))
             end
             
-            -- Apply blur effect (accumulative)
             hitEnt.ExtinguisherBlurAmount = (hitEnt.ExtinguisherBlurAmount or 0) + 0.1
             hitEnt.ExtinguisherBlurAmount = math.min(hitEnt.ExtinguisherBlurAmount, 10) -- Max 10 seconds
             
@@ -201,7 +178,6 @@ function SWEP:CustomPrimaryAttack()
             net.Send(hitEnt)
         end
         
-        -- Direct hit on living ragdoll (active ragdoll with owner)
         if hitEnt:GetClass() == "prop_ragdoll" and hitEnt.isRDRag and IsValid(hitEnt.Owner) and hitEnt.Owner:Alive() then
             if math.random(1,5) == 1 then
                 hitEnt.Owner.RandomPlayerSound = 0
@@ -209,7 +185,6 @@ function SWEP:CustomPrimaryAttack()
                 hitEnt.Owner:ViewPunch(AngleRand(-10,10))
             end
             
-            -- Apply blur effect to ragdoll owner (accumulative)
             hitEnt.Owner.ExtinguisherBlurAmount = (hitEnt.Owner.ExtinguisherBlurAmount or 0) + 0.1
             hitEnt.Owner.ExtinguisherBlurAmount = math.min(hitEnt.Owner.ExtinguisherBlurAmount, 10)
             
@@ -223,16 +198,13 @@ end
 function SWEP:Think()
     local isSpraying = self.Owner:KeyDown(IN_ATTACK) and self:Clip1() > 0
     
-    -- Stop spray sound when not firing
     if SERVER and self.SprayLoop then
         if not isSpraying then
             self.SprayLoop:Stop()
         end
     end
     
-    -- Handle animation transitions
     if self.LastSprayState and not isSpraying then
-        -- Stopped spraying, go back to idle
         self:PlayAnim("hoseidle")
         self.LastSprayState = false
     end
@@ -260,7 +232,6 @@ function SWEP:CustomSecondaryAttack()
     -- No secondary attack
 end
 
--- Spray particle effect on client
 if CLIENT then
     local sprayMat = Material("particle/particle_smokegrenade")
     
@@ -286,7 +257,6 @@ if CLIENT then
             
             endPos = tr.HitPos
             
-            -- Spray particles
             local emitter = ParticleEmitter(startPos)
             if emitter then
                 for i = 1, 3 do
@@ -324,48 +294,41 @@ function SWEP:DrawHUD()
     local barX = w - barW - 20
     local barY = h - barH - 20
     
-    -- Background
     surface.SetDrawColor(0, 0, 0, 200)
     surface.DrawRect(barX - 2, barY - 2, barW + 4, barH + 4)
     
-    -- Border
     surface.SetDrawColor(255, 255, 255, 255)
     surface.DrawOutlinedRect(barX - 2, barY - 2, barW + 4, barH + 4)
     
-    -- Fill (blue for extinguisher)
     local fillW = (ammo / maxAmmo) * barW
     surface.SetDrawColor(100, 180, 255, 255)
     surface.DrawRect(barX, barY, fillW, barH)
     
-    -- Percentage text
     draw.SimpleText(math.floor(ammo) .. "%", "MuR_Font1", barX + barW / 2, barY - 5, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
 end
 
--- Client-side blur effect from extinguisher
 if CLIENT then
     local blurMat = Material("pp/blurscreen")
-    local blurAmount = 0 -- Current blur intensity (0-10)
-    local blurDecayRate = 1 -- How fast blur fades per second
+    local blurAmount = 0
+    local blurDecayRate = 1
     
     net.Receive("ExtinguisherBlur", function()
         local amount = net.ReadFloat()
-        blurAmount = math.max(blurAmount, amount) -- Take the higher value
+        blurAmount = math.max(blurAmount, amount)
     end)
     
     hook.Add("RenderScreenspaceEffects", "ExtinguisherBlurEffect", function()
         if blurAmount <= 0 then return end
         
-        -- Decay blur over time
         blurAmount = blurAmount - FrameTime() * blurDecayRate
         blurAmount = math.max(blurAmount, 0)
         
-        local intensity = math.Clamp(blurAmount / 10, 0, 1) -- Normalize to 0-1
+        local intensity = math.Clamp(blurAmount / 10, 0, 1)
         
-        -- Blur effect (stronger with more intensity)
         surface.SetMaterial(blurMat)
         surface.SetDrawColor(255, 255, 255, 255)
         
-        local blurPasses = math.ceil(intensity * 5) -- More passes = more blur
+        local blurPasses = math.ceil(intensity * 5)
         for i = 1, blurPasses do
             blurMat:SetFloat("$blur", intensity * 8)
             blurMat:Recompute()
@@ -373,7 +336,6 @@ if CLIENT then
             surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
         end
         
-        -- White overlay (foam on screen)
         surface.SetDrawColor(255, 255, 255, intensity * 200)
         surface.DrawRect(0, 0, ScrW(), ScrH())
     end)
