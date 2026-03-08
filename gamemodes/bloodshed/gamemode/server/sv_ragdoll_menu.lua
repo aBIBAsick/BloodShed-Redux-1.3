@@ -11,6 +11,14 @@ local function GetWoundsFromRagdoll(ragdoll)
     local wounds = {}
     local owner = ragdoll.Owner or ragdoll.OwnerDead
     local isDead = not IsValid(ragdoll.Owner)
+    local organDamageKeys = {"brain", "neck", "heart", "carotid", "brachial", "femoral", "liver", "lungs"}
+    local organWoundKeys = {
+        brain = "wound_brain_damage",
+        neck = "wound_neck_damage",
+        heart = "wound_heart_damage",
+        lungs = "wound_lung_damage",
+        liver = "wound_liver_damage"
+    }
 
     local addedWounds = {}
     local function addWound(locKey, severity)
@@ -43,6 +51,16 @@ local function GetWoundsFromRagdoll(ragdoll)
         end
         if IsValid(owner) then
             return owner:GetNW2Float(key, default or 0)
+        end
+        return default or 0
+    end
+
+    local function getInt(key, default)
+        if ragdoll.StoredWounds and ragdoll.StoredWounds[key .. "_value"] ~= nil then
+            return ragdoll.StoredWounds[key .. "_value"]
+        end
+        if IsValid(owner) then
+            return owner:GetNW2Int(key, default or 0)
         end
         return default or 0
     end
@@ -101,14 +119,53 @@ local function GetWoundsFromRagdoll(ragdoll)
     end
 
     if getBool("LegBroken") then addWound("wound_leg_broken", 3) end
-    if getBool("ShockState") then addWound("wound_shock", 3) end
+    if getBool("FootFracture") then addWound("wound_leg_broken", 2) end
+    if getBool("ArmFracture") or getBool("ClavicleFracture") or getBool("ForearmFracture") then addWound("wound_fracture", 2) end
+    if getBool("JawFracture") then addWound("wound_fracture", 2) end
+    if getBool("PelvisFracture") then addWound("wound_cant_stand", 3) end
+
+    local shockLevel = math.max(getInt("ShockLevel", 0), getBool("ShockState") and 2 or 0)
+    if shockLevel > 0 then
+        addWound("wound_shock", shockLevel >= 3 and 3 or 2)
+    end
+
     if getBool("RibFracture") then addWound("wound_rib_fracture", 2) end
     if getBool("SpineBroken") then addWound("wound_spine_broken", 3) end
-    if getBool("Pneumothorax") then addWound("wound_pneumothorax", 3) end
     if getBool("Poison") then addWound("wound_poison", 3) end
     if getBool("Bredogen") then addWound("wound_bredogen", 2) end
-    if getBool("IsUnconscious") then addWound("wound_unconscious", 3) end
     if getBool("ForceProneOnly") then addWound("wound_cant_stand", 3) end
+
+    local consciousLevel = math.max(getInt("ConsciousLevel", 0), getBool("IsUnconscious") and 3 or 0)
+    if consciousLevel >= 2 then
+        addWound("wound_unconscious", consciousLevel >= 3 and 3 or 2)
+    end
+
+    local organDamage = {}
+    for _, key in ipairs(organDamageKeys) do
+        organDamage[key] = getInt("OrganDamage_" .. key, 0)
+    end
+
+    if organDamage.brain >= 1 then
+        addWound(organWoundKeys.brain, organDamage.brain >= 2 and 3 or 2)
+    end
+
+    if organDamage.neck >= 1 then
+        addWound(organWoundKeys.neck, organDamage.neck >= 2 and 3 or 2)
+    end
+
+    if organDamage.heart >= 1 then
+        addWound(organWoundKeys.heart, organDamage.heart >= 2 and 3 or 2)
+    end
+
+    if getBool("Pneumothorax") or organDamage.lungs >= 1 then
+        addWound(organWoundKeys.lungs, organDamage.lungs >= 2 and 3 or 2)
+        addWound("wound_pneumothorax", organDamage.lungs >= 2 and 3 or 2)
+    end
+
+    if organDamage.liver >= 1 then
+        addWound(organWoundKeys.liver, organDamage.liver >= 2 and 3 or 2)
+        addWound("wound_internal", organDamage.liver >= 2 and 3 or 2)
+    end
 
     if getBool("had_concussion") then
         addWound("wound_concussion", 2)
@@ -134,10 +191,10 @@ local function GetWoundsFromRagdoll(ragdoll)
         addWound("wound_tinnitus", 1)
     end
 
-    if getBool("Artery_neck") then addWound("wound_artery_neck", 3) end
-    if getBool("Artery_heart") then addWound("wound_artery_heart", 3) end
-    if getBool("Artery_arm") then addWound("wound_artery_arm", 3) end
-    if getBool("Artery_leg") then addWound("wound_artery_leg", 3) end
+    if getBool("Artery_Neck") or getBool("Artery_neck") then addWound("wound_artery_neck", 3) end
+    if getBool("Artery_Heart") or getBool("Artery_heart") then addWound("wound_artery_heart", 3) end
+    if getBool("Artery_Arm") or getBool("Artery_arm") then addWound("wound_artery_arm", 3) end
+    if getBool("Artery_Leg") or getBool("Artery_leg") then addWound("wound_artery_leg", 3) end
 
     local hasDismemberment = false
 
@@ -417,14 +474,26 @@ hook.Add("PlayerDeath", "MuR_StoreDeathData", function(victim, inflictor, attack
 
         ragdoll.StoredWounds = ragdoll.StoredWounds or {}
 
-        local boolKeys = {"HardBleed", "LegBroken", "ShockState", "RibFracture", "SpineBroken", 
+        local boolKeys = {"HardBleed", "LegBroken", "ArmFracture", "ClavicleFracture", "ForearmFracture",
+            "FootFracture", "JawFracture", "PelvisFracture", "ShockState", "RibFracture", "SpineBroken",
             "Pneumothorax", "Poison", "Bredogen", "IsUnconscious", "ForceProneOnly",
-            "Artery_neck", "Artery_heart", "Artery_arm", "Artery_leg", "InternalBleeding"}
+            "Artery_Neck", "Artery_Heart", "Artery_Arm", "Artery_Leg",
+            "Artery_neck", "Artery_heart", "Artery_arm", "Artery_leg", "Artery_Generic", "InternalBleeding"}
+        local intKeys = {"ShockLevel", "ConsciousLevel"}
+        local organDamageKeys = {"brain", "neck", "heart", "carotid", "brachial", "femoral", "liver", "lungs"}
 
         for _, key in ipairs(boolKeys) do
             if victim:GetNW2Bool(key, false) then
                 ragdoll.StoredWounds[key] = true
             end
+        end
+
+        for _, key in ipairs(intKeys) do
+            ragdoll.StoredWounds[key .. "_value"] = victim:GetNW2Int(key, 0)
+        end
+
+        for _, key in ipairs(organDamageKeys) do
+            ragdoll.StoredWounds["OrganDamage_" .. key .. "_value"] = victim:GetNW2Int("OrganDamage_" .. key, 0)
         end
 
         if victim:GetNW2Float("ConcussionEnd", 0) > CurTime() then

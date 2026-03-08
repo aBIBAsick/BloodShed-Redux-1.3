@@ -547,11 +547,23 @@ function MuR:MakeTeamsInGame()
 		local ply = tab2[id]
 		ply:SetNW2String("Class", "Traitor")
 		ply:SetTeam(1)
-		local pri = table.Random(MuR.WeaponTable["Secondary"])
-		ply:GiveWeapon(pri.class)
-		ply:GiveAmmo(pri.count * 2, pri.ammo, true)
+		local sidearmPool = MuR.WeaponData and MuR.WeaponData["DefenderWeapons"]
+		local sidearm = istable(sidearmPool) and table.Random(sidearmPool) or nil
+		local gaveFallbackPistol = false
+		if sidearm and sidearm.class then
+			ply:GiveWeapon(sidearm.class)
+			if sidearm.ammo and sidearm.ammo ~= "" and sidearm.count then
+				ply:GiveAmmo(sidearm.count * 2, sidearm.ammo, true)
+			end
+		else
+			ply:GiveWeapon("tfa_bs_m9")
+			ply:GiveAmmo(30, "Pistol", true)
+			gaveFallbackPistol = true
+		end
 		ply:AllowFlashlight(true)
-		ply:GiveAmmo(30, "Pistol", true)
+		if not gaveFallbackPistol then
+			ply:GiveAmmo(30, "Pistol", true)
+		end
 		ply:GiveWeapon("mur_combat_knife", true)
 		ply:GiveWeapon("mur_disguise", true)
 		ply:GiveWeapon("mur_scanner", true)

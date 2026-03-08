@@ -22,6 +22,10 @@ MuR.RagdollMenuOpen = nil
 MuR.RagdollActionInProgress = false
 MuR.RagdollWoundsData = nil
 
+local function L(key)
+    return MuR.Language[key] or key
+end
+
 local function CreateProgressBar(duration, title, onComplete, onCancel)
     if IsValid(MuR.ProgressFrame) then MuR.ProgressFrame:Remove() end
 
@@ -63,7 +67,7 @@ local function CreateProgressBar(duration, title, onComplete, onCancel)
 
         draw.SimpleText(math.Round(progress * 100) .. "%", "MuR_Font2", w/2, barY + barH/2, MENU_THEME.text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
-        draw.SimpleText(MuR.Language["ragdoll_menu_cancel_hint"] or "[ESC] Cancel", "MuR_FontDef", w/2, He(120), MENU_THEME.textDark, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText(L("ragdoll_menu_cancel_hint"), "MuR_FontDef", w/2, He(120), MENU_THEME.textDark, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
 
     local cancelBtn = vgui.Create("DButton", frame)
@@ -73,7 +77,7 @@ local function CreateProgressBar(duration, title, onComplete, onCancel)
     cancelBtn.Paint = function(self, w, h)
         local bgColor = self:IsHovered() and MENU_THEME.cancelBtnHover or MENU_THEME.cancelBtn
         draw.RoundedBox(6, 0, 0, w, h, bgColor)
-        draw.SimpleText(MuR.Language["ragdoll_menu_cancel"] or "Cancel", "MuR_Font2", w/2, h/2, MENU_THEME.text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText(L("ragdoll_menu_cancel"), "MuR_Font2", w/2, h/2, MENU_THEME.text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
     cancelBtn.DoClick = CancelAction
 
@@ -125,7 +129,7 @@ local function CreateWoundsDisplay(woundsData)
     end
 
     local title = vgui.Create("DLabel", frame)
-    title:SetText(MuR.Language["ragdoll_menu_wounds_result"] or "Wound Examination Results")
+    title:SetText(L("ragdoll_menu_wounds_result"))
     title:SetFont("MuR_Font3")
     title:SetTextColor(MENU_THEME.text)
     title:SetPos(We(20), He(10))
@@ -170,7 +174,7 @@ local function CreateWoundsDisplay(woundsData)
 
             local displayText = wound.text
             if wound.locKey then
-                displayText = MuR.Language[wound.locKey] or wound.locKey
+                displayText = L(wound.locKey)
             end
 
             local woundText = vgui.Create("DLabel", woundPanel)
@@ -185,7 +189,7 @@ local function CreateWoundsDisplay(woundsData)
         end
     else
         local noWounds = vgui.Create("DLabel", scroll)
-        noWounds:SetText(MuR.Language["ragdoll_menu_no_wounds"] or "No visible wounds detected")
+        noWounds:SetText(L("ragdoll_menu_no_wounds"))
         noWounds:SetFont("MuR_Font2")
         noWounds:SetTextColor(MENU_THEME.success)
         noWounds:SetPos(We(15), He(20))
@@ -226,7 +230,7 @@ local function CreateRagdollMenu(ragdoll)
     end
 
     local title = vgui.Create("DLabel", menu)
-    title:SetText(MuR.Language["ragdoll_menu_title"] or "Actions")
+    title:SetText(L("ragdoll_menu_title"))
     title:SetFont("MuR_Font3")
     title:SetTextColor(MENU_THEME.text)
     title:SetPos(We(20), He(10))
@@ -234,7 +238,7 @@ local function CreateRagdollMenu(ragdoll)
 
     local buttonData = {
         {
-            text = MuR.Language["ragdoll_menu_pulse"] or "Check Pulse",
+            text = L("ragdoll_menu_pulse"),
             icon = "icon16/heart.png",
             action = function()
                 menu:Remove()
@@ -243,13 +247,13 @@ local function CreateRagdollMenu(ragdoll)
                 net.WriteString("pulse")
                 net.SendToServer()
 
-                CreateProgressBar(2, MuR.Language["ragdoll_menu_checking_pulse"] or "Checking pulse...", function()
+                CreateProgressBar(2, L("ragdoll_menu_checking_pulse"), function()
 
                 end)
             end
         },
         {
-            text = MuR.Language["ragdoll_menu_wounds"] or "Examine Wounds",
+            text = L("ragdoll_menu_wounds"),
             icon = "icon16/zoom.png",
             action = function()
                 menu:Remove()
@@ -258,13 +262,13 @@ local function CreateRagdollMenu(ragdoll)
                 net.WriteString("wounds")
                 net.SendToServer()
 
-                CreateProgressBar(5, MuR.Language["ragdoll_menu_examining_wounds"] or "Examining wounds...", function()
+                CreateProgressBar(5, L("ragdoll_menu_examining_wounds"), function()
 
                 end)
             end
         },
         {
-            text = MuR.Language["ragdoll_menu_search"] or "Search Inventory",
+            text = L("ragdoll_menu_search"),
             icon = "icon16/folder_explore.png",
             action = function()
                 menu:Remove()
@@ -273,13 +277,13 @@ local function CreateRagdollMenu(ragdoll)
                 net.WriteString("search")
                 net.SendToServer()
 
-                CreateProgressBar(2, MuR.Language["ragdoll_menu_searching"] or "Searching...", function()
+                CreateProgressBar(2, L("ragdoll_menu_searching"), function()
 
                 end)
             end
         },
         {
-            text = MuR.Language["ragdoll_menu_close"] or "Close",
+            text = L("ragdoll_menu_close"),
             icon = nil,
             isClose = true,
             action = function()
@@ -360,13 +364,13 @@ net.Receive("MuR.RagdollPulseResult", function()
 
     local text, color
     if status == 0 then
-        text = MuR.Language["ragdoll_pulse_dead"] or "No pulse... They're dead."
+        text = L("ragdoll_pulse_dead")
         color = MENU_THEME.danger
     elseif status == 1 then
-        text = MuR.Language["ragdoll_pulse_unconscious"] or "Weak pulse... They're unconscious but alive."
+        text = L("ragdoll_pulse_unconscious")
         color = MENU_THEME.warning
     else
-        text = MuR.Language["ragdoll_pulse_alive"] or "Strong pulse... They're alive!"
+        text = L("ragdoll_pulse_alive")
         color = MENU_THEME.success
     end
 end)
@@ -393,7 +397,7 @@ net.Receive("MuR.RagdollSearchResult", function()
     MuR.RagdollActionInProgress = false
 
     if not canSearch then
-        notification.AddLegacy(MuR.Language[reason] or reason, NOTIFY_ERROR, 3)
+        notification.AddLegacy(L(reason), NOTIFY_ERROR, 3)
         surface.PlaySound("buttons/button10.wav")
     end
 
@@ -405,11 +409,11 @@ net.Receive("MuR.RagdollBeingChecked", function()
 
     local text
     if action == "pulse" then
-        text = MuR.Language["ragdoll_being_pulsed"] or "Someone is checking your pulse..."
+        text = L("ragdoll_being_pulsed")
     elseif action == "wounds" then
-        text = MuR.Language["ragdoll_being_examined"] or "Someone is examining your wounds..."
+        text = L("ragdoll_being_examined")
     elseif action == "search" then
-        text = MuR.Language["ragdoll_being_searched"] or "Someone is searching you..."
+        text = L("ragdoll_being_searched")
     end
 
     if text then

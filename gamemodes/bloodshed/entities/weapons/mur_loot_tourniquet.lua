@@ -38,9 +38,8 @@ SWEP.AnimTable = {
 }
 
 SWEP.LimbArteries = {
-    "Right Arm Artery", "Left Arm Artery", 
-    "Right Leg Artery", "Left Leg Artery",
-    "Right Wrist Artery", "Left Wrist Artery"
+    "Arm",
+    "Leg"
 }
 
 function SWEP:CanHeal(target)

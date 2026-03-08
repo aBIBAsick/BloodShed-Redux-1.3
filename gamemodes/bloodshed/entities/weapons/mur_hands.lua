@@ -350,15 +350,42 @@ function SWEP:AttackFront()
 	if CLIENT then return end
 	self:GetOwner():LagCompensation(true)
 
+	local owner = self:GetOwner()
+	local aimVec = owner:GetAimVector()
+	local startPos = owner:EyePos()
+	local endPos = startPos + aimVec * self.ReachDistance
+
 	local tr = util.TraceLine({
-		start = self:GetOwner():EyePos(),
-		endpos = self:GetOwner():EyePos() + self:GetOwner():GetAimVector() * 60,
-		filter = self:GetOwner(),
+		start = startPos,
+		endpos = endPos,
+		filter = owner,
 		mask = MASK_SHOT,
 	})
 
+	if not IsValid(tr.Entity) and not (tr.Entity and tr.Entity.IsWorld and tr.Entity:IsWorld()) then
+		local obstructionTrace = util.TraceLine({
+			start = startPos,
+			endpos = endPos,
+			filter = function(ent)
+				if ent == owner then return true end
+				return ent:IsPlayer() or ent:IsNPC()
+			end,
+			mask = MASK_SHOT,
+		})
+
+		local pointPos = obstructionTrace.Hit and obstructionTrace.HitPos or endPos
+		tr = util.TraceHull({
+			start = pointPos - aimVec * 2,
+			endpos = pointPos + aimVec * 2,
+			filter = owner,
+			mask = MASK_SHOT,
+			mins = Vector(-2, -2, -2),
+			maxs = Vector(2, 2, 2)
+		})
+	end
+
 	local Ent, HitPos = tr.Entity, tr.HitPos
-	local AimVec = self:GetOwner():GetAimVector()
+	local AimVec = aimVec
 
 	if IsValid(Ent) or (Ent and Ent.IsWorld and Ent:IsWorld()) then
 		local SelfForce, Mul = 125, 1
@@ -367,6 +394,8 @@ function SWEP:AttackFront()
 			SelfForce = 25
 
 			if Ent:IsPlayer() and IsValid(Ent:GetActiveWeapon()) and Ent:GetActiveWeapon().GetBlocking and Ent:GetActiveWeapon():GetBlocking() then
+				Mul = 0.35
+				SelfForce = 10
 				sound.Play(")weapons/tfa/melee_hit_body"..math.random(1,6)..".wav", HitPos, 65, math.random(90, 110))
 			else
 				sound.Play(")weapons/tfa/melee_hit_body"..math.random(1,6)..".wav", HitPos, 65, math.random(90, 110))
@@ -375,15 +404,43 @@ function SWEP:AttackFront()
 			sound.Play(")weapons/tfa/melee_hit_body"..math.random(1,6)..".wav", HitPos, 65, math.random(90, 110))
 		end
 
-		local DamageAmt = math.random(8, 10)
+		local isHeadHit = tr.HitGroup == HITGROUP_HEAD
+		local DamageAmt = isHeadHit and math.random(4, 5) or math.random(3, 4)
+		local damageToDeal = DamageAmt * Mul
+		local shouldKnockout = false
+		local knockoutDuration
+
+		if Ent:IsPlayer() and Ent:Alive() and not Ent:GetNW2Bool("IsUnconscious", false) then
+			local knockoutThreshold = isHeadHit and 14 or 8
+			if Ent:Health() - damageToDeal <= knockoutThreshold then
+				damageToDeal = math.max(math.min(damageToDeal, Ent:Health() - 1), 0)
+				shouldKnockout = true
+				knockoutDuration = isHeadHit and math.Rand(10, 16) or math.Rand(6, 10)
+			elseif isHeadHit and Ent:Health() <= 22 and math.random() < 0.25 then
+				shouldKnockout = true
+				knockoutDuration = math.Rand(8, 12)
+			end
+		end
+
 		local Dam = DamageInfo()
 		Dam:SetAttacker(self:GetOwner())
 		Dam:SetInflictor(self.Weapon)
-		Dam:SetDamage(DamageAmt * Mul)
+		Dam:SetDamage(damageToDeal)
 		Dam:SetDamageForce(AimVec * Mul ^ 3)
 		Dam:SetDamageType(DMG_CLUB)
 		Dam:SetDamagePosition(HitPos)
 		Ent:TakeDamageInfo(Dam)
+
+		if Ent:IsPlayer() and Ent:Alive() and not Ent:GetNW2Bool("IsUnconscious", false) then
+			if isHeadHit and Ent.ApplyConcussion then
+				Ent:ApplyConcussion(Dam, 2.5, 0.8)
+			end
+
+			if shouldKnockout and Ent.ApplyUnconsciousness then
+				Ent:ApplyUnconsciousness(knockoutDuration or math.Rand(6, 10))
+			end
+		end
+
 		local Phys = Ent:GetPhysicsObject()
 
 		if IsValid(Phys) then
