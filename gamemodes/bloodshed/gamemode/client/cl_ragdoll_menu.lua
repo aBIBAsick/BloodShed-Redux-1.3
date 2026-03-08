@@ -23,7 +23,20 @@ MuR.RagdollActionInProgress = false
 MuR.RagdollWoundsData = nil
 
 local function L(key)
-    return MuR.Language[key] or key
+    local value = MuR.Language[key]
+    if value then
+        return value
+    end
+
+    if MuR.LoadLanguage and MuR.CurrentLanguage then
+        MuR.LoadLanguage(MuR.CurrentLanguage)
+        value = MuR.Language[key]
+        if value then
+            return value
+        end
+    end
+
+    return key
 end
 
 local function CreateProgressBar(duration, title, onComplete, onCancel)
