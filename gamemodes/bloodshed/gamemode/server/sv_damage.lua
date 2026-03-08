@@ -76,7 +76,21 @@ end
 
 function meta:TriggerArtery(source)
 	source = source or "Generic"
-	self:SetNW2Bool("Artery_"..source, true)
+
+	local arteryKey = source
+	if source == "Heart" then
+		arteryKey = "Heart"
+	elseif source == "Neck" or source == "Carotid Artery" then
+		arteryKey = "Neck"
+	elseif isstring(source) and string.find(source, "Brachial", 1, true) then
+		arteryKey = "Arm"
+	elseif isstring(source) and string.find(source, "Femoral", 1, true) then
+		arteryKey = "Leg"
+	elseif source ~= "Generic" then
+		arteryKey = "Generic"
+	end
+
+	self:SetNW2Bool("Artery_" .. arteryKey, true)
 
 	if not self:GetNW2Bool("HardBleed") then
 		self:SetNW2Bool("HardBleed", true)
@@ -85,10 +99,9 @@ function meta:TriggerArtery(source)
 end
 
 function meta:CheckShock()
-	if self:GetNW2Bool("ShockState") then return end
-	if self:Health() <= self:GetMaxHealth() * 0.25 and (self:GetNW2Bool("HardBleed") or self:GetNW2Float("BleedLevel") >= 3) then
-		self:SetNW2Bool("ShockState", true)
-		MuR:GiveMessage2("shock_state", self)
+	local previous = self:GetNW2Int("ShockLevel", 0)
+	local current = self:RefreshShockLevel()
+	if current >= 2 and previous < 2 then
 		self:ApplyConcussion(nil, 2.5, 1.2)
 	end
 end
@@ -141,10 +154,420 @@ end
 function meta:WakeUpFromUnconsciousness()
 	self:SetNW2Bool("IsUnconscious", false)
 	self:SetNW2Float("UnconsciousEnd", 0)
+	self:SetNW2Int("ConsciousLevel", math.max(self:GetNW2Int("ConsciousLevel", 0), 1))
 	self.VoiceDelay = 0
 
 	MuR:GiveMessage2("wake_up", self)
 	MuR:PlaySoundOnClient("gasp/focus_gasp_0" .. math.random(1, 6) .. ".wav", self)
+end
+
+function meta:ResetCriticalOrgans()
+	self.CriticalOrganStates = {}
+	self.OrganDamageStages = {}
+	self.ShockPassoutAt = nil
+
+	local keys = {"brain", "neck", "heart", "carotid", "brachial", "femoral", "liver", "lungs"}
+	for _, key in ipairs(keys) do
+		self:SetNW2Int("OrganDamage_" .. key, 0)
+	end
+
+	local arteryKeys = {
+		"Artery_Neck", "Artery_Heart", "Artery_Arm", "Artery_Leg", "Artery_Generic",
+		"Artery_neck", "Artery_heart", "Artery_arm", "Artery_leg"
+	}
+	for _, key in ipairs(arteryKeys) do
+		self:SetNW2Bool(key, false)
+	end
+
+	self:SetNW2Int("ShockLevel", 0)
+	self:SetNW2Int("ConsciousLevel", 0)
+end
+
+function meta:SetOrganDamageStage(key, stage)
+	stage = math.max(stage or 0, 0)
+	self.OrganDamageStages = self.OrganDamageStages or {}
+
+	local current = self.OrganDamageStages[key] or 0
+	if stage > current then
+		self.OrganDamageStages[key] = stage
+		self:SetNW2Int("OrganDamage_" .. key, stage)
+	end
+
+	return self.OrganDamageStages[key] or 0
+end
+
+function meta:GetOrganDamageStage(key)
+	self.OrganDamageStages = self.OrganDamageStages or {}
+	return self.OrganDamageStages[key] or 0
+end
+
+function meta:ApplyCriticalOrganState(key, data)
+	if self:IsRoleWithoutOrgans() then return end
+
+	local now = CurTime()
+	local states = self.CriticalOrganStates or {}
+	local state = states[key] or {
+		key = key,
+		startedAt = now
+	}
+
+	if data.deathIn then
+		local deathAt = now + data.deathIn
+		state.deathAt = state.deathAt and math.min(state.deathAt, deathAt) or deathAt
+	end
+
+	if data.passoutIn ~= nil then
+		local passoutAt = now + data.passoutIn
+		state.passoutAt = state.passoutAt and math.min(state.passoutAt, passoutAt) or passoutAt
+	end
+
+	state.interval = data.interval or state.interval or 1
+	state.nextTick = math.min(state.nextTick or now, now)
+	state.damageType = data.damageType or state.damageType or DMG_DIRECT
+	state.severity = math.max(state.severity or 0, data.severity or 1)
+	state.unconsciousFor = math.max(state.unconsciousFor or 0, data.unconsciousFor or 0)
+	state.injuryStage = math.max(state.injuryStage or 0, data.injuryStage or 1)
+	state.shockWeight = math.max(state.shockWeight or 0, data.shockWeight or 0.8)
+
+	if IsValid(data.attacker) then state.attacker = data.attacker end
+	if IsValid(data.inflictor) then state.inflictor = data.inflictor end
+
+	states[key] = state
+	self.CriticalOrganStates = states
+	self:SetOrganDamageStage(key, state.injuryStage)
+
+	return state
+end
+
+function meta:RefreshShockLevel()
+	if not self:Alive() then return 0 end
+
+	local hpFrac = self:Health() / math.max(self:GetMaxHealth(), 1)
+	local bleedLevel = self:GetNW2Float("BleedLevel", 0)
+	local toxin = self:GetNW2Float("ToxinLevel", 0)
+	local load = 0
+
+	if hpFrac < 0.85 then
+		load = load + (0.85 - hpFrac) * 3.8
+	end
+
+	if self:GetNW2Bool("HardBleed") then
+		load = load + 2.2
+	elseif bleedLevel > 0 then
+		load = load + bleedLevel * 0.7
+	end
+
+	if self:GetNW2Float("InternalBleedEnd", 0) > CurTime() then
+		load = load + 1.15
+	end
+	if self:GetNW2Bool("Pneumothorax") then
+		load = load + 1.05
+	end
+	if self:GetNW2Bool("PelvisFracture") then
+		load = load + 0.65
+	end
+	if self:GetNW2Bool("RibFracture") then
+		load = load + 0.45
+	end
+	if self:GetNW2Bool("SpineBroken") then
+		load = load + 1.2
+	end
+	if toxin > 0 then
+		load = load + math.min(toxin / 3.5, 1.4)
+	end
+
+	local states = self.CriticalOrganStates or {}
+	for _, state in pairs(states) do
+		load = load + (state.shockWeight or 0.8) * math.max(state.injuryStage or 1, 1) * 0.55
+	end
+
+	local stage = 0
+	if load >= 5.4 then
+		stage = 3
+	elseif load >= 3.6 then
+		stage = 2
+	elseif load >= 1.9 then
+		stage = 1
+	end
+
+	local lastStage = self:GetNW2Int("ShockLevel", 0)
+	self:SetNW2Int("ShockLevel", stage)
+	self:SetNW2Bool("ShockState", stage >= 2)
+
+	if stage >= 2 and stage > lastStage then
+		MuR:GiveMessage2("shock_state", self)
+	end
+
+	return stage
+end
+
+function meta:RefreshConsciousLevel()
+	if not self:Alive() then return 0 end
+	if self:GetNW2Bool("IsUnconscious", false) then
+		self:SetNW2Int("ConsciousLevel", 3)
+		return 3
+	end
+
+	local hpFrac = self:Health() / math.max(self:GetMaxHealth(), 1)
+	local shockStage = self:GetNW2Int("ShockLevel", 0)
+	local consciousnessLoad = shockStage * 1.15
+	local concussionEnd = self:GetNW2Float("ConcussionEnd", 0)
+
+	if hpFrac < 0.55 then
+		consciousnessLoad = consciousnessLoad + (0.55 - hpFrac) * 4
+	end
+
+	if self:GetNW2Bool("HardBleed") then
+		consciousnessLoad = consciousnessLoad + 1.15
+	else
+		consciousnessLoad = consciousnessLoad + self:GetNW2Float("BleedLevel", 0) * 0.35
+	end
+
+	if concussionEnd > CurTime() then
+		consciousnessLoad = consciousnessLoad + 0.8 + self:GetNW2Float("ConcussionIntensity", 0) * 0.45
+	end
+
+	if self:GetNW2Float("Stamina", 100) <= 20 then
+		consciousnessLoad = consciousnessLoad + 0.7
+	end
+
+	consciousnessLoad = consciousnessLoad + math.min(self:GetNW2Float("ToxinLevel", 0) / 5, 1.2)
+	consciousnessLoad = consciousnessLoad + self:GetOrganDamageStage("brain") * 1.35
+	consciousnessLoad = consciousnessLoad + self:GetOrganDamageStage("carotid") * 0.9
+	consciousnessLoad = consciousnessLoad + self:GetOrganDamageStage("heart") * 0.55
+	consciousnessLoad = consciousnessLoad + math.max(self:GetOrganDamageStage("lungs") - 1, 0) * 0.65
+
+	local stage = 0
+	if consciousnessLoad >= 4.6 then
+		stage = 2
+	elseif consciousnessLoad >= 2.3 then
+		stage = 1
+	end
+
+	self:SetNW2Int("ConsciousLevel", stage)
+	return stage
+end
+
+function meta:DieFromCriticalOrgan(state)
+	if not self:Alive() then return end
+
+	local attacker = IsValid(state and state.attacker) and state.attacker or game.GetWorld()
+	local inflictor = IsValid(state and state.inflictor) and state.inflictor or attacker
+	local dmg = DamageInfo()
+	dmg:SetAttacker(attacker)
+	dmg:SetInflictor(inflictor)
+	dmg:SetDamageType(state and state.damageType or DMG_DIRECT)
+	dmg:SetDamage(math.max(self:Health() + 25, 50))
+	dmg:SetDamagePosition(self:WorldSpaceCenter())
+	self:TakeDamageInfo(dmg)
+
+	if self:Alive() then
+		self:Kill()
+	end
+end
+
+local function shortenTimeline(base, dmg, minValue, scale)
+	return math.Clamp(base - dmg * scale, minValue, base)
+end
+
+local function processCriticalOrgans(ply)
+	if not ply:Alive() then return end
+
+	local states = ply.CriticalOrganStates
+	if not states then return end
+
+	local now = CurTime()
+	for key, state in pairs(states) do
+		if now < (state.nextTick or 0) then continue end
+		state.nextTick = now + (state.interval or 1)
+
+		if key == "brain" then
+			local stage = math.max(state.injuryStage or 1, 1)
+			ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - (4 + stage * 3), 0))
+			ply:ApplyCoordinationLoss(3 + stage, 0.7 + stage * 0.2)
+
+			if state.passoutAt and now >= state.passoutAt and not state.passoutApplied then
+				state.passoutApplied = true
+				ply:ApplyUnconsciousness(math.max(state.unconsciousFor or 18, 8))
+			end
+
+			if state.deathAt and now >= state.deathAt then
+				ply:DieFromCriticalOrgan(state)
+				return
+			end
+		elseif key == "neck" then
+			local stage = math.max(state.injuryStage or 1, 1)
+			ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - (3 + stage * 2), 0))
+			ply:ApplyCoordinationLoss(2 + stage, 0.35 + stage * 0.2)
+			if math.random() < (0.05 + stage * 0.05) then
+				ply:ApplyConcussion(nil, 2, 0.5)
+			end
+
+			if state.passoutAt and now >= state.passoutAt and not state.passoutApplied then
+				state.passoutApplied = true
+				ply:ApplyUnconsciousness(math.max(state.unconsciousFor or 12, 6))
+			end
+
+			if state.deathAt and now >= state.deathAt then
+				ply:DieFromCriticalOrgan(state)
+				return
+			end
+		elseif key == "heart" then
+			local stage = math.max(state.injuryStage or 1, 1)
+			if stage >= 2 then
+				ply:SetNW2Bool("HardBleed", true)
+			end
+			if stage >= 2 or math.random() < 0.45 then
+				ply:DamagePlayerSystem("blood")
+			end
+			ply:SetNW2Float("Stamina", 0)
+			ply:ApplyCoordinationLoss(2 + stage, 0.45 + stage * 0.2)
+
+			if state.passoutAt and now >= state.passoutAt and not state.passoutApplied then
+				state.passoutApplied = true
+				ply:ApplyUnconsciousness(math.max(state.unconsciousFor or 14, 8))
+			end
+
+			if state.deathAt and now >= state.deathAt then
+				ply:DieFromCriticalOrgan(state)
+				return
+			end
+		elseif key == "carotid" then
+			local stage = math.max(state.injuryStage or 2, 2)
+			ply:SetNW2Bool("HardBleed", true)
+			ply:DamagePlayerSystem("blood")
+			if stage >= 3 or math.random() < 0.45 then
+				ply:DamagePlayerSystem("blood")
+			end
+			ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - (10 + stage * 4), 0))
+
+			if state.passoutAt and now >= state.passoutAt and not state.passoutApplied then
+				state.passoutApplied = true
+				ply:ApplyUnconsciousness(math.max(state.unconsciousFor or 16, 8))
+			end
+
+			if state.deathAt and now >= state.deathAt then
+				ply:DieFromCriticalOrgan(state)
+				return
+			end
+		elseif key == "brachial" then
+			local stage = math.max(state.injuryStage or 1, 1)
+			if stage >= 2 or math.random() < 0.55 then
+				ply:DamagePlayerSystem("blood")
+			end
+			ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - (3 + stage * 2), 0))
+
+			if state.passoutAt and now >= state.passoutAt and not state.passoutApplied then
+				state.passoutApplied = true
+				ply:ApplyUnconsciousness(math.max(state.unconsciousFor or 10, 6))
+			end
+
+			if state.deathAt and now >= state.deathAt then
+				ply:DieFromCriticalOrgan(state)
+				return
+			end
+		elseif key == "femoral" then
+			local stage = math.max(state.injuryStage or 2, 2)
+			ply:SetNW2Bool("HardBleed", true)
+			ply:DamagePlayerSystem("blood")
+			if stage >= 3 or math.random() < 0.35 then
+				ply:DamagePlayerSystem("blood")
+			end
+			ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - (8 + stage * 2), 0))
+
+			if state.passoutAt and now >= state.passoutAt and not state.passoutApplied then
+				state.passoutApplied = true
+				ply:ApplyUnconsciousness(math.max(state.unconsciousFor or 14, 8))
+			end
+
+			if state.deathAt and now >= state.deathAt then
+				ply:DieFromCriticalOrgan(state)
+				return
+			end
+		elseif key == "liver" then
+			local stage = math.max(state.injuryStage or 1, 1)
+			if math.random() < (0.2 + stage * 0.18) then
+				ply:DamagePlayerSystem("blood")
+			end
+			ply:SetNW2Float("ToxinLevel", math.min(ply:GetNW2Float("ToxinLevel", 0) + (0.08 + stage * 0.08), 10))
+			ply:ApplyCoordinationLoss(1 + stage, 0.2 + stage * 0.12)
+
+			if state.passoutAt and now >= state.passoutAt and not state.passoutApplied then
+				state.passoutApplied = true
+				ply:ApplyUnconsciousness(math.max(state.unconsciousFor or 16, 8))
+			end
+
+			if state.deathAt and now >= state.deathAt then
+				ply:DieFromCriticalOrgan(state)
+				return
+			end
+		elseif key == "lungs" then
+			local hits = state.hits or 1
+			local stage = math.max(state.injuryStage or hits, 1)
+			ply:SetNW2Bool("Pneumothorax", true)
+			ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - (2 + hits * 2 + stage * 2), 0))
+
+			if stage >= 2 or hits >= 2 then
+				if math.random() < (0.15 + stage * 0.15) then
+					ply:DamagePlayerSystem("blood")
+				end
+				ply:ApplyCoordinationLoss(2 + stage, 0.3 + stage * 0.15)
+			end
+
+			if state.passoutAt and now >= state.passoutAt and not state.passoutApplied then
+				state.passoutApplied = true
+				ply:ApplyUnconsciousness(math.max(state.unconsciousFor or 12, 8))
+			end
+
+			if state.deathAt and now >= state.deathAt then
+				ply:DieFromCriticalOrgan(state)
+				return
+			end
+		end
+	end
+end
+
+local function processBodyState(ply)
+	if not ply:Alive() then return end
+	if (ply.NextBodyStateTick or 0) > CurTime() then return end
+	ply.NextBodyStateTick = CurTime() + 1
+
+	local shockStage = ply:RefreshShockLevel()
+	local consciousStage = ply:RefreshConsciousLevel()
+
+	if shockStage == 1 then
+		ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - 2, 0))
+		if math.random() < 0.25 then
+			ply:ApplyCoordinationLoss(1.5, 0.18)
+		end
+	elseif shockStage == 2 then
+		ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - 4, 0))
+		ply:ApplyCoordinationLoss(2.5, 0.32)
+	elseif shockStage >= 3 then
+		ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - 7, 0))
+		ply:ApplyCoordinationLoss(4, 0.55)
+
+		if not ply:GetNW2Bool("IsUnconscious", false) then
+			ply.ShockPassoutAt = ply.ShockPassoutAt or (CurTime() + math.Rand(10, 20))
+			if CurTime() >= ply.ShockPassoutAt then
+				ply:ApplyUnconsciousness(math.Rand(6, 12))
+				ply.ShockPassoutAt = CurTime() + math.Rand(18, 30)
+			end
+		end
+	else
+		ply.ShockPassoutAt = nil
+	end
+
+	if consciousStage == 1 then
+		if math.random() < 0.2 then
+			ply:ApplyCoordinationLoss(1.5, 0.2)
+		end
+	elseif consciousStage >= 2 and not ply:GetNW2Bool("IsUnconscious", false) then
+		ply:ApplyCoordinationLoss(2.5, 0.35)
+		if math.random() < 0.18 then
+			ply:ApplyConcussion(nil, 1.3, 0.45)
+		end
+	end
 end
 
 function meta:CheckForceProneOnly()
@@ -153,6 +576,8 @@ function meta:CheckForceProneOnly()
 	local hpFrac = hp / maxhp
 	local forceProneOnly = false
 	if self:GetNW2Bool("HardBleed") and hpFrac <= 0.4 then
+		forceProneOnly = true
+	elseif self:GetNW2Bool("PelvisFracture") then
 		forceProneOnly = true
 	elseif self:GetNW2Float("BleedLevel") >= 3 and hpFrac <= 0.3 then
 		forceProneOnly = true
@@ -300,6 +725,9 @@ function meta:UpdateBloodMovementSpeed()
 	local bleedLevel = self:GetNW2Float("BleedLevel")
 	local hardBleed = self:GetNW2Bool("HardBleed")
 	local legBroken = self:GetNW2Bool("LegBroken")
+	local footFracture = self:GetNW2Bool("FootFracture")
+	local pelvisFracture = self:GetNW2Bool("PelvisFracture")
+	local ribFracture = self:GetNW2Bool("RibFracture")
 
 	local baseSlowWalk = 60
 	local baseWalk = self.SpawnDataSpeed[1] 
@@ -321,6 +749,18 @@ function meta:UpdateBloodMovementSpeed()
 		speedMultiplier = speedMultiplier * 0.5
 	end
 
+	if footFracture then
+		speedMultiplier = speedMultiplier * 0.75
+	end
+
+	if pelvisFracture then
+		speedMultiplier = speedMultiplier * 0.35
+	end
+
+	if ribFracture then
+		speedMultiplier = speedMultiplier * 0.9
+	end
+
 	self:SetSlowWalkSpeed(baseSlowWalk * speedMultiplier)
 	self:SetWalkSpeed(baseWalk * speedMultiplier)
 	self:SetRunSpeed(baseRun * speedMultiplier)
@@ -335,6 +775,8 @@ function meta:CheckRandomUnconsciousness()
 	local hpFrac = hp / maxhp
 	local bleedLevel = self:GetNW2Float("BleedLevel")
 	local hardBleed = self:GetNW2Bool("HardBleed")
+	local shockStage = self:GetNW2Int("ShockLevel", 0)
+	local consciousStage = self:GetNW2Int("ConsciousLevel", 0)
 
 	local unconsciousChance = 0
 
@@ -354,8 +796,14 @@ function meta:CheckRandomUnconsciousness()
 		unconsciousChance = unconsciousChance + 0.002
 	end
 
-	if self:GetNW2Bool("ShockState") then
-		unconsciousChance = unconsciousChance + 0.003
+	if shockStage >= 2 then
+		unconsciousChance = unconsciousChance + 0.003 * shockStage
+	end
+
+	if consciousStage == 1 then
+		unconsciousChance = unconsciousChance + 0.0015
+	elseif consciousStage >= 2 then
+		unconsciousChance = unconsciousChance + 0.004
 	end
 
 	if unconsciousChance > 0 and math.random() < unconsciousChance then
@@ -516,6 +964,8 @@ hook.Add("PlayerDeath", "MuR.ClearUnconsciousState", function(victim)
 	victim:SetNW2Float("UnconsciousEnd", 0)
 	victim:SetNW2Float("ConcussionEnd", 0)
 	victim:SetNW2Float("CoordinationEnd", 0)
+	victim:SetNW2Int("ShockLevel", 0)
+	victim:SetNW2Int("ConsciousLevel", 0)
 end)
 
 hook.Add("MuR.HandleCustomHitgroup", "MuR_OrganDamage", function(victim, owner, organ, dmginfo)
@@ -549,47 +999,111 @@ hook.Add("MuR.HandleCustomHitgroup", "MuR_OrganDamage", function(victim, owner, 
 			end
 		end
 		if organ == "Brain" then
+			local brainStage = dmginfo:GetDamage() >= 34 and 3 or (dmginfo:GetDamage() >= 18 and 2 or 1)
 			MuR:GiveMessage2("brain_hit", owner)
-			dmginfo:ScaleDamage(2)
-			if owner:IsPlayer() then
-				owner:SetNW2Bool("IsUnconscious", true)
-				owner:SetNW2Float("UnconsciousEnd", CurTime() + math.random(30,60))
+			dmginfo:ScaleDamage(1.4 + brainStage * 0.35)
+			owner:ApplyConcussion(dmginfo, 5 + brainStage * 3, 0.8 + brainStage * 0.35)
+			local state = owner:ApplyCriticalOrganState("brain", {
+				attacker = dmginfo:GetAttacker(),
+				inflictor = dmginfo:GetInflictor(),
+				damageType = DMG_DIRECT,
+				deathIn = brainStage >= 2 and shortenTimeline(55 - brainStage * 8, dmginfo:GetDamage(), 18 - brainStage * 2, 0.18 + brainStage * 0.03) or nil,
+				passoutIn = brainStage >= 2 and 0 or shortenTimeline(16, dmginfo:GetDamage(), 6, 0.08),
+				unconsciousFor = 10 + brainStage * 6,
+				interval = 1.5,
+				injuryStage = brainStage,
+				shockWeight = 1.2
+			})
+			if state and brainStage >= 2 then
+				owner:ApplyUnconsciousness(10 + brainStage * 6)
 			end
 
 		elseif organ == "Neck" then
+			local neckStage = dmginfo:GetDamage() >= 26 and 3 or (dmginfo:GetDamage() >= 14 and 2 or 1)
 			MuR:GiveMessage2("neck_hit", owner)
-			dmginfo:ScaleDamage(1.25)
-			owner:TriggerArtery("Neck")
-			MuR:GiveMessage2("artery_neck_hit", owner)
-			if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_Neck1", 0.1, 8) end
-			owner:ApplyConcussion(dmginfo, 2, 0.5)
-			owner:EmitSound("murdered/player/throat_cut.wav", 60, 100)
-
-		elseif organ == "Heart" then
-			MuR:GiveMessage2("heart_hit", owner)
-			MuR:GiveMessage2("artery_heart_hit", owner)
-			dmginfo:ScaleDamage(1.5)
-			owner:TriggerArtery("Heart")
-			owner:DamagePlayerSystem("hard_blood")
-			if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_Spine4", 0.1, 10) end
-			owner:EmitSound("murdered/player/heartbeat_stop.wav", 60, 100)
-
-		elseif organ == "Right Lung" or organ == "Left Lung" then
-			MuR:GiveMessage2("lung_hit", owner)
-			owner:ApplyInternalBleed(25, 2)
-			owner:ApplyCoordinationLoss(20, 1.5)
-			owner:SetNW2Float("Stamina", 0)
-			owner:SetNW2Bool("Pneumothorax", true)
-			if math.random(1, 2) == 1 then
-				owner:EmitSound("murdered/player/gasp_0" .. math.random(1, 3) .. ".wav", 60, 100)
+			dmginfo:ScaleDamage(1.05 + neckStage * 0.12)
+			owner:ApplyConcussion(dmginfo, 2 + neckStage * 2, 0.5 + neckStage * 0.2)
+			owner:ApplyCoordinationLoss(3 + neckStage * 2, 0.3 + neckStage * 0.2)
+			local state = owner:ApplyCriticalOrganState("neck", {
+				attacker = dmginfo:GetAttacker(),
+				inflictor = dmginfo:GetInflictor(),
+				damageType = DMG_DIRECT,
+				deathIn = neckStage >= 2 and shortenTimeline(95 - neckStage * 10, dmginfo:GetDamage(), 34 - neckStage * 3, 0.12 + neckStage * 0.02) or nil,
+				passoutIn = neckStage >= 2 and shortenTimeline(45 - neckStage * 4, dmginfo:GetDamage(), 14 - neckStage * 2, 0.08 + neckStage * 0.02) or nil,
+				unconsciousFor = 8 + neckStage * 3,
+				interval = 2.5,
+				injuryStage = neckStage,
+				shockWeight = 0.7
+			})
+			if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_Neck1", 0.1, 4) end
+			if state and state.passoutAt and state.passoutAt <= CurTime() + 0.1 then
+				owner:ApplyUnconsciousness(12)
 			end
 
-		elseif organ == "Abdomen" then
-			MuR:GiveMessage2("stomach_hit", owner)
-			owner:ApplyInternalBleed(20, 3)
-			owner:ApplyConcussion(dmginfo, 3, 0.8)
-			if math.random(1,3) == 1 then
-				owner:EmitSound("vo/npc/male01/pain0" .. math.random(1,9) .. ".wav")
+		elseif organ == "Heart" then
+			local heartStage = dmginfo:GetDamage() >= 30 and 3 or (dmginfo:GetDamage() >= 16 and 2 or 1)
+			MuR:GiveMessage2("heart_hit", owner)
+			if heartStage >= 2 then
+				MuR:GiveMessage2("artery_heart_hit", owner)
+				owner:TriggerArtery("Heart")
+			end
+			dmginfo:ScaleDamage(1.1 + heartStage * 0.1)
+			owner:ApplyCriticalOrganState("heart", {
+				attacker = dmginfo:GetAttacker(),
+				inflictor = dmginfo:GetInflictor(),
+				damageType = DMG_DIRECT,
+				deathIn = heartStage >= 2 and shortenTimeline(42 - heartStage * 8, dmginfo:GetDamage(), 14 - heartStage, 0.08 + heartStage * 0.02) or nil,
+				passoutIn = heartStage >= 2 and shortenTimeline(18 - heartStage * 2, dmginfo:GetDamage(), 5, 0.04 + heartStage * 0.02) or nil,
+				unconsciousFor = 8 + heartStage * 4,
+				interval = 2,
+				injuryStage = heartStage,
+				shockWeight = 1.35
+			})
+			if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_Spine4", 0.1, 10) end
+			if heartStage >= 2 then
+				owner:EmitSound("murdered/player/heartbeat_stop.wav", 60, 100)
+			end
+
+		elseif organ == "Right Lung" or organ == "Left Lung" then
+			local lungStage = dmginfo:GetDamage() >= 22 and 2 or 1
+			MuR:GiveMessage2("lung_hit", owner)
+			owner:ApplyInternalBleed(10 + lungStage * 6, 5 - lungStage)
+			owner:ApplyCoordinationLoss(8 + lungStage * 4, 0.55 + lungStage * 0.2)
+			owner:SetNW2Bool("Pneumothorax", true)
+			local state = owner:ApplyCriticalOrganState("lungs", {
+				attacker = dmginfo:GetAttacker(),
+				inflictor = dmginfo:GetInflictor(),
+				damageType = DMG_DIRECT,
+				interval = 1,
+				injuryStage = lungStage,
+				shockWeight = 0.9
+			})
+			if state then
+				local sideKey = organ == "Right Lung" and "rightHit" or "leftHit"
+				if not state[sideKey] then
+					state[sideKey] = true
+					state.hits = (state.hits or 0) + 1
+				end
+
+				state.injuryStage = math.max(state.injuryStage or 1, lungStage, state.hits or 1)
+				owner:SetOrganDamageStage("lungs", state.injuryStage)
+
+				if (state.hits or 1) >= 2 then
+					local totalStage = math.max(state.injuryStage or 2, dmginfo:GetDamage() >= 26 and 3 or 2)
+					local now = CurTime()
+					local deathAt = totalStage >= 3 and (now + shortenTimeline(60, dmginfo:GetDamage(), 22, 0.12)) or nil
+					local passoutAt = now + shortenTimeline(42 - totalStage * 6, dmginfo:GetDamage(), 12 - totalStage, 0.06 + totalStage * 0.02)
+					if deathAt then
+						state.deathAt = state.deathAt and math.min(state.deathAt, deathAt) or deathAt
+					end
+					state.passoutAt = state.passoutAt and math.min(state.passoutAt, passoutAt) or passoutAt
+					state.unconsciousFor = math.max(state.unconsciousFor or 0, 10 + totalStage * 2)
+					state.injuryStage = totalStage
+					owner:SetOrganDamageStage("lungs", totalStage)
+				end
+			end
+			if math.random(1, 2) == 1 then
+				owner:EmitSound("murdered/player/gasp_0" .. math.random(1, 3) .. ".wav", 60, 100)
 			end
 
 		elseif organ == "Spine" then
@@ -597,48 +1111,86 @@ hook.Add("MuR.HandleCustomHitgroup", "MuR_OrganDamage", function(victim, owner, 
 			dmginfo:ScaleDamage(1.5)
 			owner:SetNW2Bool("SpineBroken", true)
 			owner:StartRagdolling(0, dmginfo:GetDamage())
+			owner:ApplyCoordinationLoss(20, 1.8)
 			owner:EmitSound("murdered/player/bone_break.wav", 60, 100)
 
 		elseif organ == "Liver" then
+			local liverStage = dmginfo:GetDamage() >= 30 and 3 or (dmginfo:GetDamage() >= 15 and 2 or 1)
 			MuR:GiveMessage2("liver_hit", owner)
-			owner:ApplyInternalBleed(30, 2)
-			owner:SetNW2Float("ToxinLevel", owner:GetNW2Float("ToxinLevel", 0) + 0.5)
-
-		elseif organ == "Right Eye" or organ == "Left Eye" then
-			MuR:GiveMessage2("eye_hit", owner)
-			dmginfo:ScaleDamage(2.0)
-			owner:ApplyConcussion(dmginfo, 10, 2)
-			local currentBlind = owner:GetNW2Int("Blindness", 0)
-			owner:SetNW2Int("Blindness", math.min(currentBlind + 1, 2))
+			owner:ApplyInternalBleed(8 + liverStage * 6, math.max(2, 6 - liverStage))
+			owner:ApplyCriticalOrganState("liver", {
+				attacker = dmginfo:GetAttacker(),
+				inflictor = dmginfo:GetInflictor(),
+				damageType = DMG_DIRECT,
+				deathIn = liverStage >= 2 and shortenTimeline(180 - liverStage * 25, dmginfo:GetDamage(), 60 - liverStage * 5, 0.25 + liverStage * 0.05) or nil,
+				passoutIn = liverStage >= 2 and shortenTimeline(110 - liverStage * 15, dmginfo:GetDamage(), 28, 0.1 + liverStage * 0.03) or nil,
+				unconsciousFor = 10 + liverStage * 3,
+				interval = 4,
+				injuryStage = liverStage,
+				shockWeight = 0.75
+			})
 
 		elseif string.find(organ, "Artery") then
 			MuR:GiveMessage2("artery_hit", owner)
 			owner:TriggerArtery(organ)
 
-			if string.find(organ, "Arm") or string.find(organ, "Wrist") then
+			if organ == "Carotid Artery" then
+				MuR:GiveMessage2("artery_neck_hit", owner)
+				owner:ApplyCriticalOrganState("carotid", {
+					attacker = dmginfo:GetAttacker(),
+					inflictor = dmginfo:GetInflictor(),
+					damageType = DMG_DIRECT,
+					deathIn = shortenTimeline(28, dmginfo:GetDamage(), 12, 0.09),
+					passoutIn = shortenTimeline(14, dmginfo:GetDamage(), 5, 0.05),
+					unconsciousFor = 18,
+					interval = 1.5,
+					injuryStage = dmginfo:GetDamage() >= 20 and 3 or 2,
+					shockWeight = 1.5
+				})
+				if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_Neck1", 0.1, 8) end
+				owner:EmitSound("murdered/player/throat_cut.wav", 60, 100)
+			elseif string.find(organ, "Brachial") then
+				MuR:GiveMessage2("artery_arm_hit", owner)
 				if owner:GetNW2Int("HP_LegRight") == 0 or owner:GetNW2Int("HP_LegLeft") == 0 or owner:GetNW2Int("HP_HandRight") == 0 or owner:GetNW2Int("HP_HandLeft") == 0 then
-				MuR:GiveMessage2("dismember_agony", owner)
-			end
-			MuR:GiveMessage2("artery_limb_hit", owner)
+					MuR:GiveMessage2("dismember_agony", owner)
+				end
 				if IsValid(owner:GetActiveWeapon()) and not owner:GetActiveWeapon().NeverDrop then
 					owner:DropWeapon(owner:GetActiveWeapon())
 				end
-				if string.find(organ, "Right Wrist Artery") then
-					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_R_Hand", 0.1, 5) end
-				elseif string.find(organ, "Right Wrist Artery") then
-					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_L_Hand", 0.1, 5) end
-				elseif string.find(organ, "Right Arm Artery") then
-					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_R_Forearm", 0.1, 5) end
-				elseif string.find(organ, "Right Arm Artery") then
-					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_L_Forearm", 0.1, 5) end
+				owner:ApplyCriticalOrganState("brachial", {
+					attacker = dmginfo:GetAttacker(),
+					inflictor = dmginfo:GetInflictor(),
+					damageType = DMG_DIRECT,
+					deathIn = shortenTimeline(130, dmginfo:GetDamage(), 55, 0.2),
+					passoutIn = shortenTimeline(70, dmginfo:GetDamage(), 24, 0.1),
+					unconsciousFor = 10,
+					interval = 3,
+					injuryStage = dmginfo:GetDamage() >= 22 and 2 or 1,
+					shockWeight = 0.7
+				})
+				if string.find(organ, "Right") then
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_R_UpperArm", 0.1, 6) end
+				else
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_L_UpperArm", 0.1, 6) end
 				end
-			elseif string.find(organ, "Leg") then
+			elseif string.find(organ, "Femoral") then
 				MuR:GiveMessage2("artery_leg_hit", owner)
 				owner:DamagePlayerSystem("bone")
+				owner:ApplyCriticalOrganState("femoral", {
+					attacker = dmginfo:GetAttacker(),
+					inflictor = dmginfo:GetInflictor(),
+					damageType = DMG_DIRECT,
+					deathIn = shortenTimeline(55, dmginfo:GetDamage(), 22, 0.14),
+					passoutIn = shortenTimeline(28, dmginfo:GetDamage(), 10, 0.08),
+					unconsciousFor = 16,
+					interval = 2,
+					injuryStage = dmginfo:GetDamage() >= 24 and 3 or 2,
+					shockWeight = 1.2
+				})
 				if string.find(organ, "Right") then
-					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_R_Calf", 0.1, 5) end
-				elseif string.find(organ, "Left") then
-					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_L_Calf", 0.1, 5) end
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_R_Thigh", 0.1, 7) end
+				else
+					if victim.MakeBloodEffect then victim:MakeBloodEffect("ValveBiped.Bip01_L_Thigh", 0.1, 7) end
 				end
 			end
 		end
@@ -677,14 +1229,25 @@ hook.Add("MuR.HandleCustomHitgroup", "MuR_OrganDamage", function(victim, owner, 
 
 	elseif dmginfo:GetDamageType() == DMG_CLUB and organ == "Brain" and dmginfo:GetDamage() >= 40 then
 		if owner:IsPlayer() then
-			owner:SetNW2Bool("IsUnconscious", true)
-			owner:SetNW2Float("UnconsciousEnd", CurTime() + math.random(30,60))
+			owner:ApplyCriticalOrganState("brain", {
+				attacker = dmginfo:GetAttacker(),
+				inflictor = dmginfo:GetInflictor(),
+				damageType = DMG_CLUB,
+				deathIn = shortenTimeline(50, dmginfo:GetDamage(), 18, 0.18),
+				passoutIn = 0,
+				unconsciousFor = 18,
+				interval = 1.5
+			})
+			owner:ApplyUnconsciousness(18)
 		end
 	end
 end)
 
 hook.Add("PlayerPostThink", "MuR.OrganEffects", function(ply)
 	if not ply:Alive() then return end
+
+	processCriticalOrgans(ply)
+	processBodyState(ply)
 
 	if ply:GetNW2Bool("Pneumothorax") then
 		if ply:GetNW2Float("Stamina", 100) > 20 then
@@ -702,4 +1265,8 @@ hook.Add("PlayerPostThink", "MuR.OrganEffects", function(ply)
 			ply:ApplyUnconsciousness(2)
 		end
 	end
+end)
+
+hook.Add("PlayerDeath", "MuR.ClearCriticalOrgans", function(victim)
+	victim:ResetCriticalOrgans()
 end)

@@ -615,9 +615,10 @@ hook.Add("RenderScreenspaceEffects", "MuR_ColorHP", function()
 		client:SetViewPunchAngles(Angle(math.Rand(-shake, shake), math.Rand(-shake, shake), 0))
 	end
 
-	if client:GetNW2Bool("ShockState", false) then
-		DrawMotionBlur(0.1, 1, 0.01)
-		tab["$pp_colour_contrast"] = Lerp(ft * 0.5, tab["$pp_colour_contrast"], 1.2)
+	local shockLevel = client:GetNW2Int("ShockLevel", client:GetNW2Bool("ShockState", false) and 2 or 0)
+	if shockLevel > 0 then
+		DrawMotionBlur(0.1, 0.55 + shockLevel * 0.2, 0.01)
+		tab["$pp_colour_contrast"] = Lerp(ft * 0.5, tab["$pp_colour_contrast"], 1.05 + shockLevel * 0.08)
 		client:SetDSP(14) 
 	else
 		tab["$pp_colour_contrast"] = Lerp(ft * 2, tab["$pp_colour_contrast"], 1)

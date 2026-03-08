@@ -201,7 +201,8 @@ function MuR:GetDamagePhrase(ply)
 	if hardBleed or bleedLevel >= 3 then pain = pain + 30 end
 
 	local concussion = ply:GetNW2Float("ConcussionEnd", 0) > CurTime()
-	local shock = ply:GetNW2Bool("ShockState", false)
+	local shockLevel = ply:GetNW2Int("ShockLevel", ply:GetNW2Bool("ShockState", false) and 2 or 0)
+	local consciousLevel = ply:GetNW2Int("ConsciousLevel", ply:GetNW2Bool("IsUnconscious", false) and 3 or 0)
 	local brokenLeg = ply:GetNW2Bool("LegBroken", false)
 
     local phrase = ""
@@ -209,7 +210,7 @@ function MuR:GetDamagePhrase(ply)
 
     if hardBleed and math.random() < 0.4 then
          category = "artery"
-    elseif shock or (pain > 90) then
+    elseif shockLevel >= 2 or consciousLevel >= 2 or pain > 90 then
          if math.random() < 0.5 then
              category = "high_pain"
          else

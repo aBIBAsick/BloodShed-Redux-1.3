@@ -607,13 +607,21 @@ function GM:PlayerSpawn(ply)
 		ConcussionEnd = 0,
 		InternalBleedEnd = 0,
 		CoordinationEnd = 0,
-		AdrenalineEnd = 0
+		AdrenalineEnd = 0,
+		ConcussionIntensity = 0
 	}
 
 	for k, v in pairs(nwf) do ply:SetNW2Float(k, v) end
 
 	local nwb = {
 		LegBroken = false,
+		ArmFracture = false,
+		ClavicleFracture = false,
+		ForearmFracture = false,
+		FootFracture = false,
+		JawFracture = false,
+		PelvisFracture = false,
+		RibFracture = false,
 		HardBleed = false,
 		GeroinUsed = false,
 		Poison = false,
@@ -623,10 +631,22 @@ function GM:PlayerSpawn(ply)
 		IsUnconscious = false,
 		Pneumothorax = false,
 		SpineBroken = false,
-		ForceProneOnly = false
+		ForceProneOnly = false,
+		Artery_Neck = false,
+		Artery_Heart = false,
+		Artery_Arm = false,
+		Artery_Leg = false,
+		Artery_Generic = false,
+		Artery_neck = false,
+		Artery_heart = false,
+		Artery_arm = false,
+		Artery_leg = false
 	}
 
 	for k, v in pairs(nwb) do ply:SetNW2Bool(k, v) end
+	ply:SetNW2Int("ShockLevel", 0)
+	ply:SetNW2Int("ConsciousLevel", 0)
+	ply:ResetCriticalOrgans()
 
 	ply:SetNW2Entity("CurrentTarget", NULL)
 
@@ -1040,6 +1060,10 @@ end)
 hook.Add("PlayerCanHearPlayersVoice", "MuR.Voice", function(listener, talker)
 	if MuR.GameStarted and MuR.TimeCount + 12 > CurTime() or MuR.Ending then return true end
 
+	if talker:GetNW2Bool("JawFracture", false) and talker:Alive() then
+		return false
+	end
+
 	if talker:Alive() and talker:GetNW2String("Class") == "CombineSoldier" and listener:Alive() and listener:GetNW2String("Class") == "CombineSoldier" then return true end
 
 	local listenerWep = listener:GetWeapon("mur_radio")
@@ -1262,18 +1286,95 @@ hook.Add("Think", "MuR_LogicPlayer", function()
 	end
 end)
 
+local function setFallFracture(ply, flag, message)
+	if not IsValid(ply) or ply:GetNW2Bool(flag, false) then return false end
+
+	ply:SetNW2Bool(flag, true)
+	if message and MuR.GiveMessage2 then
+		MuR:GiveMessage2(message, ply)
+	end
+
+	return true
+end
+
+local function applyFallTrauma(ply, speed)
+	if not IsValid(ply) or not ply:Alive() then return end
+
+	local severity = math.Clamp((speed - 500) / 550, 0, 1)
+	if severity <= 0 then return end
+
+	ply:ApplyCoordinationLoss(5 + severity * 7, 0.6 + severity * 0.9)
+
+	if speed >= 620 then
+		ply:SetNW2Float("Stamina", math.max(ply:GetNW2Float("Stamina", 100) - (15 + severity * 30), 0))
+	end
+
+	if speed >= 650 and math.random() < (0.3 + severity * 0.25) then
+		if math.random() < 0.5 then
+			ply:DamagePlayerSystem("bone")
+		else
+			setFallFracture(ply, "FootFracture", "leg_fracture")
+		end
+	end
+
+	if speed >= 760 and math.random() < (0.22 + severity * 0.28) then
+		setFallFracture(ply, "PelvisFracture", "pelvis_fracture")
+	end
+
+	if speed >= 820 and math.random() < (0.18 + severity * 0.22) then
+		setFallFracture(ply, "RibFracture", "rib_hit")
+	end
+
+	if speed >= 900 and math.random() < (0.08 + severity * 0.18) then
+		ply:SetNW2Bool("SpineBroken", true)
+		ply:SetNW2Bool("ForceProneOnly", true)
+		if MuR.GiveMessage2 then
+			MuR:GiveMessage2("spine_hit", ply)
+		end
+	end
+
+	if speed >= 700 then
+		ply:ApplyConcussion(nil, 2 + severity * 3, 0.7 + severity * 0.6)
+	end
+
+	if speed >= 820 and math.random() < (0.2 + severity * 0.35) then
+		ply:ApplyUnconsciousness(4 + severity * 8)
+	elseif speed >= 700 and math.random() < (0.12 + severity * 0.18) then
+		ply:StartRagdolling(math.Round(1 + severity * 2), speed / 60)
+	end
+
+	timer.Simple(0, function()
+		if not IsValid(ply) then return end
+		if ply.UpdateBloodMovementSpeed then ply:UpdateBloodMovementSpeed() end
+		if ply.CheckForceProneOnly then ply:CheckForceProneOnly() end
+	end)
+end
+
 local fallspd = 500
 hook.Add("OnPlayerHitGround", "MuR_DamageNPCThink", function(ply, onwater, onfloater, speed)
+	if onwater or onfloater then return end
 	if speed >= fallspd then
-		local fatal = 1000
+		local fatal = 1350
 		local isfatal = fatal > 0 and speed >= fatal
+		local damage = isfatal and ply:Health() + ply:Armor() or math.Clamp((speed - fallspd) / 18, 6, 72)
+
+		if not isfatal and damage >= ply:Health() then
+			damage = math.max(ply:Health() - math.random(1, 6), 1)
+		end
+
 		local dmg = DamageInfo()
 		dmg:SetAttacker(game.GetWorld())
 		dmg:SetInflictor(game.GetWorld())
-		dmg:SetDamage(isfatal and ply:Health() + ply:Armor() or speed / 25)
+		dmg:SetDamage(damage)
 		dmg:SetDamageType(DMG_FALL)
+		dmg:SetDamagePosition(ply:GetPos())
+		dmg:SetDamageForce(Vector(0, 0, -speed * 45))
 		ply:TakeDamageInfo(dmg)
 		ply:EmitSound("Player.FallDamage", 75, math.random(90, 110), 0.5)
+
+		if not isfatal and IsValid(ply) and ply:Alive() then
+			applyFallTrauma(ply, speed)
+		end
 	end
 end)
 

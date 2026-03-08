@@ -176,7 +176,7 @@ local function floyd_breathe_params(ply, state)
 
 	local bleed = math.Clamp(ply:GetNW2Float("BleedLevel", 0), 0, 3)
 	local hardBleed = ply:GetNW2Bool("HardBleed", false)
-	local shock = ply:GetNW2Bool("ShockState", false)
+	local shockLevel = ply:GetNW2Int("ShockLevel", ply:GetNW2Bool("ShockState", false) and 2 or 0)
 	local pneumo = ply:GetNW2Bool("Pneumothorax", false)
 	local stamina = math.Clamp(ply:GetNW2Float("Stamina", 100), 0, 100)
 
@@ -184,7 +184,7 @@ local function floyd_breathe_params(ply, state)
 	target = target + (1 - hpFrac) * 0.5
 	target = target + (bleed / 3) * 0.25
 	if hardBleed then target = target + 0.2 end
-	if shock then target = target + 0.2 end
+	target = target + shockLevel * 0.1
 	if stamina < 30 then target = target + ((30 - stamina) / 30) * 0.15 end
 	if pneumo then target = target + 0.3 end
 
@@ -312,11 +312,11 @@ hook.Add("Think", "MuR.RagdollBreath", function()
 			end
 			state.lastHp = hp
 
-			local shock = owner:GetNW2Bool("ShockState", false)
-			if shock and not state.lastShock then
+			local shockLevel = owner:GetNW2Int("ShockLevel", owner:GetNW2Bool("ShockState", false) and 2 or 0)
+			if shockLevel > (state.lastShockLevel or 0) then
 				state.spikeUntil = CurTime() + 4
 			end
-			state.lastShock = shock
+			state.lastShockLevel = shockLevel
 
 			local bleed = owner:GetNW2Float("BleedLevel", 0)
 			if state.lastBleed and bleed < state.lastBleed then
