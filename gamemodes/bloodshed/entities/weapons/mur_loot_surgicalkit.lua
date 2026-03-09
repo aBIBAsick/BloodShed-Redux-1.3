@@ -37,12 +37,14 @@ SWEP.AnimTable = {
 
 function SWEP:CanHeal(target)
     local internalBleed = target:GetNW2Float("InternalBleedEnd", 0) > CurTime()
-    local pneumo = target:GetNW2Bool("Pneumothorax")
+    local pneumo = target:GetNW2Bool("Pneumothorax") or target:GetNW2Bool("PneumothoraxLeft") or target:GetNW2Bool("PneumothoraxRight")
     local toxin = target:GetNW2Float("ToxinLevel", 0) > 0
     local hardBleed = target:GetNW2Bool("HardBleed")
     local spine = target:GetNW2Bool("SpineBroken")
+    local deepWounds = target:GetNW2Int("DeepBleedWounds", 0) > 0
+    local arterialWounds = target:GetNW2Int("ArterialBleedWounds", 0) > 0
     
-    if not internalBleed and not pneumo and not toxin and not hardBleed and not spine then 
+    if not internalBleed and not pneumo and not toxin and not hardBleed and not spine and not deepWounds and not arterialWounds then 
         return false 
     end
     return true
@@ -53,10 +55,31 @@ function SWEP:FinishHeal(target, isSelf)
     
     target:SetNW2Float("InternalBleedEnd", 0)
     target:SetNW2Bool("Pneumothorax", false)
+    target:SetNW2Bool("PneumothoraxLeft", false)
+    target:SetNW2Bool("PneumothoraxRight", false)
+    if target.CriticalOrganStates then
+        target.CriticalOrganStates.lungs = nil
+        target.CriticalOrganStates.lung_left = nil
+        target.CriticalOrganStates.lung_right = nil
+    end
+    if target.OrganDamageStages then
+        target.OrganDamageStages.lungs = 0
+        target.OrganDamageStages.lung_left = 0
+        target.OrganDamageStages.lung_right = 0
+    end
+    target:SetNW2Int("OrganDamage_lungs", 0)
+    target:SetNW2Int("OrganDamage_lung_left", 0)
+    target:SetNW2Int("OrganDamage_lung_right", 0)
     target:SetNW2Float("ToxinLevel", 0)
     target:SetNW2Bool("RibFracture", false)
     target:SetNW2Bool("SpineBroken", false)
     target:SetNW2Bool("HardBleed", false)
+    if target.ClearAllBleedingWounds then
+        target:ClearAllBleedingWounds()
+    end
+    if target.StabilizeLimbArteries then
+        target:StabilizeLimbArteries("clear")
+    end
     
     -- Clear blood visual effects
     if target.ClearBloodEffects then

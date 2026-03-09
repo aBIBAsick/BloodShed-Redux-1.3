@@ -1045,16 +1045,21 @@ hook.Add("Think", "MuR.BleedMessageNotifier", function()
 	if MuR:GetClient("blsd_nohud") then return end
 	local ply = LocalPlayer()
 	if not IsValid(ply) or not ply:Alive() then return end
-	local lvl = ply:GetNW2Float("BleedLevel") or 0
-	local hbl = ply:GetNW2Bool("HardBleed") or false
+	local minor = ply:GetNW2Int("MinorBleedWounds", 0)
+	local deep = ply:GetNW2Int("DeepBleedWounds", 0)
+	local arterial = ply:GetNW2Int("ArterialBleedWounds", 0)
+	local arterialFlags = ply:GetNW2Bool("Artery_Neck", false) or ply:GetNW2Bool("Artery_Heart", false)
+		or ply:GetNW2Bool("Artery_ArmLeft", false) or ply:GetNW2Bool("Artery_ArmRight", false)
+		or ply:GetNW2Bool("Artery_LegLeft", false) or ply:GetNW2Bool("Artery_LegRight", false)
 	local stage = 0
-	if hbl then
+
+	if arterial > 0 or arterialFlags then
 		stage = 4
-	elseif lvl >= 3 then
+	elseif deep >= 2 then
 		stage = 3
-	elseif lvl == 2 then
+	elseif deep >= 1 then
 		stage = 2
-	elseif lvl == 1 then
+	elseif minor >= 1 then
 		stage = 1
 	end
 	if stage == 0 then

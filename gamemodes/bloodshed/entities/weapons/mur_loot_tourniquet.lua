@@ -38,8 +38,10 @@ SWEP.AnimTable = {
 }
 
 SWEP.LimbArteries = {
-    "Arm",
-    "Leg"
+    "ArmLeft",
+    "ArmRight",
+    "LegLeft",
+    "LegRight"
 }
 
 function SWEP:CanHeal(target)
@@ -48,7 +50,7 @@ function SWEP:CanHeal(target)
         if target:GetNW2Bool("Artery_"..art) then hasLimbBleed = true break end
     end
 
-    if not hasLimbBleed and target:GetNW2Float('BleedLevel') < 3 then 
+    if not hasLimbBleed and target:GetNW2Int("ArterialBleedWounds", 0) <= 0 and target:GetNW2Float('BleedLevel') < 3 then 
         return false 
     end
     return true
@@ -61,6 +63,13 @@ function SWEP:FinishHeal(target, isSelf)
     target:DamagePlayerSystem("blood", true)
     target:DamagePlayerSystem("blood", true)
     
+    local stabilized = 0
+    if target.StabilizeLimbArteries then
+        stabilized = target:StabilizeLimbArteries("deep")
+    elseif target.DowngradeLimbArterialWounds then
+        stabilized = target:DowngradeLimbArterialWounds()
+    end
+
     -- Fix Limb Arteries
     local fixedLimb = false
     for _, art in ipairs(self.LimbArteries) do
@@ -69,16 +78,19 @@ function SWEP:FinishHeal(target, isSelf)
             fixedLimb = true
         end
     end
+
+    if target.RefreshLegacyArteryFlags then
+        target:RefreshLegacyArteryFlags()
+    end
     
     -- Check if we can clear global HardBleed
-    if fixedLimb then
+    if fixedLimb or stabilized > 0 then
         local stillBleeding = false
         if target:GetNW2Bool("Artery_Neck") then stillBleeding = true end
         if target:GetNW2Bool("Artery_Heart") then stillBleeding = true end
         if target:GetNW2Bool("Artery_Generic") then stillBleeding = true end
-        
-        -- Double check remaining limbs (in case I missed one in valid list but it's set? Unlikely if list covers all)
-        -- Start with just these.
+        if target:GetNW2Bool("Artery_ArmLeft") or target:GetNW2Bool("Artery_ArmRight") then stillBleeding = true end
+        if target:GetNW2Bool("Artery_LegLeft") or target:GetNW2Bool("Artery_LegRight") then stillBleeding = true end
         
         if not stillBleeding then
              target:DamagePlayerSystem("hard_blood", true) -- Clear HardBleed

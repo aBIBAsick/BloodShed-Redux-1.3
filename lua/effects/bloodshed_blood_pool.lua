@@ -119,9 +119,11 @@ end
 function EFFECT:Init(data)
     if not ENABLED then return end
     local ent = data:GetEntity()
-    if not IsValid(ent) then return end
     self.Entity = ent
-    self.Origin = data:GetOrigin() or ent:GetPos()
+    self.Origin = data:GetOrigin()
+    if not isvector(self.Origin) or self.Origin == vector_origin then
+        self.Origin = IsValid(ent) and ent:GetPos() or vector_origin
+    end
     if self.SetPos then self:SetPos(self.Origin) end
     self.BoneID = data:GetAttachment() or 0
     self.Flags = data:GetFlags() or 0
@@ -311,10 +313,19 @@ function EFFECT:AdvanceState()
 end
 
 function EFFECT:UpdateTrace(force)
-	if not IsValid(self.Entity) then return end
 	if CurTime() < self.NextTrace and not force then return end
-	local bonePos = self.Entity:GetBonePosition(self.BoneID)
-	if not bonePos then bonePos = self.Entity:WorldSpaceCenter() end
+
+	local bonePos = self.Origin
+	if IsValid(self.Entity) then
+		local entBonePos = self.Entity:GetBonePosition(self.BoneID)
+		if isvector(entBonePos) and (entBonePos ~= vector_origin or bonePos == vector_origin) then
+			bonePos = entBonePos
+		else
+			bonePos = self.Entity:WorldSpaceCenter()
+		end
+	end
+
+	if not isvector(bonePos) then return end
 	local moved = true
 	if self.LastTraceBonePos then
 		moved = (bonePos - self.LastTraceBonePos):Length() > 2
@@ -412,7 +423,7 @@ end
 function EFFECT:Think()
 	if not self.Initialized or self.Done then return false end
 	if not ENABLED then return false end
-	if not IsValid(self.Entity) then return false end
+	if not IsValid(self.Entity) and not isvector(self.Origin) and not self.TracePos then return false end
 	if CurTime() > self.LifeTimeHard then return false end
 	self:UpdateTrace()
 	if not self.TracePos then return true end

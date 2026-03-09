@@ -42,6 +42,7 @@ SWEP.AnimTable = {
 }
 
 function SWEP:CanHeal(target)
+	if target.HasBleedingWoundsAtOrAbove and target:HasBleedingWoundsAtOrAbove(2) then return true end
 	if target:GetNW2Float('BleedLevel') <= 0 and not target:GetNW2Bool('LegBroken') and target:Health() >= 100 then return false end
     return true
 end
@@ -51,20 +52,29 @@ function SWEP:FinishHeal(target, isSelf)
     
     local bleedLevel = target:GetNW2Float('BleedLevel')
     local hardBleed = target:GetNW2Bool('HardBleed')
+    local deepWounds = target:GetNW2Int('DeepBleedWounds', 0)
+    local arterialWounds = target:GetNW2Int('ArterialBleedWounds', 0)
     local msg = isSelf and "medkit_use" or "medkit_use_target"
     
     local healAmount = 40
     local bleedHealCount = 3
     
-    if hardBleed then
+    if hardBleed or arterialWounds > 0 then
         target:DamagePlayerSystem("hard_blood", true)
         healAmount = 50
         bleedHealCount = 2
         msg = msg .. "_critical"
-    elseif bleedLevel >= 3 then
+    elseif deepWounds > 0 or bleedLevel >= 3 then
         healAmount = 45
         bleedHealCount = 3
         msg = msg .. "_severe"
+    end
+
+    if target.ClearAllBleedingWounds then
+        target:ClearAllBleedingWounds()
+    end
+    if target.StabilizeLimbArteries then
+        target:StabilizeLimbArteries("clear")
     end
     
     for i=1, bleedHealCount do

@@ -11,7 +11,12 @@ local function GetWoundsFromRagdoll(ragdoll)
     local wounds = {}
     local owner = ragdoll.Owner or ragdoll.OwnerDead
     local isDead = not IsValid(ragdoll.Owner)
-    local organDamageKeys = {"brain", "neck", "heart", "carotid", "brachial", "femoral", "liver", "lungs"}
+    local organDamageKeys = {
+        "brain", "neck", "heart", "carotid", "liver", "lungs",
+        "lung_left", "lung_right",
+        "brachial", "brachial_left", "brachial_right",
+        "femoral", "femoral_left", "femoral_right"
+    }
     local organWoundKeys = {
         brain = "wound_brain_damage",
         neck = "wound_neck_damage",
@@ -157,9 +162,19 @@ local function GetWoundsFromRagdoll(ragdoll)
         addWound(organWoundKeys.heart, organDamage.heart >= 2 and 3 or 2)
     end
 
-    if getBool("Pneumothorax") or organDamage.lungs >= 1 then
-        addWound(organWoundKeys.lungs, organDamage.lungs >= 2 and 3 or 2)
-        addWound("wound_pneumothorax", organDamage.lungs >= 2 and 3 or 2)
+    local lungsCombined = math.max(organDamage.lungs or 0, organDamage.lung_left or 0, organDamage.lung_right or 0)
+    if (organDamage.lung_left or 0) > 0 and (organDamage.lung_right or 0) > 0 then
+        lungsCombined = math.max(lungsCombined, math.min(math.max(organDamage.lung_left, organDamage.lung_right) + 1, 3))
+    end
+
+    local pneumoSides = 0
+    if getBool("PneumothoraxLeft") then pneumoSides = pneumoSides + 1 end
+    if getBool("PneumothoraxRight") then pneumoSides = pneumoSides + 1 end
+    local hasAnyPneumo = getBool("Pneumothorax") or pneumoSides > 0
+
+    if hasAnyPneumo or lungsCombined >= 1 then
+        addWound(organWoundKeys.lungs, lungsCombined >= 2 and 3 or 2)
+        addWound("wound_pneumothorax", (lungsCombined >= 2 or pneumoSides >= 2) and 3 or 2)
     end
 
     if organDamage.liver >= 1 then
@@ -193,8 +208,8 @@ local function GetWoundsFromRagdoll(ragdoll)
 
     if getBool("Artery_Neck") or getBool("Artery_neck") then addWound("wound_artery_neck", 3) end
     if getBool("Artery_Heart") or getBool("Artery_heart") then addWound("wound_artery_heart", 3) end
-    if getBool("Artery_Arm") or getBool("Artery_arm") then addWound("wound_artery_arm", 3) end
-    if getBool("Artery_Leg") or getBool("Artery_leg") then addWound("wound_artery_leg", 3) end
+    if getBool("Artery_Arm") or getBool("Artery_arm") or getBool("Artery_ArmLeft") or getBool("Artery_ArmRight") then addWound("wound_artery_arm", 3) end
+    if getBool("Artery_Leg") or getBool("Artery_leg") or getBool("Artery_LegLeft") or getBool("Artery_LegRight") then addWound("wound_artery_leg", 3) end
 
     local hasDismemberment = false
 
@@ -476,11 +491,17 @@ hook.Add("PlayerDeath", "MuR_StoreDeathData", function(victim, inflictor, attack
 
         local boolKeys = {"HardBleed", "LegBroken", "ArmFracture", "ClavicleFracture", "ForearmFracture",
             "FootFracture", "JawFracture", "PelvisFracture", "ShockState", "RibFracture", "SpineBroken",
-            "Pneumothorax", "Poison", "Bredogen", "IsUnconscious", "ForceProneOnly",
+            "Pneumothorax", "PneumothoraxLeft", "PneumothoraxRight", "Poison", "Bredogen", "IsUnconscious", "ForceProneOnly",
             "Artery_Neck", "Artery_Heart", "Artery_Arm", "Artery_Leg",
+            "Artery_ArmLeft", "Artery_ArmRight", "Artery_LegLeft", "Artery_LegRight",
             "Artery_neck", "Artery_heart", "Artery_arm", "Artery_leg", "Artery_Generic", "InternalBleeding"}
         local intKeys = {"ShockLevel", "ConsciousLevel"}
-        local organDamageKeys = {"brain", "neck", "heart", "carotid", "brachial", "femoral", "liver", "lungs"}
+        local organDamageKeys = {
+            "brain", "neck", "heart", "carotid", "liver", "lungs",
+            "lung_left", "lung_right",
+            "brachial", "brachial_left", "brachial_right",
+            "femoral", "femoral_left", "femoral_right"
+        }
 
         for _, key in ipairs(boolKeys) do
             if victim:GetNW2Bool(key, false) then

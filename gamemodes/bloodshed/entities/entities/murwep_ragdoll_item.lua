@@ -13,15 +13,26 @@ local DataTable = {
         twohand = false,
         func = function(self, ent, ply)
             if !IsValid(ent) or !IsValid(ply) then return end
-            if ply:GetNW2Float('BleedLevel') <= 0 and ply:Health() >= 100 then return end
+            if ply.GetBleedingWoundCounts then
+                local minor, deep, arterial = ply:GetBleedingWoundCounts()
+                if minor <= 0 and deep <= 0 and arterial <= 0 and ply:GetNW2Float('BleedLevel') <= 0 and ply:Health() >= 100 then return end
+            elseif ply:GetNW2Float('BleedLevel') <= 0 and ply:Health() >= 100 then
+                return
+            end
 
             self.used = true
             ent:EmitSound("murdered/medicals/bandage.wav")
             MuR:GiveMessage("bandage_use", ply)
             ply:SetHealth(math.Clamp(ply:Health()+20, 1, 100))
             ply:StripWeapon("mur_loot_bandage")
-            for i=1,2 do
-                ply:DamagePlayerSystem("blood", true)
+            local clearedMinor = 0
+            if ply.ClearMinorBleedingWounds then
+                clearedMinor = ply:ClearMinorBleedingWounds()
+            end
+            if clearedMinor <= 0 then
+                for i=1,2 do
+                    ply:DamagePlayerSystem("blood", true)
+                end
             end
             self:Remove()
         end
@@ -33,11 +44,22 @@ local DataTable = {
         twohand = false,
         func = function(self, ent, ply)
             if !IsValid(ent) or !IsValid(ply) then return end
-            if ply:GetNW2Float('BleedLevel') <= 0 and not ply:GetNW2Bool('LegBroken') and ply:Health() >= 100 then return end
+            if ply.GetBleedingWoundCounts then
+                local minor, deep, arterial = ply:GetBleedingWoundCounts()
+                if minor <= 0 and deep <= 0 and arterial <= 0 and ply:GetNW2Float('BleedLevel') <= 0 and not ply:GetNW2Bool('LegBroken') and ply:Health() >= 100 then return end
+            elseif ply:GetNW2Float('BleedLevel') <= 0 and not ply:GetNW2Bool('LegBroken') and ply:Health() >= 100 then
+                return
+            end
 
             self.used = true
             ent:EmitSound("murdered/medicals/medkit.wav")
             MuR:GiveMessage("medkit_use", ply)
+            if ply.ClearAllBleedingWounds then
+                ply:ClearAllBleedingWounds()
+            end
+            if ply.StabilizeLimbArteries then
+                ply:StabilizeLimbArteries("clear")
+            end
             for i=1,3 do
                 ply:DamagePlayerSystem("blood", true)
             end

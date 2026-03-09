@@ -1,4 +1,7 @@
-local showBodyZones = CreateClientConVar("mur_debug_organs", "0", true, false, "Draw organ and bone zones for players and ragdolls")
+local showBodyZones = CreateClientConVar("mur_debug_organs", "0", false, false, "Draw organ and bone zones for players and ragdolls")
+if showBodyZones:GetBool() then
+	RunConsoleCommand("mur_debug_organs", "0")
+end
 local debugShotMarkers = {}
 local debugMarkerLifetime = 8
 
@@ -7,13 +10,13 @@ local organDamageKeys = {
 	["Carotid Artery"] = "carotid",
 	["Neck"] = "neck",
 	["Heart"] = "heart",
-	["Right Lung"] = "lungs",
-	["Left Lung"] = "lungs",
+	["Right Lung"] = "lung_right",
+	["Left Lung"] = "lung_left",
 	["Liver"] = "liver",
-	["Right Brachial Artery"] = "brachial",
-	["Left Brachial Artery"] = "brachial",
-	["Right Femoral Artery"] = "femoral",
-	["Left Femoral Artery"] = "femoral"
+	["Right Brachial Artery"] = "brachial_right",
+	["Left Brachial Artery"] = "brachial_left",
+	["Right Femoral Artery"] = "femoral_right",
+	["Left Femoral Artery"] = "femoral_left"
 }
 
 local function canUseOrganDebug()
@@ -66,7 +69,11 @@ local function isOrganDamaged(ent, organName)
 	end
 
 	if organName == "Right Lung" or organName == "Left Lung" then
-		return ent:GetNW2Bool("Pneumothorax")
+		if organName == "Right Lung" then
+			return ent:GetNW2Bool("PneumothoraxRight")
+		end
+
+		return ent:GetNW2Bool("PneumothoraxLeft")
 	end
 
 	if organName == "Liver" then
