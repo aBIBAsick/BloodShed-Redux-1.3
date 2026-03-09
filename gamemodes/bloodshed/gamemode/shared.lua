@@ -114,6 +114,7 @@ MuR.client("extensions/cl_autoicon.lua")
 MuR.client("extensions/cl_litewounds.lua")
 MuR.client("extensions/cl_weapon_selector.lua")
 MuR.shared("extensions/sh_kicks.lua")
+MuR.shared("extensions/sh_clunky_steps.lua")
 
 local ftab = {"mur_food_apple", "mur_food_banana", "mur_food_beer1", "mur_food_beer2", "mur_food_burger", "mur_food_chickenwrap", "mur_food_colabig", "mur_food_colasmall", "mur_food_doritos", "mur_food_hotdog", "mur_food_icecream", "mur_food_lays", "mur_food_monster", "mur_food_mtndewcan", "mur_food_pepsican", "mur_food_redbull", "mur_food_sandwich"}
 

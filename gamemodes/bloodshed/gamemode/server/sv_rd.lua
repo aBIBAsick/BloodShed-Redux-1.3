@@ -748,136 +748,94 @@ function ent:FireHand(reload)
 end
 
 function ent:TryStanding(inputState)
-	if self.CanStanding and self.Owner.IsRagStanding and self.Owner.CanStandInRag and not self.Owner:GetNW2Bool("ForceProneOnly", false) then
-		self.CustomHeightHead = 76
-		if self.Owner:KeyDown(IN_DUCK) then
-			self.CustomHeightHead = 40
-		end
+	if not self.CanStanding or not self.Owner.IsRagStanding or not self.Owner.CanStandInRag or self.Owner:GetNW2Bool("ForceProneOnly", false) then
+		self.vestStep = nil
+		self.vestDuck = false
+		return
+	end
 
-		local bone_spine4 = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine4")))
-		local bone_spine = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine")))
-		local bone_pelvis = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Pelvis")))
-		local cantmove = false
+	self.CustomHeightHead = 76
+	local ducking = self.Owner:KeyDown(IN_DUCK)
+	if ducking then
+		self.CustomHeightHead = 40
+	end
 
-		local pos1 = MuR:BoneData(self, "ValveBiped.Bip01_Spine4")
-		local tr = util.TraceLine({
-			start = pos1,
-			endpos = pos1 - Vector(0, 0, 999999),
-			filter = function(ent) 
-				if ent:GetClass() == "murwep_ragdoll_weapon" or ent == self then
-					return 
-				end
-			end,
-		})
+	if ducking and not self.vestDuck and MuR.VestDuck then
+		MuR.VestDuck(self.Owner, self)
+	end
+	self.vestDuck = ducking
 
-		local groundPos = tr.HitPos
-		if groundPos:DistToSqr(pos1) > 10000 then return end
-		local stepPhase = CurTime() * 2
-		local isRightStep = math.floor(stepPhase) % 2 == 0
+	local bone_spine4 = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine4")))
+	local bone_spine = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Spine")))
+	local bone_pelvis = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_Pelvis")))
+	local cantmove = false
 
-		local bone_l_foot = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Foot")))
-		local bone_r_foot = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Foot")))
-		local bone_l_calf = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Calf")))
-		local bone_r_calf = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Calf")))
-
-		local bone_forward = isRightStep and bone_r_foot or bone_l_foot
-		local bone_back = isRightStep and bone_l_foot or bone_r_foot
-		local calf_forward = isRightStep and bone_r_calf or bone_l_calf
-		local calf_back = isRightStep and bone_l_calf or bone_r_calf
-
-		local rightInput = 0
-		local forwardInput = 0
-		local mult = 1
-		if cantmove then
-			mult = 0
-		end
-		if mult == 0 then return end
-
-		local isMoving = false
-
-		if inputState[IN_FORWARD] then
-			forwardInput = 32 * mult
-			isMoving = true
-		elseif inputState[IN_BACK] then
-			forwardInput = -32 * mult
-			isMoving = true
-		end
-
-		if inputState[IN_MOVERIGHT] then
-			rightInput = 16 * mult
-			isMoving = true
-		elseif inputState[IN_MOVELEFT] then
-			rightInput = -16 * mult
-			isMoving = true
-		end
-
-		local moveDir = self.Owner:GetForward() * forwardInput + self.Owner:GetRight() * rightInput
-
-		if isMoving then
-			local stepHeight = math.sin(stepPhase * math.pi) * 8 + 4
-
-			local p = {}
-			p.secondstoarrive = 0.4
-			p.pos = groundPos + self.Owner:GetForward() * forwardInput + self.Owner:GetRight() * rightInput + Vector(0, 0, stepHeight * mult)
-			p.angle = bone_forward:GetAngles()
-			p.maxangular = 670
-			p.maxangulardamp = 100
-			p.maxspeed = 600
-			p.maxspeeddamp = 50
-			p.teleportdistance = 0
-			p.deltatime = CurTime() - self.delta
-
-			bone_forward:Wake()
-			bone_forward:ComputeShadowControl(p)
-
-			p.pos = groundPos - self.Owner:GetForward() * forwardInput - self.Owner:GetRight() * rightInput + Vector(0, 0, 4 * mult)
-
-			bone_back:Wake()
-			bone_back:ComputeShadowControl(p)
-
-			local calfLift = math.sin(stepPhase * math.pi * 2) * 15
-			if calfLift > 0 then
-				local cp = {}
-				cp.secondstoarrive = 0.2
-				cp.pos = calf_forward:GetPos() + Vector(0, 0, calfLift)
-				cp.angle = calf_forward:GetAngles()
-				cp.maxangular = 300
-				cp.maxangulardamp = 60
-				cp.maxspeed = 300
-				cp.maxspeeddamp = 30
-				cp.teleportdistance = 0
-				cp.deltatime = CurTime() - self.delta
-
-				calf_forward:Wake()
-				calf_forward:ComputeShadowControl(cp)
+	local pos1 = MuR:BoneData(self, "ValveBiped.Bip01_Spine4")
+	local tr = util.TraceLine({
+		start = pos1,
+		endpos = pos1 - Vector(0, 0, 999999),
+		filter = function(ent) 
+			if ent:GetClass() == "murwep_ragdoll_weapon" or ent == self then
+				return 
 			end
-		else
-			local idleOffset = math.sin(CurTime() * 1.5) * 0.5
+		end,
+	})
 
-			local p = {}
-			p.secondstoarrive = 0.5
-			p.pos = groundPos + self.Owner:GetRight() * 8 + Vector(0, 0, 4 * mult + idleOffset)
-			p.angle = bone_r_foot:GetAngles()
-			p.maxangular = 670
-			p.maxangulardamp = 100
-			p.maxspeed = 600
-			p.maxspeeddamp = 50
-			p.teleportdistance = 0
-			p.deltatime = CurTime() - self.delta
+	local groundPos = tr.HitPos
+	if groundPos:DistToSqr(pos1) > 10000 then return end
+	local stepPhase = CurTime() * 2
+	local isRightStep = math.floor(stepPhase) % 2 == 0
 
-			bone_r_foot:Wake()
-			bone_r_foot:ComputeShadowControl(p)
+	local bone_l_foot = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Foot")))
+	local bone_r_foot = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Foot")))
+	local bone_l_calf = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_L_Calf")))
+	local bone_r_calf = self:GetPhysicsObjectNum(self:TranslateBoneToPhysBone(self:LookupBone("ValveBiped.Bip01_R_Calf")))
 
-			p.pos = groundPos - self.Owner:GetRight() * 8 + Vector(0, 0, 4 * mult - idleOffset)
+	local bone_forward = isRightStep and bone_r_foot or bone_l_foot
+	local bone_back = isRightStep and bone_l_foot or bone_r_foot
+	local calf_forward = isRightStep and bone_r_calf or bone_l_calf
+	local calf_back = isRightStep and bone_l_calf or bone_r_calf
 
-			bone_l_foot:Wake()
-			bone_l_foot:ComputeShadowControl(p)
+	local rightInput = 0
+	local forwardInput = 0
+	local mult = 1
+	if cantmove then
+		mult = 0
+	end
+	if mult == 0 then return end
+
+	local isMoving = false
+
+	if inputState[IN_FORWARD] then
+		forwardInput = 32 * mult
+		isMoving = true
+	elseif inputState[IN_BACK] then
+		forwardInput = -32 * mult
+		isMoving = true
+	end
+
+	if inputState[IN_MOVERIGHT] then
+		rightInput = 16 * mult
+		isMoving = true
+	elseif inputState[IN_MOVELEFT] then
+		rightInput = -16 * mult
+		isMoving = true
+	end
+
+	if isMoving then
+		if self.vestStep ~= isRightStep then
+			self.vestStep = isRightStep
+			if MuR.VestStep then
+				MuR.VestStep(self.Owner, self, 0.3)
+			end
 		end
+
+		local stepHeight = math.sin(stepPhase * math.pi) * 8 + 4
 
 		local p = {}
-		p.secondstoarrive = self.Owner:KeyDown(IN_DUCK) and 0.4 or 0.25
-		p.pos = bone_spine4:GetPos() + self.Owner:GetForward() * forwardInput + self.Owner:GetRight() * rightInput
-		p.angle = bone_spine4:GetAngles()
+		p.secondstoarrive = 0.4
+		p.pos = groundPos + self.Owner:GetForward() * forwardInput + self.Owner:GetRight() * rightInput + Vector(0, 0, stepHeight * mult)
+		p.angle = bone_forward:GetAngles()
 		p.maxangular = 670
 		p.maxangulardamp = 100
 		p.maxspeed = 600
@@ -885,9 +843,67 @@ function ent:TryStanding(inputState)
 		p.teleportdistance = 0
 		p.deltatime = CurTime() - self.delta
 
-		bone_spine4:Wake()
-		bone_spine4:ComputeShadowControl(p)
+		bone_forward:Wake()
+		bone_forward:ComputeShadowControl(p)
+
+		p.pos = groundPos - self.Owner:GetForward() * forwardInput - self.Owner:GetRight() * rightInput + Vector(0, 0, 4 * mult)
+
+		bone_back:Wake()
+		bone_back:ComputeShadowControl(p)
+
+		local calfLift = math.sin(stepPhase * math.pi * 2) * 15
+		if calfLift > 0 then
+			local cp = {}
+			cp.secondstoarrive = 0.2
+			cp.pos = calf_forward:GetPos() + Vector(0, 0, calfLift)
+			cp.angle = calf_forward:GetAngles()
+			cp.maxangular = 300
+			cp.maxangulardamp = 60
+			cp.maxspeed = 300
+			cp.maxspeeddamp = 30
+			cp.teleportdistance = 0
+			cp.deltatime = CurTime() - self.delta
+
+			calf_forward:Wake()
+			calf_forward:ComputeShadowControl(cp)
+		end
+	else
+		self.vestStep = nil
+		local idleOffset = math.sin(CurTime() * 1.5) * 0.5
+
+		local p = {}
+		p.secondstoarrive = 0.5
+		p.pos = groundPos + self.Owner:GetRight() * 8 + Vector(0, 0, 4 * mult + idleOffset)
+		p.angle = bone_r_foot:GetAngles()
+		p.maxangular = 670
+		p.maxangulardamp = 100
+		p.maxspeed = 600
+		p.maxspeeddamp = 50
+		p.teleportdistance = 0
+		p.deltatime = CurTime() - self.delta
+
+		bone_r_foot:Wake()
+		bone_r_foot:ComputeShadowControl(p)
+
+		p.pos = groundPos - self.Owner:GetRight() * 8 + Vector(0, 0, 4 * mult - idleOffset)
+
+		bone_l_foot:Wake()
+		bone_l_foot:ComputeShadowControl(p)
 	end
+
+	local p = {}
+	p.secondstoarrive = self.Owner:KeyDown(IN_DUCK) and 0.4 or 0.25
+	p.pos = bone_spine4:GetPos() + self.Owner:GetForward() * forwardInput + self.Owner:GetRight() * rightInput
+	p.angle = bone_spine4:GetAngles()
+	p.maxangular = 670
+	p.maxangulardamp = 100
+	p.maxspeed = 600
+	p.maxspeeddamp = 50
+	p.teleportdistance = 0
+	p.deltatime = CurTime() - self.delta
+
+	bone_spine4:Wake()
+	bone_spine4:ComputeShadowControl(p)
 end
 
 function ent:GetUpToStandPos()
