@@ -8,18 +8,17 @@ hook.Add("SetupMove", "MuR_Move", function(ply, mv, cmd)
 	local ribFracture = ply:GetNW2Bool("RibFracture")
 	local moving = math.abs(mv:GetForwardSpeed()) > 0 or math.abs(mv:GetSideSpeed()) > 0
 	local wantsSprint = mv:KeyDown(IN_SPEED) and moving and not mv:KeyDown(IN_WALK)
+	local moveSpeed = mv:GetVelocity():Length2D()
 
 	ply.RunMult = ply.RunMult or 0
 
 	if ply:GetNW2Bool("Mode18Staminup") then
 		ply:SetNW2Float("Stamina", 100)
 		stam = 100
-		if wantsSprint and ply:GetVelocity():Length() > 60 then
+		if wantsSprint then
 			ply.RunMult = math.min(ply.RunMult + FrameTime() * 250, ply:GetRunSpeed() * 1.2)
 			mv:SetMaxSpeed(ply:GetWalkSpeed() + ply.RunMult)
 			mv:SetMaxClientSpeed(ply:GetWalkSpeed() + ply.RunMult)
-		elseif ply:GetVelocity():Length() < 60 then
-			ply.RunMult = 0
 		else
 			ply.RunMult = 0
 		end
@@ -27,13 +26,13 @@ hook.Add("SetupMove", "MuR_Move", function(ply, mv, cmd)
 	end
 
 	if not ply:GetNW2Bool("GeroinUsed") then
-		if wantsSprint and ply:GetVelocity():Length() > 60 then
+		if wantsSprint then
 			ply:SetNW2Float("Stamina", math.Clamp(stam - FrameTime() / 0.2, 0, 100))
 
 			ply.RunMult = math.min(ply.RunMult + FrameTime() * 180, ply:GetRunSpeed())
 			mv:SetMaxSpeed(ply:GetWalkSpeed() + ply.RunMult)
 			mv:SetMaxClientSpeed(ply:GetWalkSpeed() + ply.RunMult)
-		elseif ply:GetVelocity():Length() < 60 then
+		elseif moveSpeed < 60 then
 			ply:SetNW2Float("Stamina", math.Clamp(stam + FrameTime() / 0.18, 0, 100))
 			ply.RunMult = 0
 		else
