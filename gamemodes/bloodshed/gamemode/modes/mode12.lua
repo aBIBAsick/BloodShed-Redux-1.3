@@ -56,41 +56,41 @@ local ITEM_PRICES = {
 	["tfa_bs_m37"] = 1200,
 	["tfa_bs_ks23"] = 1600,
 
-	["tfa_bs_akm"] = 2600, 
-	["tfa_bs_hk416"] = 3000, 
-	["tfa_bs_val"] = 2600,
-	["tfa_bs_ak74"] = 2400, 
-	["tfa_bs_l1a1"] = 2700, 
-	["tfa_bs_aug"] = 2800,
-	["tfa_bs_m4a1"] = 2800, 
-	["tfa_bs_mk17"] = 3200,
-	["tfa_bs_m16"] = 2500,
-	["tfa_bs_draco"] = 2300,
-	["tfa_bs_ak12"] = 2700,
-	["tfa_bs_aks74u"] = 2200,
-	["tfa_bs_badger"] = 2600,
-	["tfa_bs_acr"] = 2900,
-	["tfa_bs_sg552"] = 2600,
-	["tfa_bs_aug"] = 2800,
+	["tfa_bs_akm"] = 2100, 
+	["tfa_bs_hk416"] = 2450, 
+	["tfa_bs_val"] = 2200,
+	["tfa_bs_ak74"] = 1950, 
+	["tfa_bs_l1a1"] = 2300, 
+	["tfa_bs_aug"] = 2400,
+	["tfa_bs_m4a1"] = 2400, 
+	["tfa_bs_mk17"] = 2700,
+	["tfa_bs_m16"] = 2050,
+	["tfa_bs_draco"] = 1800,
+	["tfa_bs_ak12"] = 2250,
+	["tfa_bs_aks74u"] = 1750,
+	["tfa_bs_badger"] = 2200,
+	["tfa_bs_acr"] = 2500,
+	["tfa_bs_sg552"] = 2200,
+	["tfa_bs_aug"] = 2400,
 
-	["tfa_bs_sks"] = 2400, 
-	["tfa_bs_sr25"] = 3200,
+	["tfa_bs_sks"] = 2000, 
+	["tfa_bs_sr25"] = 2700,
 
-	["tfa_bs_m24"] = 3800, 
-	["tfa_bs_svd"] = 3600,
-	["tfa_bs_kar98"] = 2800, 
-	["tfa_bs_mosin"] = 3000,
-	["tfa_bs_m82"] = 4200,
+	["tfa_bs_m24"] = 3200, 
+	["tfa_bs_svd"] = 3000,
+	["tfa_bs_kar98"] = 2300, 
+	["tfa_bs_mosin"] = 2500,
+	["tfa_bs_m82"] = 3600,
 
 	["tfa_bs_m249"] = 3600, 
 	["tfa_bs_pkm"] = 3800, 
 	["tfa_bs_rpk"] = 3400,
 
-	["mur_f1"] = 350,
-	["mur_m67"] = 350,
+	["mur_f1"] = 250,
+	["mur_m67"] = 250,
 	["mur_beartrap"] = 600,
 	["tfa_bs_police_shield"] = 1200,
-	["mur_flashbang"] = 300,
+	["mur_flashbang"] = 200,
 	["mur_doorlooker"] = 300,
 
 	["mur_loot_bandage"] = 200,
@@ -98,10 +98,10 @@ local ITEM_PRICES = {
 	["mur_loot_medkit"] = 500,
 	["mur_loot_adrenaline"] = 600,
 
-	["mur_armor_classI_armor"] = 800,
-	["mur_armor_classII_armor"] = 1200,
-	["mur_armor_classIII_armor"] = 1700,
-	["mur_armor_helmet_ulach"] = 500
+	["mur_armor_classI_armor"] = 650,
+	["mur_armor_classII_armor"] = 950,
+	["mur_armor_classIII_armor"] = 1350,
+	["mur_armor_helmet_ulach"] = 350
 }
 
 local BLOCKED_WEAPONS = {
@@ -555,5 +555,4 @@ if CLIENT then
 		end
 	end)
 end
-
 
