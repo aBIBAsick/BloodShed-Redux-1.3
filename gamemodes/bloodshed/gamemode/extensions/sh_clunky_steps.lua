@@ -13,6 +13,15 @@ local snds = {
     "clunkysteps/csgot_12.ogg"
 }
 
+local gears = {
+    "npc/combine_soldier/gear1.wav",
+    "npc/combine_soldier/gear2.wav",
+    "npc/combine_soldier/gear3.wav",
+    "npc/combine_soldier/gear4.wav",
+    "npc/combine_soldier/gear5.wav",
+    "npc/combine_soldier/gear6.wav"
+}
+
 local ducksnd = snds[1]
 
 function MuR.HasVest(ply)
@@ -25,6 +34,10 @@ function MuR.HasVest(ply)
     local get = MuR and MuR.Armor and MuR.Armor.GetItem
     local item = get and get(id)
     return item ~= nil and item.bodypart == "body"
+end
+
+local function iscombine(ply)
+    return IsValid(ply) and ply:IsPlayer() and ply:GetNW2String("Class") == "CombineSoldier"
 end
 
 local function playvest(ply, ent, snd, vol)
@@ -50,12 +63,23 @@ function MuR.VestDuck(ply, ent, vol)
     return playvest(ply, ent, ducksnd, vol or 0.4)
 end
 
+function MuR.CombineStep(ply, ent, vol)
+    if not iscombine(ply) then return false end
+
+    ent = IsValid(ent) and ent or ply
+    if not IsValid(ent) then return false end
+
+    ent:EmitSound(table.Random(gears), 65, math.random(95, 105), math.Clamp(vol or 0.35, 0.2, 0.45), CHAN_BODY)
+    return true
+end
+
 if SERVER then
     for _, snd in ipairs(snds) do
         resource.AddSingleFile("sound/" .. snd)
     end
 
     hook.Add("PlayerFootstep", "MuR_VestSteps", function(ply, pos, foot, soundName, volume, filter)
+        if MuR.CombineStep(ply, ply, (volume or 1) * 0.35) then return end
         MuR.VestStep(ply, ply, (volume or 1) * 0.35)
     end)
 
