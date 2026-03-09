@@ -185,6 +185,172 @@ local function isValidNameString(name)
     return true
 end
 
+local mumble = {
+	en = {
+		vowels = {
+			["a"] = true, ["e"] = true, ["i"] = true, ["o"] = true, ["u"] = true, ["y"] = true,
+			["A"] = true, ["E"] = true, ["I"] = true, ["O"] = true, ["U"] = true, ["Y"] = true
+		},
+		vowelLower = {"a", "e", "o", "u"},
+		vowelUpper = {"A", "E", "O", "U"},
+		consonantLower = {"m", "n", "h", "f", "w"},
+		consonantUpper = {"M", "N", "H", "F", "W"}
+	},
+	ru = {
+		vowels = {
+			["а"] = true, ["е"] = true, ["ё"] = true, ["и"] = true, ["о"] = true, ["у"] = true, ["ы"] = true, ["э"] = true, ["ю"] = true, ["я"] = true,
+			["А"] = true, ["Е"] = true, ["Ё"] = true, ["И"] = true, ["О"] = true, ["У"] = true, ["Ы"] = true, ["Э"] = true, ["Ю"] = true, ["Я"] = true
+		},
+		vowelLower = {"а", "э", "о", "у", "ы"},
+		vowelUpper = {"А", "Э", "О", "У", "Ы"},
+		consonantLower = {"м", "н", "л", "х", "ш", "ф"},
+		consonantUpper = {"М", "Н", "Л", "Х", "Ш", "Ф"}
+	}
+}
+
+local function charCode(ch)
+	for _, code in utf8.codes(ch) do
+		return code
+	end
+end
+
+local function hasCyrillic(text)
+	for _, code in utf8.codes(text) do
+		if (code >= 1040 and code <= 1103) or code == 1025 or code == 1105 then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function charInfo(ch)
+	local code = charCode(ch)
+	if not code then return end
+
+	if code >= 65 and code <= 90 then
+		return mumble.en, mumble.en.vowels[ch], true
+	end
+
+	if code >= 97 and code <= 122 then
+		return mumble.en, mumble.en.vowels[ch], false
+	end
+
+	if (code >= 1040 and code <= 1071) or code == 1025 then
+		return mumble.ru, mumble.ru.vowels[ch], true
+	end
+
+	if (code >= 1072 and code <= 1103) or code == 1105 then
+		return mumble.ru, mumble.ru.vowels[ch], false
+	end
+end
+
+local function slurChar(ch)
+	local pool, isVowel, isUpper = charInfo(ch)
+	if not pool then return ch end
+
+	local variants
+	if isVowel then
+		variants = isUpper and pool.vowelUpper or pool.vowelLower
+	else
+		variants = isUpper and pool.consonantUpper or pool.consonantLower
+	end
+
+	return variants[math.random(#variants)]
+end
+
+local function slurWord(word)
+	local chars = {}
+	local letters = {}
+
+	for _, code in utf8.codes(word) do
+		local ch = utf8.char(code)
+		chars[#chars + 1] = ch
+		if charInfo(ch) then
+			letters[#letters + 1] = #chars
+		end
+	end
+
+	if #letters == 0 then return word end
+
+	local changed = false
+	local clearerWord = math.random(100) <= 28
+
+	for i, idx in ipairs(letters) do
+		local edge = i == 1 or i == #letters
+		local keepChance
+
+		if clearerWord then
+			keepChance = edge and 75 or 55
+		else
+			keepChance = edge and 45 or 22
+		end
+
+		if math.random(100) > keepChance then
+			changed = true
+			if not edge and #letters >= 4 and math.random(100) <= (clearerWord and 5 or 15) then
+				chars[idx] = false
+			else
+				chars[idx] = slurChar(chars[idx])
+			end
+		end
+	end
+
+	if not changed then
+		local idx = letters[#letters > 2 and math.random(2, #letters - 1) or #letters]
+		chars[idx] = slurChar(chars[idx])
+	end
+
+	local out = {}
+	for i = 1, #chars do
+		if chars[i] ~= false then
+			out[#out + 1] = chars[i]
+		end
+	end
+
+	return table.concat(out)
+end
+
+function MuR:CanTalkNormally(ply)
+	if not IsValid(ply) or not ply:IsPlayer() then return true end
+
+	return not (
+		ply:GetNW2Bool("JawFracture", false)
+		or ply:GetNW2Bool("JawDislocation", false)
+		or ply:GetNW2Bool("JawDislocated", false)
+	)
+end
+
+function MuR:FilterSpeechText(ply, text)
+	if type(text) ~= "string" then
+		text = tostring(text or "")
+	end
+
+	if text == "" or self:CanTalkNormally(ply) then
+		return text
+	end
+
+	if string.StartWith(text, "/") or string.StartWith(text, "!") then
+		return text
+	end
+
+	local words = {}
+	for word in string.gmatch(text, "%S+") do
+		words[#words + 1] = slurWord(word)
+	end
+
+	if #words == 0 then
+		return text
+	end
+
+	local garbled = table.concat(words, " ")
+	if string.Trim(garbled) == "" then
+		return hasCyrillic(text) and "ммф..." or "mmf..."
+	end
+
+	return garbled
+end
+
 function meta:SetNewName(force)
 	if self.Male then
 		local name = force or self:GetInfo("blsd_character_name_male", "")
@@ -915,17 +1081,19 @@ end
 
 function GM:PlayerSay(ply, text, team)
 	if MuR.GameStarted and MuR.TimeCount + 12 < CurTime() and ply:Alive() then
+		if ply:GetNW2Bool("IsUnconscious", false) then
+			return false
+		end
+
+		local spokenText = MuR.FilterSpeechText and MuR:FilterSpeechText(ply, text) or text
+
 		for _, ply2 in player.Iterator() do
 			local can = hook.Call("PlayerCanSeePlayersChat", GAMEMODE, text, team, ply2, ply)
-
-			if ply:GetNW2Bool("IsUnconscious", false) then
-				return false
-			end
 
 			if can then
 				net.Start("MuR.ChatAdd")
 				net.WriteEntity(ply)
-				net.WriteString(text)
+				net.WriteString(spokenText)
 				net.Send(ply2)
 			end
 		end
@@ -1066,7 +1234,7 @@ end)
 hook.Add("PlayerCanHearPlayersVoice", "MuR.Voice", function(listener, talker)
 	if MuR.GameStarted and MuR.TimeCount + 12 > CurTime() or MuR.Ending then return true end
 
-	if talker:GetNW2Bool("JawFracture", false) and talker:Alive() then
+	if MuR.CanTalkNormally and not MuR:CanTalkNormally(talker) and talker:Alive() then
 		return false
 	end
 
