@@ -10,6 +10,35 @@ end
 
 local emptyHitboxes = {}
 
+local function getContainedZoneByName(target, zones, hitPos, wantedName)
+	if not IsValid(target) or not istable(zones) or not isstring(wantedName) then return nil end
+
+	local bestZone
+	for _, zone in ipairs(zones) do
+		if zone.name ~= wantedName then continue end
+
+		for _, box in ipairs(zone.hitboxes or emptyHitboxes) do
+			local boxPos, boxAng = MuR.ResolveZoneTransform(target, zone, box)
+			if not boxPos then continue end
+
+			local localHitPos = WorldToLocal(hitPos, angle_zero, boxPos, boxAng)
+			if pointInBounds(localHitPos, box.mins, box.maxs) then
+				local volume = boxVolume(box.mins, box.maxs)
+				if not bestZone or volume < bestZone.volume then
+					bestZone = {
+						name = zone.name,
+						data = zone,
+						hitbox = box,
+						volume = volume
+					}
+				end
+			end
+		end
+	end
+
+	return bestZone
+end
+
 local MELEE_ORGAN_TRACE_WEAPONS = {
 	["mur_welder"] = {backtrack = 2.5, penetration = 6.0},
 	["mur_hands"] = {backtrack = 2.5, penetration = 5.5},
@@ -203,11 +232,25 @@ function MuR.TraceBodyZones(target, zones, hitPos, dmginfo, owner)
 	local traceLengthSqr = rayDelta and math.max(rayDelta:LengthSqr(), 0.000001) or nil
 	local restrictRegion = traceOptions and traceOptions.restrictRegion
 	local preferContained = traceOptions and traceOptions.preferContained
+	local jawBoneZone = getContainedZoneByName(target, MuR.BoneZones, hitPos, "Jaw Bone")
+	local jawImpact = zones == MuR.Organs and getContainedZoneByName(target, MuR.BoneZones, hitPos, "Jaw Bone") ~= nil
+
+	if zones == MuR.BoneZones and jawBoneZone then
+		return jawBoneZone
+	end
+
+	if jawImpact then
+		restrictRegion = "head_neck"
+	end
 
 	local bestContainedZone
 	local rayHits = {}
 
 	for _, zone in ipairs(zones) do
+		if jawImpact and (zone.name == "Neck" or zone.name == "Carotid Artery") then
+			continue
+		end
+
 		for _, box in ipairs(zone.hitboxes or emptyHitboxes) do
 			if restrictRegion then
 				local zoneRegion = getBoneRegion(box.bone or zone.bone)

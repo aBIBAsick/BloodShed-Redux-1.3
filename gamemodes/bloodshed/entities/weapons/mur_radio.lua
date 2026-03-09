@@ -205,7 +205,7 @@ if SERVER then
         
         if not wep:GetNWBool("RadioOn", false) then return end
         
-        local message = text
+        local message = MuR.FilterSpeechText and MuR:FilterSpeechText(ply, text) or text
         if string.len(message) == 0 then return end
         
         local talkerChannel = wep:GetNWInt("RadioChannel", 1)
@@ -262,6 +262,7 @@ if SERVER then
     hook.Add("PlayerCanHearPlayersVoice", "RadioVoiceChat", function(listener, talker)
         if not IsValid(listener) or not IsValid(talker) then return end
         if listener == talker then return end
+        if MuR.CanTalkNormally and not MuR:CanTalkNormally(talker) and talker:Alive() then return false end
 
         local listenerWep = listener:GetWeapon("mur_radio")
         local talkerWep = talker:GetActiveWeapon()
