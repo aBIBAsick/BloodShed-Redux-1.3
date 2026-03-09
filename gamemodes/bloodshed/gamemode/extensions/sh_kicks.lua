@@ -177,7 +177,6 @@ if CLIENT then
                 elseif stopmove == 1 then
                     cmd:AddKey(IN_WALK)
                 end
-                cmd:RemoveKey(IN_SPEED)
             end
         end
     end)
