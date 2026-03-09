@@ -825,7 +825,7 @@ function ent:TryStanding(inputState)
 	if isMoving then
 		if self.vestStep ~= isRightStep then
 			self.vestStep = isRightStep
-			if MuR.VestStep then
+			if (not MuR.CombineStep or not MuR.CombineStep(self.Owner, self, 0.3)) and MuR.VestStep then
 				MuR.VestStep(self.Owner, self, 0.3)
 			end
 		end
