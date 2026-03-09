@@ -10,6 +10,30 @@ end
 
 local emptyHitboxes = {}
 
+local MELEE_ORGAN_TRACE_WEAPONS = {
+	["mur_welder"] = {backtrack = 2.5, penetration = 6.0},
+	["mur_hands"] = {backtrack = 2.5, penetration = 5.5},
+	["mur_zombie"] = {backtrack = 2.5, penetration = 5.5},
+	["tfa_bs_wrench"] = {backtrack = 3.0, penetration = 7.0},
+	["tfa_bs_spade"] = {backtrack = 3.25, penetration = 8.0},
+	["tfa_bs_sledge"] = {backtrack = 3.5, penetration = 7.0},
+	["tfa_bs_compactk"] = {backtrack = 3.0, penetration = 10.0},
+	["tfa_bs_pickaxe"] = {backtrack = 3.5, penetration = 9.5},
+	["tfa_bs_fireaxe_maniac"] = {backtrack = 3.5, penetration = 10.0},
+	["tfa_bs_machete"] = {backtrack = 3.0, penetration = 9.0},
+	["tfa_bs_pipe"] = {backtrack = 3.0, penetration = 7.0},
+	["tfa_bs_knife"] = {backtrack = 3.0, penetration = 10.0},
+	["tfa_bs_hatchet"] = {backtrack = 3.25, penetration = 9.0},
+	["tfa_bs_fubar"] = {backtrack = 3.25, penetration = 7.5},
+	["tfa_bs_fireaxe"] = {backtrack = 3.5, penetration = 10.0},
+	["tfa_bs_crowbar"] = {backtrack = 3.25, penetration = 7.0},
+	["tfa_bs_combk"] = {backtrack = 3.0, penetration = 10.0},
+	["tfa_bs_cleaver"] = {backtrack = 3.25, penetration = 9.0},
+	["tfa_bs_chainsaw"] = {backtrack = 3.5, penetration = 11.0},
+	["tfa_bs_baton"] = {backtrack = 3.0, penetration = 6.5},
+	["tfa_bs_bat"] = {backtrack = 3.0, penetration = 7.0}
+}
+
 util.AddNetworkString("MuR.DebugOrganRay")
 
 local function canUseOrganDebug(ply)
@@ -28,8 +52,123 @@ end
 
 MuR.ResolveHitboxTransform = MuR.ResolveZoneTransform
 
+local function getDamageWeaponClass(dmginfo)
+	if not dmginfo then return nil end
+
+	local inflictor = dmginfo:GetInflictor()
+	if IsValid(inflictor) and inflictor:IsWeapon() then
+		return inflictor:GetClass()
+	end
+
+	local attacker = dmginfo:GetAttacker()
+	if IsValid(attacker) and attacker:IsPlayer() then
+		local weapon = attacker:GetActiveWeapon()
+		if IsValid(weapon) then
+			return weapon:GetClass()
+		end
+	end
+
+	if IsValid(inflictor) then
+		return inflictor:GetClass()
+	end
+
+	return nil
+end
+
+local function getBoneRegion(boneName)
+	if not isstring(boneName) then return nil end
+
+	if string.find(boneName, "Head", 1, true) or string.find(boneName, "Neck", 1, true) then
+		return "head_neck"
+	end
+
+	if string.find(boneName, "Bip01_R_UpperArm", 1, true) or string.find(boneName, "Bip01_R_Forearm", 1, true)
+		or string.find(boneName, "Bip01_R_Hand", 1, true) then
+		return "right_arm"
+	end
+
+	if string.find(boneName, "Bip01_L_UpperArm", 1, true) or string.find(boneName, "Bip01_L_Forearm", 1, true)
+		or string.find(boneName, "Bip01_L_Hand", 1, true) then
+		return "left_arm"
+	end
+
+	if string.find(boneName, "Bip01_R_Thigh", 1, true) or string.find(boneName, "Bip01_R_Calf", 1, true)
+		or string.find(boneName, "Bip01_R_Foot", 1, true) then
+		return "right_leg"
+	end
+
+	if string.find(boneName, "Bip01_L_Thigh", 1, true) or string.find(boneName, "Bip01_L_Calf", 1, true)
+		or string.find(boneName, "Bip01_L_Foot", 1, true) then
+		return "left_leg"
+	end
+
+	if string.find(boneName, "Spine", 1, true) or string.find(boneName, "Pelvis", 1, true) then
+		return "torso"
+	end
+
+	return nil
+end
+
+local function getMeleeTraceOptions(target, dmginfo, hitPos)
+	local config = MELEE_ORGAN_TRACE_WEAPONS[getDamageWeaponClass(dmginfo) or ""]
+	if not config then return nil end
+
+	local impactBone = target.GetNearestBoneFromPos and target:GetNearestBoneFromPos(hitPos, dmginfo:GetDamageForce())
+	local impactRegion = getBoneRegion(impactBone)
+	if impactRegion == "torso" then
+		impactRegion = nil
+	end
+
+	return {
+		backtrack = config.backtrack,
+		penetration = config.penetration,
+		preferContained = true,
+		restrictRegion = impactRegion
+	}
+end
+
 function MuR.GetDamageRay(target, owner, dmginfo, hitPos)
 	local attacker = dmginfo:GetAttacker()
+	local meleeOptions = getMeleeTraceOptions(target, dmginfo, hitPos)
+
+	if meleeOptions then
+		local dir
+		local startPos
+
+		if IsValid(attacker) and attacker ~= target and attacker ~= owner then
+			if attacker.GetShootPos then
+				startPos = attacker:GetShootPos()
+			end
+
+			if (not startPos or startPos == vector_origin) and attacker.WorldSpaceCenter then
+				startPos = attacker:WorldSpaceCenter()
+			end
+
+			if startPos and startPos ~= vector_origin then
+				local delta = hitPos - startPos
+				if not delta:IsZero() then
+					dir = delta:GetNormalized()
+				end
+			end
+
+			if (not dir or dir:IsZero()) and attacker.GetAimVector then
+				dir = attacker:GetAimVector()
+			end
+		end
+
+		if not dir or dir:IsZero() then
+			local force = dmginfo:GetDamageForce()
+			if not force:IsZero() then
+				dir = force:GetNormalized()
+			end
+		end
+
+		if not dir or dir:IsZero() then return end
+
+		local backtrack = meleeOptions.backtrack or 3
+		local penetration = meleeOptions.penetration or 8
+		return hitPos - dir * backtrack, dir * (backtrack + penetration), meleeOptions
+	end
 
 	if IsValid(attacker) and attacker ~= target and attacker ~= owner then
 		local startPos
@@ -60,14 +199,23 @@ end
 function MuR.TraceBodyZones(target, zones, hitPos, dmginfo, owner)
 	if not IsValid(target) or not istable(zones) or hitPos == vector_origin then return end
 
-	local traceStart, rayDelta = MuR.GetDamageRay(target, owner, dmginfo, hitPos)
+	local traceStart, rayDelta, traceOptions = MuR.GetDamageRay(target, owner, dmginfo, hitPos)
 	local traceLengthSqr = rayDelta and math.max(rayDelta:LengthSqr(), 0.000001) or nil
+	local restrictRegion = traceOptions and traceOptions.restrictRegion
+	local preferContained = traceOptions and traceOptions.preferContained
 
 	local bestContainedZone
 	local rayHits = {}
 
 	for _, zone in ipairs(zones) do
 		for _, box in ipairs(zone.hitboxes or emptyHitboxes) do
+			if restrictRegion then
+				local zoneRegion = getBoneRegion(box.bone or zone.bone)
+				if zoneRegion and zoneRegion ~= restrictRegion then
+					continue
+				end
+			end
+
 			local boxPos, boxAng = MuR.ResolveZoneTransform(target, zone, box)
 			if not boxPos then continue end
 
@@ -97,6 +245,10 @@ function MuR.TraceBodyZones(target, zones, hitPos, dmginfo, owner)
 				end
 			end
 		end
+	end
+
+	if preferContained and bestContainedZone then
+		return bestContainedZone
 	end
 
 	if #rayHits > 0 then

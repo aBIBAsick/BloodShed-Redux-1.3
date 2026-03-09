@@ -630,12 +630,18 @@ function GM:PlayerSpawn(ply)
 		ShockState = false,
 		IsUnconscious = false,
 		Pneumothorax = false,
+		PneumothoraxLeft = false,
+		PneumothoraxRight = false,
 		SpineBroken = false,
 		ForceProneOnly = false,
 		Artery_Neck = false,
 		Artery_Heart = false,
 		Artery_Arm = false,
 		Artery_Leg = false,
+		Artery_ArmLeft = false,
+		Artery_ArmRight = false,
+		Artery_LegLeft = false,
+		Artery_LegRight = false,
 		Artery_Generic = false,
 		Artery_neck = false,
 		Artery_heart = false,
@@ -1447,18 +1453,26 @@ hook.Add("EntityTakeDamage", "MuR_DamageNPCThink", function(ent, dmg)
 			dmg:ScaleDamage(0.5)
 		end
 
+		local isHeadshotBone = bone1 == "ValveBiped.Bip01_Head1" or bone1 == "ValveBiped.Bip01_Neck1"
+
 		if dmg:IsFallDamage() and !ent:IsRoleWithoutOrgans() then
 			ent:DamagePlayerSystem("bone")
-		elseif dmg:IsBulletDamage() and dmg:GetDamage() > 1 and math.random(1, 100) <= 50 or dmg:IsExplosionDamage() and !ent:IsRoleWithoutOrgans() then
+		elseif dmg:IsBulletDamage() and !ent:IsRoleWithoutOrgans() then
+			if dmg:GetDamage() > 6 and math.random(1, 100) <= 35 then
+				ent:DamagePlayerSystem("blood")
+			end
+		elseif dmg:IsExplosionDamage() and !ent:IsRoleWithoutOrgans() then
 			ent:DamagePlayerSystem("blood")
-			ent:StartRagdolling(dmg:GetDamage() / 25, dmg:GetDamage() / 5, dmg)
+			if dmg:GetDamage() >= 40 or (isHeadshotBone and dmg:GetDamage() >= 20) then
+				ent:StartRagdolling(dmg:GetDamage() / 35, dmg:GetDamage() / 7, dmg)
+			end
 		end
 
 		if att:IsPlayer() then
 			local wep2 = att:GetActiveWeapon()
 
 			if att:IsAtBack(ent) and IsValid(wep2) and wep2.Melee then
-				ent:StartRagdolling(math.Round(dmg:GetDamage() / 50), math.Round(dmg:GetDamage() / 2), dmginfo)
+				ent:StartRagdolling(math.Round(dmg:GetDamage() / 50), math.Round(dmg:GetDamage() / 2), dmg)
 			end
 
 			att.DamageTargetGuilt = att.DamageTargetGuilt - 1
@@ -1474,8 +1488,17 @@ hook.Add("EntityTakeDamage", "MuR_DamageNPCThink", function(ent, dmg)
 			end
 		end
 
+		local painImpulse = dmg:GetDamage()
+		if dmg:IsBulletDamage() then
+			painImpulse = painImpulse * (isHeadshotBone and 0.35 or 0.12)
+		elseif dmg:IsExplosionDamage() then
+			painImpulse = painImpulse * 0.4
+		elseif dmg:IsFallDamage() then
+			painImpulse = painImpulse * 0.3
+		end
+
 		net.Start("MuR.PainImpulse")
-		net.WriteFloat(dmg:GetDamage())
+		net.WriteFloat(math.Clamp(painImpulse, 0, 20))
 		net.Send(ent)
 
 		if ent:GetNW2Float("Guilt") >= 90 then

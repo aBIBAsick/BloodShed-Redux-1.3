@@ -17,13 +17,18 @@ function MuR:CreateBloodPool(rag, boneid, flags, needvel)
         if not IsValid(rag) then return end
         local boneid = boneid or 0
         local flags = flags or 0
-        local color = BLOOD_COLOR_RED
         local needvel = needvel or 0
+        if MuR.BroadcastBloodPoolEffect then
+            MuR:BroadcastBloodPoolEffect(rag, boneid, flags, needvel)
+            return
+        end
+
         local effectdata = EffectData()
         effectdata:SetEntity(rag)
         effectdata:SetAttachment(boneid)
         effectdata:SetFlags(flags)
         effectdata:SetRadius(needvel)
+        effectdata:SetOrigin(rag:WorldSpaceCenter())
         util.Effect("bloodshed_blood_pool", effectdata, true, true)
     end)
 end

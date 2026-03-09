@@ -87,11 +87,30 @@ function pl:TimeGetUp(check)
 end
 
 function MuR:BoneData(ent, bone)
-	if !IsValid(ent) or !isstring(bone) then return Vector(0,0,0), Angle(0,0,0) end
-	local boneid = ent:LookupBone(bone)
-	local pos, ang = ent:GetBonePosition(boneid)
+	if not IsValid(ent) or not isstring(bone) then return vector_origin, angle_zero end
 
-	return pos, ang
+	local fallbackPos = ent.WorldSpaceCenter and ent:WorldSpaceCenter() or ent:GetPos()
+	local fallbackAng = ent.GetAngles and ent:GetAngles() or angle_zero
+	local boneid = ent:LookupBone(bone)
+	if not isnumber(boneid) or boneid < 0 then
+		return fallbackPos, fallbackAng
+	end
+
+	local pos, ang = ent:GetBonePosition(boneid)
+	if isvector(pos) and pos ~= vector_origin and isangle(ang) then
+		return pos, ang
+	end
+
+	local boneMatrix = ent:GetBoneMatrix(boneid)
+	if boneMatrix then
+		local matrixPos = boneMatrix:GetTranslation()
+		local matrixAng = boneMatrix:GetAngles()
+		if isvector(matrixPos) and matrixPos ~= vector_origin then
+			return matrixPos, isangle(matrixAng) and matrixAng or fallbackAng
+		end
+	end
+
+	return fallbackPos, fallbackAng
 end
 
 function MuR:CheckHeight(ent, pos)

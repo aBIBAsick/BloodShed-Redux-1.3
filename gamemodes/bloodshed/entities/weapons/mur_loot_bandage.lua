@@ -35,6 +35,7 @@ SWEP.AnimTable = {
 }
 
 function SWEP:CanHeal(target)
+    if target.HasBleedingWoundsAtOrAbove and target:HasBleedingWoundsAtOrAbove(1) then return true end
     if target:GetNW2Float('BleedLevel') <= 0 and target:Health() >= 100 then return false end
     return true
 end
@@ -44,28 +45,39 @@ function SWEP:FinishHeal(target, isSelf)
     
     local bleedLevel = target:GetNW2Float('BleedLevel')
     local hardBleed = target:GetNW2Bool('HardBleed')
+    local minorWounds = target.GetNW2Int and target:GetNW2Int("MinorBleedWounds", 0) or 0
+    local deepWounds = target.GetNW2Int and target:GetNW2Int("DeepBleedWounds", 0) or 0
+    local arterialWounds = target.GetNW2Int and target:GetNW2Int("ArterialBleedWounds", 0) or 0
     local msg = isSelf and "bandage_use" or "bandage_use_target"
     
     local healAmount = 20
     local bleedHealCount = 2
     
-    if hardBleed then
+    if hardBleed or arterialWounds > 0 then
         healAmount = 5
         bleedHealCount = 0
         msg = msg .. "_ineffective"
-    elseif bleedLevel >= 3 then
+    elseif deepWounds > 0 or bleedLevel >= 3 then
         healAmount = 10
         bleedHealCount = 1
         msg = msg .. "_weak"
     end
     
     target:SetHealth(math.Clamp(target:Health() + healAmount, 1, 100))
-    for i=1, bleedHealCount do
-        target:DamagePlayerSystem("blood", true)
+
+    local clearedMinor = 0
+    if minorWounds > 0 and target.ClearMinorBleedingWounds then
+        clearedMinor = target:ClearMinorBleedingWounds()
+    end
+
+    if clearedMinor <= 0 then
+        for i=1, bleedHealCount do
+            target:DamagePlayerSystem("blood", true)
+        end
     end
     
     -- Clear blood visual effects if bleeding was reduced
-    if bleedHealCount > 0 and target.ClearBloodEffects then
+    if (bleedHealCount > 0 or clearedMinor > 0) and target.ClearBloodEffects then
         target:ClearBloodEffects()
     end
     

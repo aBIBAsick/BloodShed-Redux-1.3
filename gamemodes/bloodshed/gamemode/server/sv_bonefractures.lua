@@ -150,7 +150,8 @@ local function consumeFractureCooldown(ply, key, cooldown)
 	return true
 end
 
-local function applyFractureCoordinationPenalty(ply, duration, severity)
+local function applyFractureCoordinationPenalty(ply, duration, severity, reason)
+	if reason ~= "brain_blunt" then return end
 	duration = duration or 6
 	severity = severity or 0.5
 

@@ -193,13 +193,24 @@ local function MakeBloodParticleHatred(type, ent, tar, delay)
 				})
 				effectdata:SetOrigin(tr.HitPos+Vector(0,0,4))
 			end
-			effectdata:SetNormal(VectorRand(-1,1))
+			local origin = effectdata:GetOrigin()
+			local normal = VectorRand(-1,1)
+			effectdata:SetNormal(normal)
 			effectdata:SetMagnitude(2)
 			effectdata:SetRadius(24)
 			effectdata:SetEntity(tar)
-			util.Effect("mur_blood_splatter_effect", effectdata, true, true)
-			effectdata:SetNormal(Vector(0,0,-1))
-			util.Effect("mur_blood_splatter_effect", effectdata, true, true)
+			if MuR.BroadcastBloodSplatterEffect then
+				MuR:BroadcastBloodSplatterEffect(tar, origin, normal, 2, 24, 0)
+			else
+				util.Effect("mur_blood_splatter_effect", effectdata, true, true)
+			end
+			local downNormal = Vector(0,0,-1)
+			effectdata:SetNormal(downNormal)
+			if MuR.BroadcastBloodSplatterEffect then
+				MuR:BroadcastBloodSplatterEffect(tar, origin, downNormal, 2, 24, 0)
+			else
+				util.Effect("mur_blood_splatter_effect", effectdata, true, true)
+			end
 		end)
 	end)
 end

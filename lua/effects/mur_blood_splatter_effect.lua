@@ -74,20 +74,22 @@ function EFFECT:Init( data )
 	local pos = data:GetOrigin()
 	local magnitude = data:GetMagnitude()
 	local ent = data:GetEntity()
-	if !IsValid(ent) then return end
 
-	local blood_color = ent:GetBloodColor()
+	local blood_color = IsValid(ent) and ent:GetBloodColor() or BLOOD_COLOR_RED
 	local damage = data:GetRadius()
 	local dataNrm = data:GetNormal()
+	if !isvector(dataNrm) or dataNrm == vector_origin then
+		dataNrm = VectorRand():GetNormalized()
+	end
 	local wtef = data:GetFlags() == 2
 	local physdamage = magnitude < 1
 
-	if ent:GetClass() == "prop_ragdoll" and blood_color == -1 then
+	if IsValid(ent) and ent:GetClass() == "prop_ragdoll" and blood_color == -1 then
 		blood_color = 0
 	end
 
 	-- Particle:
-	local CustomBloodParticle = ent:GetNWString( "DynamicBloodSplatter_CustomBlood_Particle", false )
+	local CustomBloodParticle = IsValid(ent) and ent:GetNWString( "DynamicBloodSplatter_CustomBlood_Particle", false ) or false
 	local blood_particle = CustomBloodParticle or blood_impact_fx[blood_color]
 
 	if PARTICLE && blood_particle && !wtef then
@@ -105,7 +107,7 @@ function EFFECT:Init( data )
 
 	-- Decide blood materials to use:
 	local blood_mats
-	local CustomBloodDecal = ent:GetNWString( "DynamicBloodSplatter_CustomBlood_Decal", false )
+	local CustomBloodDecal = IsValid(ent) and ent:GetNWString( "DynamicBloodSplatter_CustomBlood_Decal", false ) or false
 
 	if blood_color == BLOOD_COLOR_RED then
 
