@@ -23,6 +23,8 @@ local gears = {
 }
 
 local ducksnd = snds[1]
+local vestchan = CHAN_ITEM or CHAN_AUTO
+local gearchan = CHAN_STATIC or CHAN_AUTO
 
 function MuR.HasVest(ply)
     if not IsValid(ply) or not ply:IsPlayer() then return false end
@@ -50,7 +52,7 @@ local function playvest(ply, ent, snd, vol)
     vol = math.Clamp(vol or 0.35, 0.2, 0.45)
 
     local pitch = snd == ducksnd and math.random(98, 102) or math.random(95, 105)
-    ent:EmitSound(snd, 65, pitch, vol, CHAN_BODY)
+    ent:EmitSound(snd, 65, pitch, vol, vestchan)
 
     return true
 end
@@ -69,7 +71,7 @@ function MuR.CombineStep(ply, ent, vol)
     ent = IsValid(ent) and ent or ply
     if not IsValid(ent) then return false end
 
-    ent:EmitSound(table.Random(gears), 65, math.random(95, 105), math.Clamp(vol or 0.35, 0.2, 0.45), CHAN_BODY)
+    ent:EmitSound(table.Random(gears), 65, math.random(95, 105), math.Clamp(vol or 0.35, 0.2, 0.45), gearchan)
     return true
 end
 
@@ -81,6 +83,26 @@ if SERVER then
     hook.Add("PlayerFootstep", "MuR_VestSteps", function(ply, pos, foot, soundName, volume, filter)
         if MuR.CombineStep(ply, ply, (volume or 1) * 0.35) then return end
         MuR.VestStep(ply, ply, (volume or 1) * 0.35)
+    end)
+
+    hook.Add("SetupMove", "MuR_CombineWalkSteps", function(ply, mv)
+        if not iscombine(ply) or not ply:Alive() or IsValid(ply:GetRD()) or ply:InVehicle() then
+            ply.combineStep = 0
+            return
+        end
+
+        if not ply:OnGround() then return end
+
+        local speed = mv:GetVelocity():Length2D()
+        if speed < 20 or speed > 120 then
+            return
+        end
+
+        local ct = CurTime()
+        if (ply.combineStep or 0) > ct then return end
+
+        ply.combineStep = ct + math.Clamp(90 / math.max(speed, 20), 0.45, 0.8)
+        MuR.CombineStep(ply, ply, 0.3)
     end)
 
     hook.Add("SetupMove", "MuR_VestDuck", function(ply, mv)
