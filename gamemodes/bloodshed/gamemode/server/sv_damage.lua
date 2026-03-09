@@ -1691,32 +1691,71 @@ hook.Add("EntityTakeDamage", "MuR.RagdollDamage", function(ent, dmg)
 	if ent:IsPlayer() and ent:Alive() then
 		local dm = dmg:GetDamage()
 
-		if dm >= 12 and ent:Armor() <= 0 then
-			local maxhp = ent:GetMaxHealth()
+		if dm >= 10 and ent:Armor() <= 0 and not IsValid(ent:GetRD()) then
+			local maxhp = math.max(ent:GetMaxHealth(), 1)
 			local frac = dm / maxhp
-			local severity = frac * 0.8
-			if ent:GetNW2Bool("HardBleed") then severity = severity + 0.05 end
-			local bl = ent:GetNW2Float("BleedLevel")
-			if bl >= 3 then severity = severity + 0.035 elseif bl == 2 then severity = severity + 0.015 end
-			if ent:GetNW2Bool("LegBroken") then severity = severity + 0.02 end
+			local severity = frac * 1.35
 			local dtsev = dmg:GetDamageType()
-			if bit.band(dtsev, DMG_CLUB) ~= 0 then severity = severity + 0.06 end
-			if bit.band(dtsev, DMG_BLAST) ~= 0 then severity = severity + 0.12 end
+			local isBullet = dmg:IsBulletDamage()
+			local isSlash = bit.band(dtsev, DMG_SLASH) ~= 0
+			local isClub = bit.band(dtsev, DMG_CLUB) ~= 0
+			local isBlast = bit.band(dtsev, DMG_BLAST) ~= 0
+			local isCrush = bit.band(dtsev, DMG_CRUSH) ~= 0
+
+			if ent:GetNW2Bool("HardBleed") then severity = severity + 0.08 end
+			local bl = ent:GetNW2Float("BleedLevel", 0)
+			if bl >= 3 then
+				severity = severity + 0.08
+			elseif bl >= 2 then
+				severity = severity + 0.04
+			elseif bl >= 1 then
+				severity = severity + 0.02
+			end
+			if ent:GetNW2Bool("LegBroken") then severity = severity + 0.04 end
+
+			if isBullet then
+				severity = severity + math.Clamp((dm - 12) / 120, 0, 0.08)
+			end
+			if isSlash then severity = severity + 0.08 end
+			if isClub then severity = severity + 0.14 end
+			if isBlast then severity = severity + 0.2 end
+			if isCrush or dmg:IsFallDamage() then severity = severity + 0.08 end
+
 			local hp = ent:Health()
-			if hp <= maxhp * 0.3 then severity = severity + 0.04 end
-			if hp <= maxhp * 0.15 then severity = severity + 0.06 end
-			if CurTime() < ent:GetNW2Float("ConcussionEnd",0) then severity = severity + 0.03 end
-			if CurTime() < ent:GetNW2Float("CoordinationEnd",0) then severity = severity + 0.02 end
-			if CurTime() < ent:GetNW2Float("UnconsciousEnd",0) then severity = severity + 0.08 end
-			if severity >= 1.5 then
+			if hp <= maxhp * 0.5 then severity = severity + 0.03 end
+			if hp <= maxhp * 0.3 then severity = severity + 0.06 end
+			if hp <= maxhp * 0.15 then severity = severity + 0.1 end
+			if CurTime() < ent:GetNW2Float("ConcussionEnd", 0) then severity = severity + 0.05 end
+			if CurTime() < ent:GetNW2Float("CoordinationEnd", 0) then severity = severity + 0.04 end
+			if CurTime() < ent:GetNW2Float("UnconsciousEnd", 0) then severity = severity + 0.08 end
+
+			local canBulletRagdoll = not isBullet
+				or dm >= 18
+				or severity >= 0.5
+				or hp <= maxhp * 0.3
+				or ent:GetNW2Bool("HardBleed")
+
+			if canBulletRagdoll and severity >= 0.32 and CurTime() >= (ent.NextDamageRagdollRoll or 0) then
+				ent.NextDamageRagdollRoll = CurTime() + 0.35
+
 				if MuR.Gamemode == 18 and ent:Health() > 30 then
 
 				else
-					local ragdollChance = math.Clamp((severity - 1.5) * 0.45, 0.1, 0.55)
-					if bit.band(dtsev, DMG_BLAST) ~= 0 then
-						ragdollChance = math.min(ragdollChance + 0.1, 0.7)
-					elseif bit.band(dtsev, DMG_CLUB) ~= 0 then
-						ragdollChance = math.min(ragdollChance + 0.05, 0.6)
+					local ragdollChance = math.Clamp((severity - 0.32) * 0.42, 0.08, 0.4)
+					if isSlash then
+						ragdollChance = math.min(ragdollChance + 0.04, 0.45)
+					end
+					if isClub then
+						ragdollChance = math.min(ragdollChance + 0.08, 0.5)
+					end
+					if isBlast then
+						ragdollChance = math.min(ragdollChance + 0.12, 0.6)
+					end
+					if isBullet and dm >= 30 then
+						ragdollChance = math.min(ragdollChance + 0.04, 0.45)
+					end
+					if hp <= maxhp * 0.2 then
+						ragdollChance = math.min(ragdollChance + 0.05, 0.55)
 					end
 
 					if math.random() < ragdollChance then
