@@ -23,6 +23,7 @@ local gears = {
 }
 
 local ducksnd = snds[1]
+local vestchan = CHAN_ITEM or CHAN_AUTO
 
 function MuR.HasVest(ply)
     if not IsValid(ply) or not ply:IsPlayer() then return false end
@@ -50,7 +51,7 @@ local function playvest(ply, ent, snd, vol)
     vol = math.Clamp(vol or 0.35, 0.2, 0.45)
 
     local pitch = snd == ducksnd and math.random(98, 102) or math.random(95, 105)
-    ent:EmitSound(snd, 65, pitch, vol, CHAN_BODY)
+    ent:EmitSound(snd, 65, pitch, vol, vestchan)
 
     return true
 end
