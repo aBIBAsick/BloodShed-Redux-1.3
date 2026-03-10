@@ -25,7 +25,8 @@
                 WeaponsBlocked = true,
                 BlockEndTime = CurTime() + 22,
                 SpawnTeam1 = pos1 or Vector(0, 0, 0),
-                SpawnTeam2 = pos2 or Vector(0, 0, 0)
+                SpawnTeam2 = pos2 or Vector(0, 0, 0),
+                RebelMedicSeed = tostring(math.random(100000, 999999))
             }
         end
     end,
@@ -108,6 +109,7 @@ if CLIENT then
         DrawMotionBlur(0.1, 0.4, 0.001)
 
         local w, h = ScrW(), ScrH()
+        local subclassName = ply:GetNW2String("Mode20CombineSubclassName", "")
 
         surface.SetDrawColor(0, 100, 200, 15)
         for y = math.floor(scanlineOffset), h, 4 do
@@ -135,7 +137,10 @@ if CLIENT then
         surface.DrawLine(w - 50, h - 50, w - 50, h - 50 - cornerSize)
 
         draw.SimpleText("OVERWATCH ACTIVE", "MuR_FontDef", 70, 70, Color(0, 200, 255, 150), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        draw.SimpleText("SECTOR SCAN: " .. math.floor(CurTime() % 100), "MuR_FontDef", 70, 85, Color(0, 150, 200, 100), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        if subclassName ~= "" then
+            draw.SimpleText("UNIT: " .. string.upper(subclassName), "MuR_FontDef", 70, 85, Color(0, 220, 255, 135), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        end
+        draw.SimpleText("SECTOR SCAN: " .. math.floor(CurTime() % 100), "MuR_FontDef", 70, subclassName ~= "" and 100 or 85, Color(0, 150, 200, 100), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
     end)
 
     hook.Add("HUDPaint", "MuR.Mode20Targets", function()

@@ -32,7 +32,8 @@ local function DrawArmorOnEntity(ent)
     for bodypart, partData in pairs(MuR.Armor.BodyParts) do
         local armorId = ent:GetNW2String("MuR_Armor_" .. bodypart, "")
         local isActive = ent:GetNW2Bool("MuR_Armor_Active_" .. bodypart, false)
-        if armorId ~= "" and isActive then
+        local isHidden = ent:GetNW2Bool("MuR_Armor_Hidden_" .. bodypart, false)
+        if armorId ~= "" and isActive and not isHidden then
             local item = MuR.Armor.GetItem(armorId)
             if item then
                 local mdl = GetArmorModel(ent, bodypart, armorId)
@@ -78,7 +79,8 @@ local function DrawArmorOnEntitySkipHead(ent, skipHead)
         if skipHead and (bodypart == "head" or bodypart == "face") then continue end
         local armorId = ent:GetNW2String("MuR_Armor_" .. bodypart, "")
         local isActive = ent:GetNW2Bool("MuR_Armor_Active_" .. bodypart, false)
-        if armorId ~= "" and isActive then
+        local isHidden = ent:GetNW2Bool("MuR_Armor_Hidden_" .. bodypart, false)
+        if armorId ~= "" and isActive and not isHidden then
             local item = MuR.Armor.GetItem(armorId)
             if item then
                 local mdl = GetArmorModel(ent, bodypart, armorId)
@@ -151,7 +153,8 @@ hook.Add("PostDrawBody", "MuR_ArmorRenderFirstPerson", function(body)
         if bodypart == "head" or bodypart == "face" then continue end
         local armorId = ply:GetNW2String("MuR_Armor_" .. bodypart, "")
         local isActive = ply:GetNW2Bool("MuR_Armor_Active_" .. bodypart, false)
-        if armorId ~= "" and isActive then
+        local isHidden = ply:GetNW2Bool("MuR_Armor_Hidden_" .. bodypart, false)
+        if armorId ~= "" and isActive and not isHidden then
             local item = MuR.Armor.GetItem(armorId)
             if item then
                 local mdl = GetArmorModel(ply, bodypart .. "_fp", armorId)

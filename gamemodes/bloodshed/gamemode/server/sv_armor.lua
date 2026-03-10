@@ -71,6 +71,32 @@ function plyMeta:IsArmorActive(bodypart)
     return self:GetNW2Bool("MuR_Armor_Active_" .. bodypart, false)
 end
 
+function plyMeta:SetArmorHidden(bodypart, hidden)
+    self:SetNW2Bool("MuR_Armor_Hidden_" .. bodypart, hidden and true or false)
+
+    local rd = self:GetRD()
+    if IsValid(rd) then
+        rd:SetNW2Bool("MuR_Armor_Hidden_" .. bodypart, hidden and true or false)
+    end
+end
+
+function plyMeta:IsArmorHidden(bodypart)
+    return self:GetNW2Bool("MuR_Armor_Hidden_" .. bodypart, false)
+end
+
+function plyMeta:SetArmorNoDrop(bodypart, noDrop)
+    self:SetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, noDrop and true or false)
+
+    local rd = self:GetRD()
+    if IsValid(rd) then
+        rd:SetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, noDrop and true or false)
+    end
+end
+
+function plyMeta:IsArmorNoDrop(bodypart)
+    return self:GetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, false)
+end
+
 function plyMeta:EquipArmor(armorId, active)
     local item = MuR.Armor.GetItem(armorId)
     if not item then return false end
@@ -122,10 +148,14 @@ function plyMeta:RemoveArmor(bodypart)
     self.MuR_ArmorActive[bodypart] = false
     self:SetNW2String("MuR_Armor_" .. bodypart, "")
     self:SetNW2Bool("MuR_Armor_Active_" .. bodypart, false)
+    self:SetNW2Bool("MuR_Armor_Hidden_" .. bodypart, false)
+    self:SetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, false)
 
     local rd = self:GetRD()
     if IsValid(rd) then
         rd:SetNW2String("MuR_Armor_" .. bodypart, "")
+        rd:SetNW2Bool("MuR_Armor_Hidden_" .. bodypart, false)
+        rd:SetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, false)
         if rd.MuR_Armor then
             rd.MuR_Armor[bodypart] = nil
         end
@@ -241,7 +271,7 @@ function MuR:TransferArmorToRagdoll(ply, ragdoll)
 
     if not ragdoll.Inventory then ragdoll.Inventory = {} end
     for bodypart, armorId in pairs(ply.MuR_Armor) do
-        if armorId and armorId ~= "" then
+        if armorId and armorId ~= "" and not ply:IsArmorNoDrop(bodypart) then
             local itemStr = "mur_armor_" .. armorId
             if not table.HasValue(ragdoll.Inventory, itemStr) then
                 table.insert(ragdoll.Inventory, itemStr)
@@ -252,12 +282,16 @@ function MuR:TransferArmorToRagdoll(ply, ragdoll)
     for bodypart, armorId in pairs(ply.MuR_Armor) do
         ragdoll:SetNW2String("MuR_Armor_" .. bodypart, armorId)
         ragdoll:SetNW2Bool("MuR_Armor_Active_" .. bodypart, ply:IsArmorActive(bodypart))
+        ragdoll:SetNW2Bool("MuR_Armor_Hidden_" .. bodypart, ply:IsArmorHidden(bodypart))
+        ragdoll:SetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, ply:IsArmorNoDrop(bodypart))
     end
     timer.Simple(0.1, function()
         if !IsValid(ragdoll) then return end
         for bodypart, armorId in pairs(ply.MuR_Armor) do
             ragdoll:SetNW2String("MuR_Armor_" .. bodypart, armorId)
             ragdoll:SetNW2Bool("MuR_Armor_Active_" .. bodypart, ply:IsArmorActive(bodypart))
+            ragdoll:SetNW2Bool("MuR_Armor_Hidden_" .. bodypart, ply:IsArmorHidden(bodypart))
+            ragdoll:SetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, ply:IsArmorNoDrop(bodypart))
         end
     end)
 
@@ -299,6 +333,7 @@ net.Receive("MuR_ArmorPickup", function(len, ply)
         local bodypart = net.ReadString()
         if not MuR.Armor.BodyParts[bodypart] then return end
         if not ply:Alive() then return end
+        if ply:IsArmorNoDrop(bodypart) then return end
 
         local armorId = ply:GetArmorOnPart(bodypart)
         if armorId and armorId ~= "" then
@@ -332,6 +367,7 @@ net.Receive("MuR_ArmorPickup", function(len, ply)
         local active = net.ReadBool()
         if not MuR.Armor.BodyParts[bodypart] then return end
         if not ply:Alive() then return end
+        if ply:IsArmorNoDrop(bodypart) then return end
 
         ply:SetArmorActive(bodypart, active)
     end
@@ -344,7 +380,7 @@ net.Receive("MuR_GetRagdollArmor", function(len, ply)
     local armorList = {}
     if ragdoll.MuR_Armor then
         for bodypart, armorId in pairs(ragdoll.MuR_Armor) do
-            if armorId and armorId ~= "" then
+            if armorId and armorId ~= "" and not ragdoll:GetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, false) then
                 table.insert(armorList, {bodypart = bodypart, armorId = armorId})
             end
         end
@@ -358,6 +394,7 @@ end)
 
 function MuR:DropArmorFromRagdoll(ragdoll, bodypart)
     if not IsValid(ragdoll) or not ragdoll.MuR_Armor then return end
+    if ragdoll:GetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, false) then return end
 
     local armorId = ragdoll.MuR_Armor[bodypart]
     if not armorId or armorId == "" then return end
