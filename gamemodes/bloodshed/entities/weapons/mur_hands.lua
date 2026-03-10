@@ -82,10 +82,25 @@ function SWEP:Initialize()
 	self:SetBlocking(false)
 end
 
+function SWEP:GetBFSViewModel()
+	local owner = self:GetOwner()
+
+	if not IsValid(owner) then return end
+
+	local vm = owner:GetViewModel()
+
+	if not IsValid(vm) then return end
+
+	return vm
+end
+
 function SWEP:Deploy()
 	if not IsFirstTimePredicted() then
-		self:DoBFSAnimation("holster")
-		self:GetOwner():GetViewModel():SetPlaybackRate(.1)
+		local vm = self:DoBFSAnimation("holster")
+
+		if IsValid(vm) then
+			vm:SetPlaybackRate(.1)
+		end
 
 		return
 	end
@@ -319,16 +334,23 @@ function SWEP:PrimaryAttack()
 	if self:GetOwner():IsSprinting() then return end
 
 	if not IsFirstTimePredicted() then
-		self:DoBFSAnimation(side)
-		self:GetOwner():GetViewModel():SetPlaybackRate(1.25)
+		local vm = self:DoBFSAnimation(side)
+
+		if IsValid(vm) then
+			vm:SetPlaybackRate(1.25)
+		end
 
 		return
 	end
 
 	self:GetOwner():ViewPunch(AngleRand(-2, 2))
-	self:DoBFSAnimation(side)
+	local vm = self:DoBFSAnimation(side)
 	self:GetOwner():SetAnimation(PLAYER_ATTACK1)
-	self:GetOwner():GetViewModel():SetPlaybackRate(1.25)
+
+	if IsValid(vm) then
+		vm:SetPlaybackRate(1.25)
+	end
+
 	self:UpdateNextIdle()
 
 	if SERVER then
@@ -472,12 +494,27 @@ function SWEP:DrawWorldModel()
 end
 
 function SWEP:DoBFSAnimation(anim)
-	local vm = self:GetOwner():GetViewModel()
-	vm:SendViewModelMatchingSequence(vm:LookupSequence(anim))
+	local vm = self:GetBFSViewModel()
+
+	if not IsValid(vm) then return end
+
+	local sequence = vm:LookupSequence(anim)
+
+	if sequence < 0 then return vm end
+
+	vm:SendViewModelMatchingSequence(sequence)
+
+	return vm
 end
 
 function SWEP:UpdateNextIdle()
-	local vm = self:GetOwner():GetViewModel()
+	local vm = self:GetBFSViewModel()
+
+	if not IsValid(vm) then
+		self:SetNextIdle(CurTime() + 0.1)
+		return
+	end
+
 	self:SetNextIdle(CurTime() + vm:SequenceDuration())
 end
 
