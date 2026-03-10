@@ -94,6 +94,7 @@ if SERVER then
     
     function MuR:DropArmorFromRagdoll(ragdoll, bodypart)
         if not IsValid(ragdoll) or not ragdoll.MuR_Armor then return end
+        if ragdoll:GetNW2Bool("MuR_Armor_NoDrop_" .. bodypart, false) then return end
         
         local armorId = ragdoll.MuR_Armor[bodypart]
         if not armorId or armorId == "" then return end

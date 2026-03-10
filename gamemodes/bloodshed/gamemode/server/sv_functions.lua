@@ -352,6 +352,18 @@ function MuR:FilterSpeechText(ply, text)
 end
 
 function meta:SetNewName(force)
+	local class = self:GetNW2String("Class", "")
+	local roleData = class != "" and MuR:GetRole(class)
+
+	if roleData and isfunction(roleData.getName) then
+		local name = roleData.getName(self)
+
+		if isstring(name) and name != "" then
+			self:SetNWString("Name", name)
+			return
+		end
+	end
+
 	if self.Male then
 		local name = force or self:GetInfo("blsd_character_name_male", "")
 		local isValidName = isValidNameString(name)
