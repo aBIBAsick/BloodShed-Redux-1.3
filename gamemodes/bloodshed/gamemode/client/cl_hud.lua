@@ -547,6 +547,7 @@ hook.Add("HUDPaint", "MurderedHUD", function()
 end)
 
 local lastAlive = false
+local adr = 0
 local tab = {
 	["$pp_colour_addr"] = 0,
 	["$pp_colour_addg"] = 0,
@@ -598,11 +599,17 @@ hook.Add("RenderScreenspaceEffects", "MuR_ColorHP", function()
 		tab["$pp_colour_colour"] = 5
 	end
 
-	if client:GetNW2Float("AdrenalineEnd", 0) > CurTime() then
-		tab["$pp_colour_contrast"] = 1.2
-		tab["$pp_colour_colour"] = 1.5
-		tab["$pp_colour_addg"] = 0.05
-		DrawMotionBlur(0.1, 0.5, 0.01)
+	local hasAdrenaline = client:GetNW2Float("AdrenalineEnd", 0) > CurTime()
+	adr = Lerp(ft * 3, adr, hasAdrenaline and 1 or 0)
+	tab["$pp_colour_addg"] = Lerp(ft * 4, tab["$pp_colour_addg"], 0.05 * adr)
+
+	if hasAdrenaline then
+		tab["$pp_colour_contrast"] = Lerp(ft * 4, tab["$pp_colour_contrast"], 1.2)
+		tab["$pp_colour_colour"] = Lerp(ft * 4, tab["$pp_colour_colour"], 1.5)
+	end
+
+	if adr > 0.01 then
+		DrawMotionBlur(0.1, 0.5 * adr, 0.01)
 	end
 
 	local pain = (1 - (health / maxHealth)) * 100
@@ -638,6 +645,7 @@ net.Receive("MuR.ResetPain", function()
 	tab["$pp_colour_mulr"] = 0
 	tab["$pp_colour_mulg"] = 0
 	tab["$pp_colour_mulb"] = 0
+	adr = 0
 	lastAlive = true 
 
 	if IsValid(LocalPlayer()) then
