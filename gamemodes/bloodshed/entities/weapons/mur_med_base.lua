@@ -194,25 +194,18 @@ end
 
 if CLIENT then
     function SWEP:DrawHUD()
-        local owner = self:GetOwner()
         local state = self:GetHealState()
+        local a = self.HintAlpha or 0
+        local want = state == 0 and 255 or 0
 
-        -- Draw Instructions when idle
-        if state == 0 then
-            draw.SimpleText(MuR.Language[self.PhraseSelf] or self.PhraseSelf, "MuR_Font1", ScrW()/2, ScrH()-He(100), color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-            draw.SimpleText(MuR.Language[self.PhraseTarget] or self.PhraseTarget, "MuR_Font1", ScrW()/2, ScrH()-He(85), color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-        else
-            -- Draw Progress Bar
-            local startTime = self:GetHealStart()
-            local duration = (state == 1) and self.HealTimeSelf or self.HealTimeTarget
-            local elapsed = CurTime() - startTime
-            local progress = math.Clamp(elapsed / duration, 0, 1)
+        a = math.Approach(a, want, RealFrameTime() * 700)
+        self.HintAlpha = a
 
-            local w, h = We(300), He(20)
-            local x, y = ScrW()/2 - w/2, ScrH() - He(200)
+        if a <= 0 then return end
 
-            draw.RoundedBox(4, x, y, w, h, Color(0, 0, 0, 150))
-            draw.RoundedBox(4, x, y, w * progress, h, Color(175, 0, 0))
-        end
+        local col = ColorAlpha(color_white, a)
+
+        draw.SimpleText(MuR.Language[self.PhraseSelf] or self.PhraseSelf, "MuR_Font1", ScrW()/2, ScrH()-He(100), col, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText(MuR.Language[self.PhraseTarget] or self.PhraseTarget, "MuR_Font1", ScrW()/2, ScrH()-He(85), col, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
 end

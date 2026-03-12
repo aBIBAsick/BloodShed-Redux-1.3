@@ -980,6 +980,35 @@ function meta:DeathEffect(att)
 	end
 end
 
+hook.Add("PlayerDroppedWeapon", "MuR.DropThrow", function(ply, wep)
+	if not IsValid(ply) or not IsValid(wep) then return end
+
+	timer.Simple(0, function()
+		if not IsValid(ply) or not IsValid(wep) then return end
+
+		local phys = wep:GetPhysicsObject()
+		if not IsValid(phys) then return end
+
+		local aim = ply:GetAimVector()
+		local vel = ply:GetVelocity() * 0.15 + aim * 55 + Vector(0, 0, 14)
+
+		phys:SetVelocityInstantaneous(vel)
+		phys:AddAngleVelocity(VectorRand(-35, 35))
+	end)
+end)
+
+function meta:DropDeathItem()
+	local wep = self:GetActiveWeapon()
+	if not IsValid(wep) or wep.CantDrop or wep.NeverDrop then return end
+
+	self:DropWeapon(wep)
+	self.RagdollStoredWeapon = nil
+end
+
+hook.Add("DoPlayerDeath", "MuR.DropDeathItem", function(ply)
+	ply:DropDeathItem()
+end)
+
 function GM:PlayerDeath(ply, inf, att)
 	if IsValid(att.MindController) then
 		att = att.MindController
