@@ -1288,7 +1288,13 @@ end)
 function MuR:ShowStartScreen(gamemode, class)
 	if MuR.EnableDebug then return end
     MuR.DrawHUD = false
-    surface.PlaySound("murdered/theme/theme_gamemode" .. gamemode .. ".mp3")
+    
+    local themeSound = "murdered/theme/theme_gamemode" .. gamemode .. ".mp3"
+    if not file.Exists("sound/" .. themeSound, "GAME") then
+        themeSound = "murdered/theme/theme_gamemode1.mp3"
+    end
+    surface.PlaySound(themeSound)
+    
 	if gamemode == 2 and class == "Shooter" then
 		RunConsoleCommand("stopsound")
 	end
