@@ -51,20 +51,12 @@ SWEP.ViewModelBoneMods = {
 function SWEP:FinishHeal(target, isSelf)
     if not IsValid(target) or not target:Alive() then return end
     
-    local ind = target:EntIndex()
     local msg = isSelf and "adrenaline_use" or "adrenaline_use_target"
     MuR:GiveMessage(msg, self:GetOwner())
-    
-    timer.Create("AdrenalineUse"..ind, 0.05, 600, function()
-        if !IsValid(target) or !target:Alive() then 
-            timer.Remove("AdrenalineUse"..ind)
-            return
-        end
-        target:SetNW2Float('Stamina', target:GetNW2Float('Stamina')+1)
-        target:SetNW2Float("AdrenalineEnd", CurTime() + 1) -- Keep updating end time while active
-    end)
-    
-    if target:GetNW2Bool("IsUnconscious") then
+
+    local applied = MuR.Drug:UseAdr(target, self:GetOwner())
+
+    if applied and target:GetNW2Bool("IsUnconscious") then
         target:WakeUpFromUnconsciousness()
     end
     

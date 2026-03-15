@@ -106,6 +106,29 @@ local cal2 = Material("ui/762.png")
 local cal3 = Material("ui/556.png")
 local cal4 = Material("ui/357.png")
 local cal5 = Material("ui/12gauge.png")
+local adrenalineAddR = Material("CA/add_r")
+local adrenalineAddG = Material("CA/add_g")
+local adrenalineAddB = Material("CA/add_b")
+local adrenalineBlack = Material("vgui/black")
+
+local function DrawAdrenalineCA(rx, gx, bx, ry, gy, by)
+	render.UpdateScreenEffectTexture()
+	adrenalineAddR:SetTexture("$basetexture", render.GetScreenEffectTexture())
+	adrenalineAddG:SetTexture("$basetexture", render.GetScreenEffectTexture())
+	adrenalineAddB:SetTexture("$basetexture", render.GetScreenEffectTexture())
+
+	render.SetMaterial(adrenalineBlack)
+	render.DrawScreenQuad()
+
+	render.SetMaterial(adrenalineAddR)
+	render.DrawScreenQuadEx(-rx / 2, -ry / 2, ScrW() + rx, ScrH() + ry)
+
+	render.SetMaterial(adrenalineAddG)
+	render.DrawScreenQuadEx(-gx / 2, -gy / 2, ScrW() + gx, ScrH() + gy)
+
+	render.SetMaterial(adrenalineAddB)
+	render.DrawScreenQuadEx(-bx / 2, -by / 2, ScrW() + bx, ScrH() + by)
+end
 
 function We(x)
 	return x / 1920 * ScrW()
@@ -601,15 +624,11 @@ hook.Add("RenderScreenspaceEffects", "MuR_ColorHP", function()
 
 	local hasAdrenaline = client:GetNW2Float("AdrenalineEnd", 0) > CurTime()
 	adr = Lerp(ft * 3, adr, hasAdrenaline and 1 or 0)
-	tab["$pp_colour_addg"] = Lerp(ft * 4, tab["$pp_colour_addg"], 0.05 * adr)
+	tab["$pp_colour_addg"] = Lerp(ft * 6, tab["$pp_colour_addg"], 0)
 
 	if hasAdrenaline then
-		tab["$pp_colour_contrast"] = Lerp(ft * 4, tab["$pp_colour_contrast"], 1.2)
-		tab["$pp_colour_colour"] = Lerp(ft * 4, tab["$pp_colour_colour"], 1.5)
-	end
-
-	if adr > 0.01 then
-		DrawMotionBlur(0.1, 0.5 * adr, 0.01)
+		tab["$pp_colour_contrast"] = Lerp(ft * 4, tab["$pp_colour_contrast"], 1.12)
+		tab["$pp_colour_colour"] = Lerp(ft * 4, tab["$pp_colour_colour"], 1.18)
 	end
 
 	local pain = (1 - (health / maxHealth)) * 100
@@ -633,6 +652,47 @@ hook.Add("RenderScreenspaceEffects", "MuR_ColorHP", function()
 	end
 
 	DrawColorModify(tab)
+end)
+
+hook.Add("RenderScreenspaceEffects", "MuR.AdrenalineRushFX", function()
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() or adr <= 0.01 then return end
+
+	local t = CurTime()
+	local pulse = 0.5 + math.sin(t * 11) * 0.5
+	local swayX = math.sin(t * 17) * adr
+	local swayY = math.cos(t * 14) * adr
+	local offset = adr * (1.5 + pulse * 4.5)
+
+	DrawAdrenalineCA(
+		offset * 2.4 + swayX * 3.2,
+		swayX * 0.3,
+		-offset * 2.4 + swayX * -3.2,
+		offset * 1.1 + swayY * 1.8,
+		swayY * 0.2,
+		-offset * 1.1 + swayY * -1.8
+	)
+
+	DrawSharpen(0.4 + adr * 0.5, 0.18 + pulse * 0.08)
+end)
+
+hook.Add("CalcView", "MuR.AdrenalineRushView", function(ply, pos, angles, fov)
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() or adr <= 0.01 or ply:GetNW2Bool("IsUnconscious", false) then return end
+
+	local t = CurTime()
+	local wobble = adr * 0.55
+
+	return {
+		origin = pos,
+		angles = Angle(
+			angles.p + math.sin(t * 18) * wobble,
+			angles.y + math.cos(t * 16) * wobble,
+			angles.r + math.sin(t * 21) * wobble * 0.4
+		),
+		fov = fov + math.sin(t * 8) * adr * 0.35,
+		drawviewer = false
+	}
 end)
 
 net.Receive("MuR.ResetPain", function()

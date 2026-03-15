@@ -29,6 +29,187 @@ local function getSpeedData(ply)
 	return istable(ply.SpawnDataSpeed) and ply.SpawnDataSpeed or {120, 200, 110}
 end
 
+MuR.Drug.Adr = MuR.Drug.Adr or {}
+
+local adrCfg = {
+	len = 30,
+	tick = 0.05,
+	stack = 30,
+	die = 9,
+	spasm = 0.18,
+	roll = 40,
+	waitMin = 7,
+	waitMax = 12
+}
+
+local function adrState(ply)
+	local data = MuR.Drug.Adr[ply]
+	if data then return data end
+
+	data = {n = 0, t = 0, od = false, rollAt = 0}
+	MuR.Drug.Adr[ply] = data
+	return data
+end
+
+local function adrRag(ply)
+	local rag = ply:GetRD()
+	if IsValid(rag) then return rag end
+	return ply:StartRagdolling(0, 0)
+end
+
+function MuR.Drug:StopAdr(ply)
+	if not IsValid(ply) then return end
+
+	timer.Remove("AdrUse" .. ply:EntIndex())
+	ply:SetNW2Float("AdrenalineEnd", 0)
+end
+
+function MuR.Drug:ClearAdr(ply)
+	if not IsValid(ply) then return end
+
+	local data = MuR.Drug.Adr[ply]
+	if data then
+		data.n = 0
+		data.t = 0
+		data.od = false
+		data.rollAt = 0
+	end
+
+	self:StopAdr(ply)
+
+	timer.Remove("AdrRoll" .. ply:EntIndex())
+	timer.Remove("AdrSpasm" .. ply:EntIndex())
+	timer.Remove("AdrDie" .. ply:EntIndex())
+	ply:SetNW2Bool("AdrenalineOverdosing", false)
+	ply:SetNW2Float("AdrenalineOverdoseEnd", 0)
+end
+
+function MuR.Drug:AdrOD(ply, att)
+	if not IsValid(ply) or not ply:Alive() then return false end
+
+	local data = adrState(ply)
+	if data.od then return true end
+
+	data.od = true
+	data.n = 0
+	data.t = 0
+	data.rollAt = 0
+
+	self:StopAdr(ply)
+	timer.Remove("AdrRoll" .. ply:EntIndex())
+
+	local id = ply:EntIndex()
+	local dieAt = CurTime() + adrCfg.die
+
+	ply:SetNW2Bool("AdrenalineOverdosing", true)
+	ply:SetNW2Float("AdrenalineOverdoseEnd", dieAt)
+	ply:SetNW2Bool("IsUnconscious", true)
+	ply.UnconsciousStart = CurTime()
+	ply.IsRagStanding = false
+
+	adrRag(ply)
+
+	timer.Create("AdrSpasm" .. id, adrCfg.spasm, math.ceil(adrCfg.die / adrCfg.spasm), function()
+		if not IsValid(ply) or not ply:Alive() or not ply:GetNW2Bool("AdrenalineOverdosing", false) then return end
+
+		ply:SetNW2Bool("IsUnconscious", true)
+		ply.IsRagStanding = false
+
+		local rag = adrRag(ply)
+		if IsValid(rag) then
+			rag:StruggleBone()
+
+			local boneId = rag:LookupBone("ValveBiped.Bip01_Spine2")
+			if boneId then
+				local phys = rag:GetPhysicsObjectNum(rag:TranslateBoneToPhysBone(boneId))
+				if IsValid(phys) then
+					phys:ApplyForceCenter(VectorRand(-140, 140) + Vector(0, 0, 160))
+				end
+			end
+		end
+
+		ply:ViewPunch(Angle(math.Rand(-4, 4), math.Rand(-5, 5), math.Rand(-2, 2)))
+
+		if math.random(1, 100) <= 35 then
+			ply:EmitSound("vo/npc/male01/moan0" .. math.random(1, 5) .. ".wav", 60, math.random(95, 110))
+		end
+	end)
+
+	timer.Create("AdrDie" .. id, adrCfg.die, 1, function()
+		if not IsValid(ply) or not ply:Alive() or not ply:GetNW2Bool("AdrenalineOverdosing", false) then return end
+
+		local killer = IsValid(att) and att or ply
+		local dmg = DamageInfo()
+		dmg:SetDamage(math.max(ply:Health() + 25, 80))
+		dmg:SetAttacker(killer)
+		dmg:SetInflictor(IsValid(att) and att or game.GetWorld())
+		dmg:SetDamageType(DMG_POISON)
+		ply:TakeDamageInfo(dmg)
+
+		if IsValid(ply) and ply:Alive() then
+			ply:Kill()
+		end
+	end)
+
+	return true
+end
+
+function MuR.Drug:UseAdr(ply, att)
+	if not IsValid(ply) or not ply:Alive() then return false end
+
+	local data = adrState(ply)
+	if data.od then return false end
+
+	local now = CurTime()
+	if data.t <= now then
+		data.n = 0
+	end
+
+	data.n = data.n + 1
+	data.t = now + adrCfg.stack
+
+	if data.n >= 3 then
+		self:AdrOD(ply, att)
+		return false
+	end
+
+	if data.n == 2 then
+		local id = ply:EntIndex()
+		local wait = math.Rand(adrCfg.waitMin, adrCfg.waitMax)
+		data.rollAt = now + wait
+
+		timer.Remove("AdrRoll" .. id)
+		timer.Create("AdrRoll" .. id, wait, 1, function()
+			if not IsValid(ply) or not ply:Alive() then return end
+			if ply:GetNW2Bool("AdrenalineOverdosing", false) then return end
+
+			local cur = adrState(ply)
+			if cur.n < 2 or cur.t <= CurTime() or cur.rollAt <= 0 then return end
+
+			cur.rollAt = 0
+
+			if math.random(100) <= adrCfg.roll then
+				MuR.Drug:AdrOD(ply, att)
+			end
+		end)
+	end
+
+	self:StopAdr(ply)
+	ply:SetNW2Float("AdrenalineEnd", now + 1)
+
+	timer.Create("AdrUse" .. ply:EntIndex(), adrCfg.tick, math.floor(adrCfg.len / adrCfg.tick), function()
+		if not IsValid(ply) or not ply:Alive() or ply:GetNW2Bool("AdrenalineOverdosing", false) then
+			timer.Remove("AdrUse" .. ply:EntIndex())
+			return
+		end
+
+		ply:SetNW2Float("Stamina", ply:GetNW2Float("Stamina") + 1)
+		ply:SetNW2Float("AdrenalineEnd", CurTime() + 1)
+	end)
+
+	return true
+end
+
 local substances = {
 	meth = {
 		name = "Methamphetamine",
@@ -534,6 +715,7 @@ end
 local function fullReset(ply)
 	if not IsValid(ply) then return end
 
+	MuR.Drug:ClearAdr(ply)
 	MuR.Drug.Active[ply] = nil
 	removeAllDrugTimers(ply)
 
@@ -551,6 +733,18 @@ end
 hook.Add("PlayerDeath", "MuR.Drug.Reset", fullReset)
 hook.Add("PlayerSpawn", "MuR.Drug.Reset", fullReset)
 hook.Add("PlayerDisconnected", "MuR.Drug.Reset", fullReset)
+
+hook.Add("PlayerPostThink", "MuR.AdrLock", function(ply)
+	if not ply:GetNW2Bool("AdrenalineOverdosing", false) then return end
+
+	if not ply:Alive() then
+		MuR.Drug:ClearAdr(ply)
+		return
+	end
+
+	ply:SetNW2Bool("IsUnconscious", true)
+	ply.IsRagStanding = false
+end)
 
 MuR.SubstanceSystem = MuR.SubstanceSystem or {}
 

@@ -85,18 +85,19 @@ function meta:GetReasonLog()
 	local tab = self.LastDamageInfo
 	if !istable(tab) then return "unknown" end
 
+	local dmgType = tab[1] or 0
 	local reason = "unknown"
-	if tab[1] == DMG_BLAST or tab[3] then
+	if bit.band(dmgType, DMG_BLAST) ~= 0 or tab[3] then
 		reason = "explosion"
-	elseif tab[1] == DMG_BULLET or tab[1] == DMG_BUCKSHOT or tab[5] then
+	elseif bit.band(dmgType, DMG_BULLET) ~= 0 or bit.band(dmgType, DMG_BUCKSHOT) ~= 0 or tab[5] then
 		reason = "bullet"
-	elseif tab[1] == DMG_SLASH then
+	elseif bit.band(dmgType, DMG_SLASH) ~= 0 then
 		reason = "slash"
-	elseif tab[1] == DMG_CLUB then
+	elseif bit.band(dmgType, DMG_CLUB) ~= 0 then
 		reason = "club"
-	elseif tab[1] == DMG_NERVEGAS or tab[1] == DMG_POISON then
+	elseif bit.band(dmgType, DMG_NERVEGAS) ~= 0 or bit.band(dmgType, DMG_POISON) ~= 0 then
 		reason = "toxic"
-	elseif tab[1] == DMG_CRUSH or tab[6] then
+	elseif bit.band(dmgType, DMG_CRUSH) ~= 0 or tab[6] then
 		reason = "fall"
 	end
 

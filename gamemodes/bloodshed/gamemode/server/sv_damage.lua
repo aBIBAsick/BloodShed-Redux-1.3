@@ -848,6 +848,7 @@ end
 
 function meta:ApplyUnconsciousness(duration)
 	duration = duration or 4
+	if self:GetNW2Bool("AdrenalineOverdosing", false) then return end
 	if self:GetNW2Float("UnconsciousEnd", 0) > CurTime() then
 		self:SetNW2Float("UnconsciousEnd", math.max(self:GetNW2Float("UnconsciousEnd"), CurTime() + duration * 0.7))
 		return
@@ -879,6 +880,7 @@ function meta:ApplyUnconsciousness(duration)
 end
 
 function meta:WakeUpFromUnconsciousness()
+	if self:GetNW2Bool("AdrenalineOverdosing", false) then return end
 	self:SetNW2Bool("IsUnconscious", false)
 	self:SetNW2Float("UnconsciousEnd", 0)
 	self:SetNW2Int("ConsciousLevel", math.max(self:GetNW2Int("ConsciousLevel", 0), 1))

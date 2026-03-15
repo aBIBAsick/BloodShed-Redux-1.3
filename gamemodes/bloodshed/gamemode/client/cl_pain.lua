@@ -141,6 +141,7 @@ end)
 hook.Add("RenderScreenspaceEffects", "MuR.UnconsciousFX", function()
     local ply = LocalPlayer()
     if not ply:Alive() then return end
+    if ply:GetNW2Bool("AdrenalineOverdosing", false) then return end
     local unconsciousEnd = ply:GetNW2Float("UnconsciousEnd", 0)
     if CurTime() >= unconsciousEnd then return end
 
