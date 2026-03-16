@@ -420,6 +420,12 @@ end)
 hook.Add("GetMotionBlurValues", "MuR.UnconsciousBlur", function(h, v, f, r)
 	local ply = LocalPlayer()
 	if ply:GetNW2Bool("IsUnconscious", false) then
+		if ply:GetNW2Bool("AdrenalineOverdosing", false) then
+			local left = math.max(ply:GetNW2Float("AdrenalineOverdoseEnd", 0) - CurTime(), 0)
+			local frac = math.Clamp(left / 9, 0.25, 1)
+			return 0.06, 0.84, 0.02 * frac, 0.18
+		end
+
 		return 0.1, 0.95, 0.05, 0.5
 	end
 end)

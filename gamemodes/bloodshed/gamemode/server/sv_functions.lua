@@ -786,6 +786,7 @@ function GM:PlayerSpawn(ply)
 		InternalBleedEnd = 0,
 		CoordinationEnd = 0,
 		AdrenalineEnd = 0,
+		AdrenalineOverdoseEnd = 0,
 		ConcussionIntensity = 0
 	}
 
@@ -807,6 +808,7 @@ function GM:PlayerSpawn(ply)
 		FlashlightIsOn = false,
 		ShockState = false,
 		IsUnconscious = false,
+		AdrenalineOverdosing = false,
 		Pneumothorax = false,
 		PneumothoraxLeft = false,
 		PneumothoraxRight = false,
