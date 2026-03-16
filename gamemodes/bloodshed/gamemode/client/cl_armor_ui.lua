@@ -1,14 +1,14 @@
-﻿local ARMOR_UI_THEME = {
-    background = Color(15, 15, 20, 245),
-    header = Color(25, 25, 30, 255),
-    accent = Color(180, 40, 40),
-    panel = Color(25, 25, 30, 245),
-    panelHover = Color(35, 35, 42, 255),
+local ARMOR_UI_THEME = {
+    background = Color(30, 30, 40, 245),
+    header = Color(45, 45, 55, 255),
+    accent = Color(200, 0, 0),
+    panel = Color(50, 50, 60, 255),
+    panelHover = Color(65, 65, 75, 255),
     text = Color(255, 255, 255),
-    textDark = Color(200, 200, 200),
-    success = Color(40, 180, 120),
-    danger = Color(220, 50, 50),
-    empty = Color(35, 35, 42, 220)
+    textDark = Color(180, 180, 180),
+    success = Color(100, 200, 100),
+    danger = Color(255, 100, 100),
+    empty = Color(80, 80, 90, 255)
 }
 
 local bodypartOrder = {"head", "face", "body"}
@@ -129,10 +129,9 @@ local function OpenArmorPanel()
     closeBtn:SetFont("MuR_Font3")
     closeBtn:SetTextColor(ARMOR_UI_THEME.text)
     closeBtn.Paint = function(self, w, h)
-        local color = self:IsHovered() and ARMOR_UI_THEME.danger or ARMOR_UI_THEME.panel
-        local textColor = self:IsHovered() and ARMOR_UI_THEME.text or ARMOR_UI_THEME.textDark
-        draw.RoundedBox(4, 0, 0, w, h, color)
-        draw.SimpleText("✕", "MuR_Font3", w / 2, h / 2, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        if self:IsHovered() then
+            draw.RoundedBox(4, 0, 0, w, h, ARMOR_UI_THEME.danger)
+        end
     end
     closeBtn.DoClick = function()
         frame:Remove()

@@ -1,4 +1,4 @@
-﻿local function GetWeaponInfo(class)
+local function GetWeaponInfo(class)
     if string.StartWith(class, "mur_armor_") then
         local armorId = string.sub(class, 11)
         local item = MuR.Armor.GetItem(armorId)
@@ -33,18 +33,18 @@
 end
 
 local SEARCH_THEME = {
-    background = Color(15, 15, 20, 245),
-    header = Color(25, 25, 30, 255),
-    accent = Color(180, 40, 40),
-    panel = Color(25, 25, 30, 245),
-    panelHover = Color(35, 35, 42, 255),
+    background = Color(40, 40, 50, 240),
+    accent = Color(255, 100, 100),
+    panel = Color(60, 60, 70, 255),
+    panelHover = Color(80, 80, 90, 255),
     text = Color(255, 255, 255),
-    textDark = Color(200, 200, 200),
-    success = Color(40, 180, 120),
-    danger = Color(220, 50, 50),
-    searching = Color(90, 90, 100, 255)
+    textDark = Color(180, 180, 180),
+    success = Color(100, 255, 100),
+    danger = Color(255, 100, 100),
+    searching = Color(120, 120, 130, 255)
 }
 
+local searchedItems = {}
 MuR.SearchFrames = MuR.SearchFrames or {}
 
 local function CreateTimingMinigame(callback, failCallback, frame)
@@ -163,6 +163,9 @@ end
 
 local function CreateWeaponPanel(weaponTable, body)
     local bodyID = body:EntIndex()
+    if not searchedItems[bodyID] then
+        searchedItems[bodyID] = {}
+    end
 
     local columns = math.min(math.ceil(math.sqrt(#weaponTable)), 5)
     local buttonSize = We(120)
@@ -170,7 +173,6 @@ local function CreateWeaponPanel(weaponTable, body)
     local panelWidth = math.max(columns * (buttonSize + spacing) + spacing, We(500))
     local rows = math.ceil(#weaponTable / columns)
     local panelHeight = math.max(He(120) + rows * (buttonSize + He(40)) + spacing, He(400))
-    local itemCount
 
     local frame = vgui.Create("DFrame")
     if IsValid(MuR.SearchFrames[bodyID]) then MuR.SearchFrames[bodyID]:Remove() end
@@ -189,9 +191,9 @@ local function CreateWeaponPanel(weaponTable, body)
 
     frame.Paint = function(self, w, h)
         draw.RoundedBox(12, 0, 0, w, h, SEARCH_THEME.background)
-        draw.RoundedBox(12, 0, 0, w, He(80), SEARCH_THEME.header)
+        draw.RoundedBox(12, 0, 0, w, He(80), SEARCH_THEME.panel)
         surface.SetDrawColor(SEARCH_THEME.accent)
-        surface.DrawRect(0, He(80), w, He(2))
+        surface.DrawRect(0, He(80), w, He(3))
     end
 
     frame.OnKeyCodePressed = function(self, key)
@@ -209,31 +211,15 @@ local function CreateWeaponPanel(weaponTable, body)
     title:SetPos(We(25), He(10))
     title:SizeToContents()
 
-    local closeBtn = vgui.Create("DButton", frame)
-    closeBtn:SetPos(frame:GetWide() - We(42), He(14))
-    closeBtn:SetSize(We(28), He(28))
-    closeBtn:SetText("")
-    function closeBtn:Paint(w, h)
-        local color = self:IsHovered() and SEARCH_THEME.danger or SEARCH_THEME.panel
-        local textColor = self:IsHovered() and SEARCH_THEME.text or SEARCH_THEME.textDark
-        draw.RoundedBox(4, 0, 0, w, h, color)
-        draw.SimpleText("✕", "MuR_Font3", w / 2, h / 2, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    end
-    closeBtn.DoClick = function()
-        frame:AlphaTo(0, 0.2, 0, function()
-            frame:Remove()
-        end)
-    end
-
     local subtitle = vgui.Create("DLabel", frame)
-    subtitle:SetText(MuR.Language["gui_search"])
+    subtitle:SetText(MuR.Language["search_newhud_close"])
     subtitle:SetFont("MuR_FontDef")
     subtitle:SetTextColor(SEARCH_THEME.textDark)
     subtitle:SetPos(We(25), He(40))
     subtitle:SizeToContents()
 
-    itemCount = vgui.Create("DLabel", frame)
-    itemCount:SetText("0" .. MuR.Language["search_newhud_found"])
+    local itemCount = vgui.Create("DLabel", frame)
+    itemCount:SetText(#weaponTable .. MuR.Language["search_newhud_found"])
     itemCount:SetFont("MuR_Font1")
     itemCount:SetTextColor(SEARCH_THEME.accent)
     itemCount:SetPos(We(25), He(55))
@@ -268,41 +254,22 @@ local function CreateWeaponPanel(weaponTable, body)
     grid:SetSpaceY(He(15))
     grid:SetBorder(spacing)
 
-    local left = table.Copy(weaponTable)
-    for i = #left, 2, -1 do
-        local j = math.random(i)
-        left[i], left[j] = left[j], left[i]
-    end
-
-    local shown = 0
-    local nextShow = CurTime() + math.Rand(0.7, 1.4)
-
-    local function getNextDelay()
-        local delay = math.Rand(0.18, 0.55)
-
-        if math.random(1, 4) == 1 then
-            delay = delay + math.Rand(0.15, 0.45)
-        end
-
-        return delay
-    end
-
-    local function addCard(class)
+    for i, class in ipairs(weaponTable) do
         local name, icon = GetWeaponInfo(class)
 
         local weaponButton = grid:Add("DButton")
         weaponButton:SetSize(buttonSize, buttonSize + He(35))
         weaponButton:SetText("")
-        weaponButton:SetAlpha(0)
         weaponButton:SetEnabled(true)
         weaponButton.classwep = class
+        weaponButton.isSearched = searchedItems[bodyID][class] or false
 
         function weaponButton:Paint(w, h)
             local bgColor = SEARCH_THEME.panel
             local borderColor = Color(0, 0, 0, 0)
 
             if LocalPlayer():HasWeapon(class) then
-                bgColor = Color(SEARCH_THEME.danger.r, SEARCH_THEME.danger.g, SEARCH_THEME.danger.b, 85)
+                bgColor = Color(SEARCH_THEME.danger.r, SEARCH_THEME.danger.g, SEARCH_THEME.danger.b, 100)
                 borderColor = SEARCH_THEME.danger
             elseif self:IsHovered() then
                 bgColor = SEARCH_THEME.panelHover
@@ -326,58 +293,91 @@ local function CreateWeaponPanel(weaponTable, body)
         nameLabel:SetFont("MuR_Font1")
         nameLabel:SetContentAlignment(5)
 
-        weaponIcon:SetImage(icon)
-        nameLabel:SetText(name)
-        nameLabel:SetTextColor(SEARCH_THEME.text)
+        if weaponButton.isSearched then
+            weaponIcon:SetImage(icon)
+            nameLabel:SetText(name)
+            nameLabel:SetTextColor(SEARCH_THEME.text)
 
-        if LocalPlayer():HasWeapon(class) then
-            nameLabel:SetTextColor(SEARCH_THEME.danger)
-        end
-
-        weaponButton.DoClick = function()
             if LocalPlayer():HasWeapon(class) then
-                surface.PlaySound("buttons/button10.wav")
-                return
+                nameLabel:SetTextColor(SEARCH_THEME.danger)
             end
 
-            surface.PlaySound("buttons/button14.wav")
-            weaponButton:AlphaTo(0, 0.2, 0, function()
-                if IsValid(weaponButton) then
-                    weaponButton:Remove()
-                    grid:InvalidateLayout(true)
+            weaponButton.DoClick = function()
+                if LocalPlayer():HasWeapon(class) then
+                    surface.PlaySound("buttons/button10.wav")
+                    return
                 end
-            end)
 
-            net.Start("MuR.BodySearch")
-            net.WriteEntity(body)
-            net.WriteString(class)
-            net.SendToServer()
-        end
+                surface.PlaySound("buttons/button14.wav")
+                weaponButton:AlphaTo(0, 0.2, 0, function()
+                    if IsValid(weaponButton) then
+                        weaponButton:Remove()
+                        grid:InvalidateLayout(true)
+                    end
+                end)
 
-        weaponButton:AlphaTo(255, math.Rand(0.18, 0.32), 0)
-    end
-
-    frame.Think = function()
-        if #left <= 0 then
-            if subtitle:GetText() ~= MuR.Language["search_newhud_close"] then
-                subtitle:SetText(MuR.Language["search_newhud_close"])
-                subtitle:SizeToContents()
-                itemCount:SetText(#weaponTable .. MuR.Language["search_newhud_found"])
-                itemCount:SizeToContents()
+                net.Start("MuR.BodySearch")
+                net.WriteEntity(body)
+                net.WriteString(class)
+                net.SendToServer()
             end
-            return
+        else
+            weaponIcon:SetImage("entities/search.png")
+            nameLabel:SetText(MuR.Language["search_newhud_click"])
+            nameLabel:SetTextColor(SEARCH_THEME.textDark)
+
+            weaponButton.DoClick = function()
+                if LocalPlayer():HasWeapon(class) then
+                    surface.PlaySound("buttons/button10.wav")
+                    return
+                end
+
+                weaponButton:SetEnabled(false)
+                nameLabel:SetText("")
+
+                CreateTimingMinigame(function()
+                    if IsValid(weaponButton) and IsValid(frame) then
+                        weaponIcon:SetImage(icon)
+                        nameLabel:SetText(name)
+                        nameLabel:SetTextColor(SEARCH_THEME.text)
+                        surface.PlaySound("buttons/button9.wav")
+
+                        searchedItems[bodyID][class] = true
+                        weaponButton.isSearched = true
+
+                        if LocalPlayer():HasWeapon(class) then
+                            nameLabel:SetTextColor(SEARCH_THEME.danger)
+                        end
+
+                        weaponButton:SetEnabled(true)
+                        weaponButton.DoClick = function()
+                            if LocalPlayer():HasWeapon(class) then
+                                surface.PlaySound("buttons/button10.wav")
+                                return
+                            end
+
+                            surface.PlaySound("buttons/button14.wav")
+                            weaponButton:AlphaTo(0, 0.2, 0, function()
+                                if IsValid(weaponButton) then
+                                    weaponButton:Remove()
+                                    grid:InvalidateLayout(true)
+                                end
+                            end)
+
+                            net.Start("MuR.BodySearch")
+                            net.WriteEntity(body)
+                            net.WriteString(class)
+                            net.SendToServer()
+                        end
+                    end
+                end, function()
+                    if IsValid(weaponButton) then
+                        weaponButton:SetEnabled(true)
+                        nameLabel:SetText(MuR.Language["search_newhud_click"])
+                    end
+                end, frame)
+            end
         end
-
-        if CurTime() < nextShow then return end
-
-        local class = table.remove(left, 1)
-        if not class then return end
-
-        shown = shown + 1
-        addCard(class)
-        itemCount:SetText(shown .. MuR.Language["search_newhud_found"])
-        itemCount:SizeToContents()
-        nextShow = CurTime() + getNextDelay()
     end
 end
 

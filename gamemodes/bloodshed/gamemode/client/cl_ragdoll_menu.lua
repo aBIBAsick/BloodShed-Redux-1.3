@@ -1,20 +1,20 @@
-﻿
 local We = We or function(x) return x * (ScrW() / 1920) end
 local He = He or function(x) return x * (ScrH() / 1080) end
 
 local MENU_THEME = {
-    background = Color(15, 15, 20, 245),
-    header = Color(25, 25, 30, 255),
-    accent = Color(180, 40, 40),
-    panel = Color(25, 25, 30, 245),
-    panelHover = Color(35, 35, 42, 255),
+    background = Color(20, 20, 30, 180),
+    accent = Color(180, 60, 60),
+    panel = Color(40, 40, 50, 160),
+    panelHover = Color(60, 60, 75, 180),
     text = Color(255, 255, 255),
-    textDark = Color(200, 200, 200),
-    success = Color(40, 180, 120),
+    textDark = Color(160, 160, 170),
+    success = Color(80, 200, 80),
     warning = Color(220, 180, 50),
-    danger = Color(220, 50, 50),
-    cancelBtn = Color(15, 15, 20, 245),
-    cancelBtnHover = Color(220, 50, 50, 255)
+    danger = Color(200, 60, 60),
+    progressBg = Color(30, 30, 40, 200),
+    progressFill = Color(180, 60, 60),
+    cancelBtn = Color(100, 40, 40, 200),
+    cancelBtnHover = Color(140, 50, 50, 220)
 }
 
 MuR.RagdollMenuOpen = nil
@@ -38,6 +38,83 @@ local function L(key)
     return key
 end
 
+local function CreateProgressBar(duration, title, onComplete, onCancel)
+    if IsValid(MuR.ProgressFrame) then MuR.ProgressFrame:Remove() end
+
+    local startTime = CurTime()
+    local endTime = startTime + duration
+    local cancelled = false
+
+    local function CancelAction()
+        if cancelled then return end
+        cancelled = true
+        if IsValid(MuR.ProgressFrame) then MuR.ProgressFrame:Remove() end
+        MuR.RagdollActionInProgress = false
+        if onCancel then onCancel() end
+        surface.PlaySound("buttons/button10.wav")
+
+        net.Start("MuR.RagdollActionCancel")
+        net.SendToServer()
+    end
+
+    local frame = vgui.Create("DFrame")
+    MuR.ProgressFrame = frame
+    frame:SetSize(We(400), He(140))
+    frame:SetPos(We(1400), He(350))
+    frame:SetTitle("")
+    frame:SetDraggable(false)
+    frame:MakePopup()
+    frame:ShowCloseButton(false)
+
+    frame.Paint = function(self, w, h)
+        draw.RoundedBox(12, 0, 0, w, h, MENU_THEME.background)
+
+        draw.SimpleText(title, "MuR_Font3", w/2, He(18), MENU_THEME.text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+        local barX, barY, barW, barH = We(20), He(45), w - We(40), He(25)
+        draw.RoundedBox(6, barX, barY, barW, barH, MENU_THEME.progressBg)
+
+        local progress = math.Clamp((CurTime() - startTime) / duration, 0, 1)
+        draw.RoundedBox(6, barX, barY, barW * progress, barH, MENU_THEME.progressFill)
+
+        draw.SimpleText(math.Round(progress * 100) .. "%", "MuR_Font2", w/2, barY + barH/2, MENU_THEME.text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+        draw.SimpleText(L("ragdoll_menu_cancel_hint"), "MuR_FontDef", w/2, He(120), MENU_THEME.textDark, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    end
+
+    local cancelBtn = vgui.Create("DButton", frame)
+    cancelBtn:SetPos(We(100), He(85))
+    cancelBtn:SetSize(We(200), He(28))
+    cancelBtn:SetText("")
+    cancelBtn.Paint = function(self, w, h)
+        local bgColor = self:IsHovered() and MENU_THEME.cancelBtnHover or MENU_THEME.cancelBtn
+        draw.RoundedBox(6, 0, 0, w, h, bgColor)
+        draw.SimpleText(L("ragdoll_menu_cancel"), "MuR_Font2", w/2, h/2, MENU_THEME.text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    end
+    cancelBtn.DoClick = CancelAction
+
+    frame.Think = function(self)
+        if CurTime() >= endTime then
+            self:Remove()
+            MuR.RagdollActionInProgress = false
+            if onComplete then onComplete() end
+        end
+
+        local ply = LocalPlayer()
+        if ply:GetVelocity():Length() > 50 then
+            CancelAction()
+        end
+    end
+
+    frame.OnKeyCodePressed = function(self, key)
+        if key == KEY_ESCAPE or key == KEY_E then
+            CancelAction()
+        end
+    end
+
+    MuR.RagdollActionInProgress = true
+end
+
 local function CreateWoundsDisplay(woundsData)
     if IsValid(MuR.WoundsFrame) then MuR.WoundsFrame:Remove() end
 
@@ -52,9 +129,9 @@ local function CreateWoundsDisplay(woundsData)
 
     frame.Paint = function(self, w, h)
         draw.RoundedBox(12, 0, 0, w, h, MENU_THEME.background)
-        draw.RoundedBox(12, 0, 0, w, He(60), MENU_THEME.header)
+        draw.RoundedBox(12, 0, 0, w, He(60), MENU_THEME.panel)
         surface.SetDrawColor(MENU_THEME.accent)
-        surface.DrawRect(0, He(60), w, He(2))
+        surface.DrawRect(0, He(60), w, He(3))
     end
 
     frame.OnKeyCodePressed = function(self, key)
@@ -69,20 +146,6 @@ local function CreateWoundsDisplay(woundsData)
     title:SetTextColor(MENU_THEME.text)
     title:SetPos(We(20), He(10))
     title:SizeToContents()
-
-    local closeBtn = vgui.Create("DButton", frame)
-    closeBtn:SetPos(frame:GetWide() - We(42), He(14))
-    closeBtn:SetSize(We(28), He(28))
-    closeBtn:SetText("")
-    function closeBtn:Paint(w, h)
-        local color = self:IsHovered() and MENU_THEME.danger or MENU_THEME.panel
-        local textColor = self:IsHovered() and MENU_THEME.text or MENU_THEME.textDark
-        draw.RoundedBox(4, 0, 0, w, h, color)
-        draw.SimpleText("✕", "MuR_Font3", w / 2, h / 2, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    end
-    closeBtn.DoClick = function()
-        frame:Remove()
-    end
 
     local hint = vgui.Create("DLabel", frame)
     hint:SetText(MuR.Language["search_newhud_close"])
@@ -165,9 +228,9 @@ local function CreateRagdollMenu(ragdoll)
 
     menu.Paint = function(self, w, h)
         draw.RoundedBox(12, 0, 0, w, h, MENU_THEME.background)
-        draw.RoundedBox(12, 0, 0, w, He(60), MENU_THEME.header)
+        draw.RoundedBox(12, 0, 0, w, He(50), MENU_THEME.panel)
         surface.SetDrawColor(MENU_THEME.accent)
-        surface.DrawRect(0, He(60), w, He(2))
+        surface.DrawRect(0, He(50), w, He(3))
     end
 
     menu.OnKeyCodePressed = function(self, key)
@@ -185,22 +248,6 @@ local function CreateRagdollMenu(ragdoll)
     title:SetPos(We(20), He(10))
     title:SizeToContents()
 
-    local closeBtn = vgui.Create("DButton", menu)
-    closeBtn:SetPos(menu:GetWide() - We(42), He(14))
-    closeBtn:SetSize(We(28), He(28))
-    closeBtn:SetText("")
-    function closeBtn:Paint(w, h)
-        local color = self:IsHovered() and MENU_THEME.danger or MENU_THEME.panel
-        local textColor = self:IsHovered() and MENU_THEME.text or MENU_THEME.textDark
-        draw.RoundedBox(4, 0, 0, w, h, color)
-        draw.SimpleText("✕", "MuR_Font3", w / 2, h / 2, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    end
-    closeBtn.DoClick = function()
-        menu:AlphaTo(0, 0.15, 0, function()
-            menu:Remove()
-        end)
-    end
-
     local buttonData = {
         {
             text = L("ragdoll_menu_pulse"),
@@ -211,6 +258,10 @@ local function CreateRagdollMenu(ragdoll)
                 net.WriteEntity(ragdoll)
                 net.WriteString("pulse")
                 net.SendToServer()
+
+                CreateProgressBar(2, L("ragdoll_menu_checking_pulse"), function()
+
+                end)
             end
         },
         {
@@ -222,6 +273,10 @@ local function CreateRagdollMenu(ragdoll)
                 net.WriteEntity(ragdoll)
                 net.WriteString("wounds")
                 net.SendToServer()
+
+                CreateProgressBar(5, L("ragdoll_menu_examining_wounds"), function()
+
+                end)
             end
         },
         {
@@ -233,6 +288,10 @@ local function CreateRagdollMenu(ragdoll)
                 net.WriteEntity(ragdoll)
                 net.WriteString("search")
                 net.SendToServer()
+
+                CreateProgressBar(2, L("ragdoll_menu_searching"), function()
+
+                end)
             end
         },
         {
@@ -247,7 +306,7 @@ local function CreateRagdollMenu(ragdoll)
         }
     }
 
-    local yPos = He(75)
+    local yPos = He(65)
     for i, data in ipairs(buttonData) do
         local btn = vgui.Create("DButton", menu)
         btn:SetPos(We(15), yPos)
