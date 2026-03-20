@@ -508,15 +508,15 @@ hook.Add("HUDPaint", "MurderedHUD", function()
 			surface.SetMaterial(axonmat)
 			surface.DrawTexturedRect(ScrW() - We(150), He(8), We(128), He(128))
 
-			draw.SimpleText("REC", "HomigradFont", ScrW() - We(325), He(30), Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText("REC", "MuR_Font1", ScrW() - We(325), He(30), Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
 			local alpha = (math.sin(RealTime() * math.pi / 0.40) + 1) * 250.5
 			draw.RoundedBox(100, ScrW() - We(306), He(20), We(8), He(8), Color(255,0,0,alpha))
 
-			draw.SimpleText("AXON BODY 3 ™", "HomigradFont", ScrW() - We(160), He(30), Color(255,255,255,255), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
-			draw.SimpleText(DateTime, "HomigradFont", ScrW() - We(340), He(90), Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+			draw.SimpleText("AXON BODY 3 ™", "MuR_Font1", ScrW() - We(160), He(30), Color(255,255,255,255), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+			draw.SimpleText(DateTime, "MuR_Font1", ScrW() - We(340), He(90), Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
-			surface.SetFont("HomigradFont")
+			surface.SetFont("MuR_Font1")
 			surface.SetTextColor(255, 255, 255)
 			surface.SetTextPos(ScrW() - We(340), He(50)) 
 			surface.DrawText("Officer \t|\t" ..  ply:GetNWString("Name"))
@@ -676,25 +676,6 @@ hook.Add("RenderScreenspaceEffects", "MuR.AdrenalineRushFX", function()
 	DrawSharpen(0.4 + adr * 0.5, 0.18 + pulse * 0.08)
 end)
 
-hook.Add("CalcView", "MuR.AdrenalineRushView", function(ply, pos, angles, fov)
-	local ply = LocalPlayer()
-	if not IsValid(ply) or not ply:Alive() or adr <= 0.01 or ply:GetNW2Bool("IsUnconscious", false) then return end
-
-	local t = CurTime()
-	local wobble = adr * 0.55
-
-	return {
-		origin = pos,
-		angles = Angle(
-			angles.p + math.sin(t * 18) * wobble,
-			angles.y + math.cos(t * 16) * wobble,
-			angles.r + math.sin(t * 21) * wobble * 0.4
-		),
-		fov = fov + math.sin(t * 8) * adr * 0.35,
-		drawviewer = false
-	}
-end)
-
 net.Receive("MuR.ResetPain", function()
 	tab["$pp_colour_addr"] = 0
 	tab["$pp_colour_addg"] = 0
@@ -762,7 +743,7 @@ local function ShowAnnounce(type, ent)
 	local pos = -100
 	local start = true
 	local text = ""
-	local font = "HomigradFontBig"
+	local font = "MuR_Font3"
 
 	if type == "you_killer" then
 		text = MuR.Language["announce_traitor"]
@@ -772,37 +753,37 @@ local function ShowAnnounce(type, ent)
 		text = MuR.Language["announce_zombie"]
 	elseif type == "innocent_kill" then
 		text = MuR.Language["announce_innokill"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 		surface.PlaySound("npc/attack_helicopter/aheli_damaged_alarm1.wav")
 	elseif type == "innocent_att_kill" then
 		text = MuR.Language["announce_attkill"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	elseif type == "money_cancel" then
 		text = MuR.Language["announce_moneycancel"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	elseif type == "spawn_damage" then
 		text = MuR.Language["announce_spawndamage"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 		surface.PlaySound("ambient/alarms/warningbell1.wav")
 	elseif type == "officer_spawn" then
 		text = MuR.Language["announce_officerspawn"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	elseif type == "arrested" then
 		text = MuR.Language["announce_arrested"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	elseif type == "officer_killer" then
 		text = MuR.Language["announce_officerguilt"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	elseif type == "officerguilt2" then
 		text = MuR.Language["announce_officerguilt2"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	elseif type == "headhunter_kill" then
 		text = MuR.Language["headhunter_kill"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 		surface.PlaySound("murdered/vgui/buy.wav")
 	elseif type == "headhunter_killed" then
 		text = MuR.Language["headhunter_killed"]
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	end
 
 	timer.Simple(6, function()
@@ -833,39 +814,39 @@ local function Internal_ShowMessage(type, ent, callback)
 	local alpha = 0
 	local start = true
 	local text = ""
-	local font = "HomigradFont"
+	local font = "MuR_Font1"
 
 	local phrase = MuR:GetPhrase(type)
 	if phrase and phrase ~= "" then
 		text = phrase
-		font = "HomigradFont" 
+		font = "MuR_Font1" 
 		if type == "weapon_break" or type == "mindcontroller_used" then
-			font = "HomigradFontLarge"
+			font = "MuR_Font2"
 		end
 	elseif type == "geroin_use" then
 		text = MuR.Language["message_heroinuse"]
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	elseif type == "geroin_use_target" then
 		text = MuR.Language["message_targetheroinuse"]
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	elseif type == "cyanide_use_target" then
 		text = MuR.Language["message_targetcyanideuse"]
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	elseif type == "poison_use" then
 		text = MuR.Language["message_poisonuse"]
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	elseif type == "ied_connected" then
 		text = MuR.Language["loot_ied_4"]
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	elseif type == "targetbredogenuse" then
 		text = MuR.Language["message_targetbredogenuse"]
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	elseif type == "mindcontroller_used" then
 		text = MuR.Language["message_mindcontroller_used"]
-		font = "HomigradFontBig"
+		font = "MuR_Font3"
 	else
 		text = MuR.Language["message_"..type] or ""
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	end
 
 	timer.Simple(5, function()
@@ -909,45 +890,58 @@ local layerScales = {1.0, 1/1.5, 1/2, 1/2.5, 1/3}
 
 local function Internal_ShowMessage2(type, callback)
 	local text = ""
-	local font = "HomigradFontLarge"
+	local font = "MuR_Font2"
+	local speed = 0.02
 
 	local phrase = MuR:GetPhrase(type)
 	if phrase and phrase ~= "" then
 		text = phrase
-		font = "HomigradFont"
+		font = "MuR_Font1"
 		if type == "highbleed" or type == "criticalbleed" or type == "artery" or type == "artery_hit" or type == "brain_hit" or type == "heart_hit" or type == "neck_hit" or type == "spine_hit" or type == "artery_neck_hit" or type == "artery_heart_hit" or type == "liver_hit" or type == "lung_hit" or type == "eye_hit" or type == "stomach_hit" or type == "internal_hit" or type == "artery_arm_hit" or type == "artery_leg_hit" or type == "rib_hit" or type == "leg_fracture" or type == "arm_fracture" or type == "jaw_fracture" or type == "pelvis_fracture" then
-			font = "HomigradFontLarge"
+			font = "MuR_Font2"
 		end
 		if type == "leg_dislocation" or type == "arm_dislocation" or type == "jaw_dislocation" or type == "dislocation_fixed" or type == "dislocation_fail" then
-			font = "HomigradFont"
+			font = "MuR_Font1"
 		end
         if type == "unconscious_state" or type == "random_unconscious" then
-            font = "HomigradFontBig"
+            font = "MuR_Font3"
         end
 	elseif type == "neck_hit" or type == "lung_hit" or type == "heart_hit" or type == "artery_neck_hit" or type == "artery_heart_hit" then
 		text = MuR:GetPhrase("sharp_pain")
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	elseif type == "leg_hit" or type == "arm_hit" or type == "down_hit" then
 		text = MuR:GetPhrase("audible_pain")
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	elseif type == "brain_hit" then
 		text = MuR:GetPhrase("braindamage")
-		font = "HomigradFontBig"
+		font = "MuR_Font3"
 	elseif type == "concussion_hit" then
 		text = MuR:GetPhrase("slight_braindamage")
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	elseif type == "shock_state" then
 		text = MuR:GetPhrase("fear_phrases")
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	elseif type == "broken_bone" or type == "rib_hit" then
 		text = MuR:GetPhrase("broken_limb")
-		font = "HomigradFontLarge"
+		font = "MuR_Font2"
 	else
 		text = MuR.Language[type] or ""
-		font = "HomigradFont"
+		font = "MuR_Font1"
 	end
 
 	if text == "" then text = "..." end
+
+	local ply = LocalPlayer()
+	if IsValid(ply) then
+		if ply:GetNW2Float("AdrenalineEnd", 0) > CurTime() then
+			speed = 0.012
+		else
+			local hp = ply:Health() / math.max(ply:GetMaxHealth(), 1)
+			if hp <= 0.4 or ply:GetNW2Bool("HardBleed", false) or ply:GetNW2Float("BleedLevel", 0) >= 2 or ply:GetNW2Int("ShockLevel", 0) >= 2 or ply:GetNW2Int("ConsciousLevel", 0) >= 2 or ply:GetNW2Float("ConcussionEnd", 0) > CurTime() then
+				speed = 0.04
+			end
+		end
+	end
 
 	local chars = {}
 	for p, c in utf8.codes(text) do table.insert(chars, utf8.char(c)) end
@@ -957,6 +951,7 @@ local function Internal_ShowMessage2(type, callback)
         font = font,
         chars = chars,
         charCount = #chars,
+        revealSpeed = speed,
         startTime = CurTime(),
         start = true,
         vanishStart = nil
@@ -978,14 +973,21 @@ end
 hook.Add("HUDPaint", "ShowMessageMuR2_Layered", function()
     if MuR:GetClient("blsd_nohud") then return end
     if #MuR.ActiveMessages2 == 0 then return end
+	if not LocalPlayer():Alive() then
+		MuR.MessageQueue = {}
+		MuR.MessageActive = false
+		MuR.ActiveMessages2 = {}
+		return
+	end
 
     local bx, by = ScrW() / 2, ScrH() / 2 + He(250)
     local padding = He(8)
-    local revealSpeed = 0.02
+    local hideSpeed = 0.02
 
     for i = #MuR.ActiveMessages2, 1, -1 do
         local msg = MuR.ActiveMessages2[i]
         local scale = layerScales[i] or 0
+        local revealSpeed = msg.revealSpeed or 0.02
         if scale <= 0 then 
             table.remove(MuR.ActiveMessages2, i)
             continue 
@@ -996,7 +998,7 @@ hook.Add("HUDPaint", "ShowMessageMuR2_Layered", function()
             shown = math.min(math.floor((CurTime() - msg.startTime) / revealSpeed) + 1, msg.charCount)
         else
             if msg.vanishStart then
-                local gone = math.floor((CurTime() - msg.vanishStart) / revealSpeed)
+                local gone = math.floor((CurTime() - msg.vanishStart) / hideSpeed)
                 shown = math.max(msg.charCount - gone, 0)
             else
                 shown = msg.charCount
@@ -1036,7 +1038,7 @@ local function ProcessQueue()
 	if not LocalPlayer():Alive() then
 		MuR.MessageQueue = {}
 		MuR.MessageActive = false
-        MuR.ActiveMessages2 = {}
+		MuR.ActiveMessages2 = {}
 		hook.Remove("HUDPaint", "ShowMessageMuR")
 		return
 	end
@@ -1071,12 +1073,26 @@ net.Receive("MuR.Message", function()
 end)
 
 local function ShowMessage2(type)
+	if not LocalPlayer():Alive() then
+		MuR.MessageQueue = {}
+		MuR.MessageActive = false
+		MuR.ActiveMessages2 = {}
+		return
+	end
+
 	table.insert(MuR.MessageQueue, {func = "ShowMessage2", type = type})
 	ProcessQueue()
 end
 
 net.Receive("MuR.Message2", function()
 	local str = net.ReadString()
+	if not LocalPlayer():Alive() then
+		MuR.MessageQueue = {}
+		MuR.MessageActive = false
+		MuR.ActiveMessages2 = {}
+		return
+	end
+
 	ShowMessage2(str)
 end)
 
@@ -1693,29 +1709,6 @@ local function CreateFonts()
 		antialias = true
 	})
 
-	surface.CreateFont("HomigradFont", {
-		font = "Bahnschrift",
-		extended = true,
-		size = He(20),
-		antialias = true,
-		weight = 500
-	})
-
-	surface.CreateFont("HomigradFontLarge", {
-		font = "Bahnschrift",
-		extended = true,
-		size = He(24),
-		antialias = true,
-		weight = 600
-	})
-
-	surface.CreateFont("HomigradFontBig", {
-		font = "Bahnschrift",
-		extended = true,
-		size = He(28),
-		antialias = true,
-		weight = 800
-	})
 end
 CreateFonts()
 hook.Add("OnScreenSizeChanged", "MuR.Fonts", function()

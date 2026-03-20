@@ -616,8 +616,7 @@ function MuR:GiveMessage2(type, ply)
         ply.GlobalMessageCooldown = CurTime() + 0.5
 
 		if not ply:Alive() then
-			local dtime = ply.DeathTime or 0
-			if CurTime() - dtime > 1 then return end
+			return
 		end
 
 		if ply:GetNW2Bool("IsUnconscious", false) then
