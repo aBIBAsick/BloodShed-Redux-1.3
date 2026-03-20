@@ -102,7 +102,6 @@ MuR.client("client/cl_armor_ui.lua")
 MuR.client("client/cl_nzdeath.lua")
 MuR.client("client/cl_reverb.lua")
 MuR.client("client/cl_ragdoll_menu.lua")
-//MuR.client("client/cl_netprofiler.lua")
 
 MuR.shared("extensions/sh_tfa_lean.lua")
 MuR.shared("extensions/sh_better_flashlight.lua")
