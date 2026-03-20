@@ -1,5 +1,0 @@
-ENT.Base 			= "npc_vj_human_base"
-ENT.Type 			= "ai"
-ENT.PrintName 		= "Police Officer"
-ENT.Author 			= "Hari"
-ENT.Category		= "VJ Base - Bloodshed"
