@@ -1335,10 +1335,14 @@ hook.Add("PlayerPostThink", "MuR_Takedown", function(ply)
 			ply.ExecutingTar = nil
 			ply:SetSVAnimation("")
 			ply:Freeze(false)
+			ply:SetNotSolid(false)
 		end
     else
 		ply.ExecutingTar = nil
         ply.Executor = nil
+		if !IsValid(ply:GetRD()) and bit.band(ply:GetSolidFlags(), FSOLID_NOT_SOLID) ~= 0 then
+			ply:SetNotSolid(false)
+		end
 		if IsValid(ply.AnimPropWeapon) then
 			ply.AnimPropWeapon:Remove()
 		end

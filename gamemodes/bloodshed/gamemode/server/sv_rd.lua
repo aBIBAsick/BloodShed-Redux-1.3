@@ -1127,7 +1127,9 @@ function ent:GiveDamageOnRag(dmg)
 
 		self:TakeImpact(dm, bonename, dir)
 		dmg:SetDamage(player_damage)
+		ply.NoArmor = true
 		ply:TakeDamageInfo(dmg)
+		ply.NoArmor = nil
 		ply:TimeGetUpChange(timeget_damage)
 	end
 end
