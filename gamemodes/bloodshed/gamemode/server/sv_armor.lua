@@ -416,23 +416,14 @@ hook.Add("EntityTakeDamage", "MuR_ArmorDamageReduction", function(ent, dmg)
     local ply = nil
     local hitgroup = nil
 
-    if ent:IsPlayer() then
-        ply = ent
-        hitgroup = ent.LastDamageHitgroup
-
-        if (not hitgroup or hitgroup == 0) and ply.MuR_LastRagdollHitgroup then
-            hitgroup = ply.MuR_LastRagdollHitgroup
-            ply.MuR_LastRagdollHitgroup = nil
-        end
+    if ent.isRDRag then
+        return
     end
 
-    if ent.isRDRag and IsValid(ent.Owner) and ent.Owner:IsPlayer() and ent.Owner:Alive() then
-        ply = ent.Owner
-        local pos = dmg:GetDamagePosition()
-        local dir = dmg:GetDamageForce()
-        local boneName = ent:GetNearestBoneFromPos(pos, dir)
-        hitgroup = GetHitgroupFromBone(ent, boneName)
-        ply.MuR_LastRagdollHitgroup = hitgroup
+    if ent:IsPlayer() then
+        ply = ent
+        if ply.NoArmor then return end
+        hitgroup = ent.LastDamageHitgroup
     end
 
     if not IsValid(ply) or not ply.MuR_Armor or table.IsEmpty(ply.MuR_Armor) then return end
