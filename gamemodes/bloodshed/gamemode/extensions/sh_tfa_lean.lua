@@ -38,6 +38,35 @@ local function bool_to_str(bool)
     if bool then return "On" else return "Off" end
 end
 
+local function SetLean(ply, name, state)
+    if not IsValid(ply) then return end
+    ply:SetNW2Bool(name, state)
+end
+
+concommand.Add("+leanleft", function(ply)
+    SetLean(ply, "leaning_left", true)
+end)
+
+concommand.Add("-leanleft", function(ply)
+    SetLean(ply, "leaning_left", false)
+end)
+
+concommand.Add("+leanright", function(ply)
+    SetLean(ply, "leaning_right", true)
+end)
+
+concommand.Add("-leanright", function(ply)
+    SetLean(ply, "leaning_right", false)
+end)
+
+concommand.Add("+leanron", function(ply)
+    SetLean(ply, "leaning_ron", true)
+end)
+
+concommand.Add("-leanron", function(ply)
+    SetLean(ply, "leaning_ron", false)
+end)
+
 local function get_in_sights(ply) 
     if !auto_in_sights then return false end
     local weapon = ply:GetActiveWeapon()
