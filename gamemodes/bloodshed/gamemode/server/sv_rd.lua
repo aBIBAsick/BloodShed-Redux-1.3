@@ -324,7 +324,7 @@ function pl:IsWepRagReloading()
 end
 
 function pl:StartRagdolling(moans, dam, gibs)
-	if self:InVehicle() or self:IsExecuting() or self:IsInHostage(false) or self:GetNW2String("Class") == "Zombie" or self:GetNW2String("Class") == "Maniac" or self:GetNW2String("Class") == "Entity" or self:GetNW2Bool("GeroinUsed") or self:GetNW2Bool("GeroinUsed") or timer.Exists("MindControl_" .. self:EntIndex()) then return end
+	if not self:Alive() or self:InVehicle() or self:IsExecuting() or self:IsInHostage(false) or self:GetNW2String("Class") == "Zombie" or self:GetNW2String("Class") == "Maniac" or self:GetNW2String("Class") == "Entity" or self:GetNW2Bool("GeroinUsed") or self:GetNW2Bool("GeroinUsed") or timer.Exists("MindControl_" .. self:EntIndex()) then return end
 	moans = moans or 0
 	dam = dam or 0
 	local ent = self:CreateAdvancedRagdoll()
@@ -374,34 +374,44 @@ function pl:StopRagdolling(keeprag, playanim)
 	local rag = self:GetRD()
 	if !IsValid(rag) then return end
 	self:SetNW2Entity("RD_Ent", NULL)
+	if not keeprag then
+		self:SetNW2Entity("RD_EntCam", NULL)
+	end
 	self:SetMaterial("")
-	self:SetNoDraw(false)
-	self:SetNotSolid(false)
-	self:DrawShadow(true)
-	self:SetNoTarget(false)
-	self:SetMoveType(MOVETYPE_WALK)
-	local npos = self:GetPos()
-	if rag:LookupBone("ValveBiped.Bip01_Pelvis") then
-		local _, opos = MuR:CheckHeight(rag, MuR:BoneData(rag, "ValveBiped.Bip01_Pelvis"))
-		npos = isvector(opos) and opos or npos
-	end
-	self:SetPos(npos)
-	if IsValid(self.Bullseye) then
-		self.Bullseye:Remove()
-	end
+	if self:Alive() then
+		self:SetNoDraw(false)
+		self:SetNotSolid(false)
+		self:DrawShadow(true)
+		self:SetNoTarget(false)
+		self:SetMoveType(MOVETYPE_WALK)
+		local npos = self:GetPos()
+		if rag:LookupBone("ValveBiped.Bip01_Pelvis") then
+			local _, opos = MuR:CheckHeight(rag, MuR:BoneData(rag, "ValveBiped.Bip01_Pelvis"))
+			npos = isvector(opos) and opos or npos
+		end
+		self:SetPos(npos)
+		if IsValid(self.Bullseye) then
+			self.Bullseye:Remove()
+		end
 
-	if playanim then
-		self:Freeze(true)
-		self:SelectWeapon("mur_hands")
-		local time = self:SetSVAnimation("mur_getup" .. math.random(1, 3), true)
+		if playanim then
+			self:Freeze(true)
+			self:SelectWeapon("mur_hands")
+			local time = self:SetSVAnimation("mur_getup" .. math.random(1, 3), true)
 
-		timer.Simple(time, function()
-			if not IsValid(self) then return end
+			timer.Simple(time, function()
+				if not IsValid(self) then return end
+				self:Freeze(false)
+			end)
+		else
 			self:Freeze(false)
-		end)
+			self:SetSVAnimation("")
+		end
 	else
-		self:Freeze(false)
-		self:SetSVAnimation("")
+		self:SetMoveType(MOVETYPE_OBSERVER)
+		if IsValid(self.Bullseye) then
+			self.Bullseye:Remove()
+		end
 	end
 
 	if not keeprag and IsValid(rag) then
@@ -1127,7 +1137,9 @@ function ent:GiveDamageOnRag(dmg)
 
 		self:TakeImpact(dm, bonename, dir)
 		dmg:SetDamage(player_damage)
+		ply.NoArmor = true
 		ply:TakeDamageInfo(dmg)
+		ply.NoArmor = nil
 		ply:TimeGetUpChange(timeget_damage)
 	end
 end
@@ -1349,9 +1361,9 @@ end)
 
 hook.Add("Think", "MuR.RagdollDamage", function()
 	for _, ply in player.Iterator() do
-		local rag = ply:GetRD()
+		local rag = ply:GetNW2Entity("RD_EntCam")
 
-		if IsValid(rag) and ply:Alive() then
+		if IsValid(rag) then
 			if rag.IsNailed and not IsValid(rag.NailConstraint) then
 				rag.IsNailed = false
 			end
@@ -1425,7 +1437,7 @@ hook.Add("Think", "MuR.RagdollDamage", function()
 			local posh = MuR:BoneData(rag, "ValveBiped.Bip01_Pelvis")
 			local isUnconscious = ply:GetNW2Bool("IsUnconscious", false)
 
-			if not isUnconscious and not rag.IsNailed then
+			if ply:Alive() and not isUnconscious and not rag.IsNailed then
 				rag:CrawlLogic()
 				if ply:KeyDown(IN_ATTACK) and ply:KeyDown(IN_ATTACK2) then
 					rag:PullHand("all", 120)
@@ -1442,7 +1454,7 @@ hook.Add("Think", "MuR.RagdollDamage", function()
 			local hpos = MuR:BoneData(rag, "ValveBiped.Bip01_Spine4")
 			local isGrabbed = IsValid(rag.LeftHandGrab) or IsValid(rag.RightHandGrab)
 
-			if ((not isGrabbed and MuR:CheckHeight(rag, hpos) < 80) or isGrabbed) and ply.IsRagStanding == true and not isUnconscious then
+			if ply:Alive() and ((not isGrabbed and MuR:CheckHeight(rag, hpos) < 80) or isGrabbed) and ply.IsRagStanding == true and not isUnconscious then
 				rag:GetUpToStandPos()
 			end
 
@@ -1454,7 +1466,7 @@ hook.Add("Think", "MuR.RagdollDamage", function()
 			}
 			rag:TryStanding(tab)
 
-			if (ply:KeyDown(IN_MOVELEFT) or ply:KeyDown(IN_MOVERIGHT) or ply:KeyDown(IN_FORWARD) or ply:KeyDown(IN_BACK)) and not isUnconscious then
+			if ply:Alive() and (ply:KeyDown(IN_MOVELEFT) or ply:KeyDown(IN_MOVERIGHT) or ply:KeyDown(IN_FORWARD) or ply:KeyDown(IN_BACK)) and not isUnconscious then
 				rag:RollBone(tab, standing)
 			end
 
@@ -1489,12 +1501,7 @@ hook.Add("Think", "MuR.RagdollDamage", function()
 end)
 
 hook.Add("PlayerSpawn", "MuR.RagdollDamage", function(ply)
-	local rag = ply:GetRD()
-
-	if IsValid(rag) then
-		rag:Remove()
-	end
-
+	ply:StopRagdolling(false)
 	ply:SetNW2Entity("RD_EntCam", NULL)
 end)
 
