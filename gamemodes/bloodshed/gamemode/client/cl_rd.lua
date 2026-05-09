@@ -1,4 +1,4 @@
-﻿local ragent = nil
+local ragent = nil
 local TFAAimFrac = 0
 local TP_Shoulder = 1 
 local TP_ShoulderFrac = 1
@@ -109,7 +109,7 @@ local oldexecang = Angle(0,0,0)
 local LerpEyeRagdoll = Angle(0,0,0)
 
 hook.Add("CalcView", "MuR.zRD_CamWork", function(ply, pos, angles, fov)
-	if MuR.CutsceneActive or ply:InVehicle() then return end
+	if MuR.CutsceneActive or ply:InVehicle() or ply:GetObserverMode() > 0 then return end
 
 	ragent = ply:GetNW2Entity('RD_EntCam')
 	local ent = ragent

@@ -1,4 +1,4 @@
-﻿AddCSLuaFile()
+AddCSLuaFile()
 
 sound.Add({
     name = "foot.kickbody",
@@ -184,7 +184,7 @@ end
 
 if SERVER then
     hook.Add("SetupMove", "MF_SlowdownHandler", function(ply, mv, cmd)
-        if not IsValid(ply) or not ply:IsPlayer() then return end
+        if not IsValid(ply) or not ply:IsPlayer() or (ply.GetObserverMode and ply:GetObserverMode() != 0) then return end
 
         local stopmove = slowdown
         if stopmove < 0 then return end

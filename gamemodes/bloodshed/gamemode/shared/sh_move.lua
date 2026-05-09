@@ -1,5 +1,6 @@
-﻿
+
 hook.Add("SetupMove", "MuR_Move", function(ply, mv, cmd)
+	if ply:GetObserverMode() ~= 0 then return end
 	local hunger = ply:GetNW2Float("Hunger")
 	local stam = ply:GetNW2Float("Stamina")
 	local legBroken = ply:GetNW2Bool("LegBroken")
