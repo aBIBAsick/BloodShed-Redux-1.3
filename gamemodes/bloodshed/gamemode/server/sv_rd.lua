@@ -1,4 +1,4 @@
-﻿local ent = FindMetaTable("Entity")
+local ent = FindMetaTable("Entity")
 local pl = FindMetaTable("Player")
 
 local function calc_health(hp, max_hp)
@@ -1364,6 +1364,7 @@ hook.Add("Think", "MuR.RagdollDamage", function()
 		local rag = ply:GetNW2Entity("RD_EntCam")
 
 		if IsValid(rag) then
+			if ply:GetObserverMode() > 0 then continue end
 			if rag.IsNailed and not IsValid(rag.NailConstraint) then
 				rag.IsNailed = false
 			end

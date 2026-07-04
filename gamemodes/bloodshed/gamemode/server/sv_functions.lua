@@ -1,4 +1,4 @@
-﻿local meta = FindMetaTable("Player")
+local meta = FindMetaTable("Player")
 util.AddNetworkString("MuR.SendDataToClient")
 util.AddNetworkString("MuR.PlaySoundOnClient")
 util.AddNetworkString("MuR.ChatAdd")
@@ -1100,12 +1100,19 @@ function GM:PlayerDeath(ply, inf, att)
 end
 
 function GM:PlayerDeathThink(ply)
-	if ply.SpectateMode then
+	if ply.SpectateMode and ply:GetObserverMode() != ply.SpectateMode then
 		ply:Spectate(ply.SpectateMode)
-		local ent = MuR:GetAlivePlayers()[ply.SpectateIndex]
+		if ply.SpectateMode > 0 then
+			ply:SetNW2Entity("RD_EntCam", NULL)
+		end
+	end
 
-		if IsValid(ent) and ent:Health() > 0 and (ply:GetObserverMode() == 5 or ply:GetObserverMode() == 4) then
-			ply:SpectateEntity(ent)
+	if ply:GetObserverMode() == 5 or ply:GetObserverMode() == 4 then
+		local ent = MuR:GetAlivePlayers()[ply.SpectateIndex]
+		if IsValid(ent) and ent:Health() > 0 then
+			if ply:GetObserverTarget() != ent then
+				ply:SpectateEntity(ent)
+			end
 		else
 			ply:SpectateEntity(NULL)
 		end
@@ -1237,10 +1244,11 @@ end)
 hook.Add("PlayerButtonDown", "MuR_SButtons", function(ply, but)
 	if ply:GetObserverMode() > 0 then
 		if (ply:GetObserverMode() == 5 or ply:GetObserverMode() == 4) and but == KEY_SPACE then
-			ply:UnSpectate()
 			ply.SpectateMode = 6
+			ply:Spectate(6)
 		elseif ply:GetObserverMode() == 6 and but == KEY_SPACE then
 			ply.SpectateMode = 5
+			ply:Spectate(5)
 		end
 
 		if but == MOUSE_LEFT then
